@@ -34,7 +34,7 @@
   </footer>
 
   <script src="js/main.js"></script>
-<script type="text/javascript">
+  <script type="text/javascript">
   /**
    * Initialize Salesforce Embedded Messaging with country-specific settings
    */
@@ -120,6 +120,7 @@
       CIRCLE_BUTTON: 'chat-circle-btn',
       NOTIFICATION_BADGE: 'chat-notification-badge',
       NOTIFICATION_POPUP: 'chat-notification-popup',
+      POPUP_BUBBLE: 'chat-popup-bubble',
       STYLES: 'leap-chat-styles'
     };
     const BREAKPOINTS = {
@@ -192,7 +193,9 @@
       lastActivityTime: Date.now(),
       inactivityTimer: null,
       reminderTimer: null,
+      popupBubbleTimer: null,
       hasShownInactivityPrompt: false,
+      hasShownPopupBubble: false,
       isChatMinimized: false,
       isChatOpen: false,
       soundsLoaded: false
@@ -485,6 +488,154 @@
         }
       }, 300);
     }
+    
+    // ============================================================================
+    // POPUP BUBBLE (Speech Bubble)
+    // ============================================================================
+    
+    /**
+     * Create popup bubble (speech bubble next to button)
+     * @param {string} message - Message to display
+     * @returns {HTMLElement} Popup bubble element
+     */
+    function createPopupBubble(message) {
+      const bubble = document.createElement('div');
+      bubble.id = ELEMENT_IDS.POPUP_BUBBLE;
+      
+      const position = getCircleButtonPosition();
+      const rightPos = parseFloat(position.right) + 85; // Position to the left of button
+      
+      applyStyles(bubble, {
+        position: 'fixed',
+        right: rightPos + 'px',
+        bottom: position.bottom,
+        zIndex: '99998',
+        backgroundColor: 'white',
+        borderRadius: '20px',
+        padding: '12px 20px',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+        maxWidth: '200px',
+        opacity: '0',
+        transform: 'translateX(10px)',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        fontFamily: FONTS.PRIMARY,
+        whiteSpace: 'nowrap'
+      });
+      
+      // Message text
+      const messageText = document.createElement('div');
+      messageText.textContent = message;
+      applyStyles(messageText, {
+        fontSize: '16px',
+        fontWeight: '600',
+        color: COLORS.MAIN,
+        textAlign: 'center'
+      });
+      
+      bubble.appendChild(messageText);
+      
+      // Create speech bubble arrow (pointing right towards button)
+      const arrow = document.createElement('div');
+      applyStyles(arrow, {
+        position: 'absolute',
+        right: '-8px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        width: '0',
+        height: '0',
+        borderTop: '8px solid transparent',
+        borderBottom: '8px solid transparent',
+        borderLeft: '8px solid white',
+        filter: 'drop-shadow(2px 0 2px rgba(0,0,0,0.1))'
+      });
+      
+      bubble.appendChild(arrow);
+      
+      return bubble;
+    }
+    
+    /**
+     * Show popup bubble next to button
+     * @param {string} message - Message to display
+     * @param {boolean} playSound - Whether to play sound
+     */
+    function showPopupBubble(message, playSound) {
+      // Don't show if already shown or chat is open
+      if (state.hasShownPopupBubble || state.isChatOpen) return;
+      
+      // Remove existing bubble
+      dismissPopupBubble();
+      
+      const bubble = createPopupBubble(message);
+      document.body.appendChild(bubble);
+      
+      // Trigger animation
+      setTimeout(function () {
+        bubble.style.opacity = '1';
+        bubble.style.transform = 'translateX(0)';
+      }, 10);
+      
+      // Play sound
+      if (playSound) {
+        soundManager.playNotification();
+      }
+      
+      state.hasShownPopupBubble = true;
+      
+      // Auto-dismiss after duration
+      setTimeout(function () {
+        dismissPopupBubble();
+      }, TIMING.POPUP_DURATION);
+      
+      console.log('Popup bubble shown:', message);
+    }
+    
+    /**
+     * Dismiss popup bubble
+     */
+    function dismissPopupBubble() {
+      const bubble = document.getElementById(ELEMENT_IDS.POPUP_BUBBLE);
+      if (!bubble) return;
+      
+      bubble.style.opacity = '0';
+      bubble.style.transform = 'translateX(10px)';
+      
+      setTimeout(function () {
+        if (bubble.parentNode) {
+          bubble.parentNode.removeChild(bubble);
+        }
+      }, 300);
+    }
+    
+    /**
+     * Start popup bubble timer (shows after chat is minimized and not opened)
+     */
+    function startPopupBubbleTimer() {
+      // Clear existing timer
+      if (state.popupBubbleTimer) {
+        clearTimeout(state.popupBubbleTimer);
+      }
+      
+      // Reset flag
+      state.hasShownPopupBubble = false;
+      
+      state.popupBubbleTimer = setTimeout(function () {
+        if (state.isChatMinimized && !state.isChatOpen) {
+          showPopupBubble(state.localization.message, true);
+        }
+      }, TIMING.REMINDER_DELAY); // Use same 30-second delay
+    }
+    
+    /**
+     * Clear popup bubble timer
+     */
+    function clearPopupBubbleTimer() {
+      if (state.popupBubbleTimer) {
+        clearTimeout(state.popupBubbleTimer);
+        state.popupBubbleTimer = null;
+      }
+      state.hasShownPopupBubble = false;
+    }
     // ============================================================================
     // INACTIVITY DETECTION
     // ============================================================================
@@ -574,11 +725,11 @@
         @keyframes circlePulse {
           0%, 100% { 
             transform: scale(1); 
-            box-shadow: 0 8px 24px rgba(0,0,0,0.3), 0 0 30px rgba(100, 160, 40, 0.4); 
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3), 0 0 30px rgba(100, 160, 40, 0.6), 0 0 60px rgba(100, 160, 40, 0.3); 
           }
           50% { 
             transform: scale(1.05); 
-            box-shadow: 0 8px 24px rgba(0,0,0,0.3), 0 0 40px rgba(100, 160, 40, 0.6); 
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3), 0 0 40px rgba(100, 160, 40, 0.8), 0 0 80px rgba(100, 160, 40, 0.4); 
           }
         }
         
@@ -587,17 +738,26 @@
           50% { transform: scale(1.1); }
         }
         
+        @keyframes bubbleBounce {
+          0%, 100% { transform: translateX(0) scale(1); }
+          50% { transform: translateX(-5px) scale(1.02); }
+        }
+        
         #${ELEMENT_IDS.CIRCLE_BUTTON} {
           animation: circlePulse 2s ease-in-out infinite;
         }
         
         #${ELEMENT_IDS.CIRCLE_BUTTON}:hover {
           transform: scale(1.1) !important;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 0 50px rgba(100, 160, 40, 0.7) !important;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 0 50px rgba(100, 160, 40, 0.9), 0 0 100px rgba(100, 160, 40, 0.5) !important;
         }
         
         #${ELEMENT_IDS.NOTIFICATION_BADGE} {
           animation: badgePulse 1s ease-in-out infinite;
+        }
+        
+        #${ELEMENT_IDS.POPUP_BUBBLE} {
+          animation: bubbleBounce 2s ease-in-out infinite;
         }
       `;
       document.head.appendChild(style);
@@ -639,7 +799,9 @@
       // Clear notifications
       clearUnreadCount();
       clearReminderTimer();
+      clearPopupBubbleTimer();
       dismissNotificationPopup();
+      dismissPopupBubble();
       
       console.log('Launching chat from circle button...');
       
@@ -666,17 +828,10 @@
     function createChatIcon() {
       const iconContainer = document.createElement('div');
       iconContainer.innerHTML = `
-        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M20 2H4C2.9 2 2.01 2.9 2.01 4L2 22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" fill="white" opacity="0.95"/>
-          <circle cx="7" cy="10" r="1.5" fill="${COLORS.PRIMARY}">
-            <animate attributeName="opacity" values="0.3;1;0.3" dur="1.4s" repeatCount="indefinite" begin="0s"/>
-          </circle>
-          <circle cx="12" cy="10" r="1.5" fill="${COLORS.PRIMARY}">
-            <animate attributeName="opacity" values="0.3;1;0.3" dur="1.4s" repeatCount="indefinite" begin="0.2s"/>
-          </circle>
-          <circle cx="17" cy="10" r="1.5" fill="${COLORS.PRIMARY}">
-            <animate attributeName="opacity" values="0.3;1;0.3" dur="1.4s" repeatCount="indefinite" begin="0.4s"/>
-          </circle>
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="8" cy="16" r="2.5" fill="white"/>
+          <circle cx="16" cy="16" r="2.5" fill="white"/>
+          <circle cx="24" cy="16" r="2.5" fill="white"/>
         </svg>
       `;
       
@@ -799,6 +954,7 @@
       }
       
       dismissNotificationPopup();
+      dismissPopupBubble();
     }
     // ============================================================================
     // SALESFORCE EVENT HANDLERS
@@ -823,7 +979,9 @@
       hideCustomCTA();
       clearUnreadCount();
       clearReminderTimer();
+      clearPopupBubbleTimer();
       dismissNotificationPopup();
+      dismissPopupBubble();
     }
     /**
      * Handle window minimized event
@@ -847,6 +1005,9 @@
         
         // Start reminder timer
         startReminderTimer();
+        
+        // Start popup bubble timer
+        startPopupBubbleTimer();
       }
     }
     /**
