@@ -34,7 +34,7 @@
   </footer>
 
   <script src="js/main.js"></script>
- <script type="text/javascript">
+  <script type="text/javascript">
   /**
    * Initialize Salesforce Embedded Messaging with country-specific settings
    */
@@ -565,8 +565,8 @@
         bubble.style.transform = 'translateX(0)';
       }, 10);
       
-      // Play sound
-      if (playSound) {
+      // Play sound - ALWAYS play sound for popup bubble
+      if (playSound !== false) {
         soundManager.playNotification();
       }
       
@@ -818,7 +818,7 @@
     function createChatIcon() {
       const iconContainer = document.createElement('div');
       iconContainer.innerHTML = `
-        <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="20" height="20" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
           <circle cx="8" cy="16" r="2" fill="white"/>
           <circle cx="16" cy="16" r="2" fill="white"/>
           <circle cx="24" cy="16" r="2" fill="white"/>
@@ -866,35 +866,25 @@
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '0',
+        padding: '10px',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        overflow: 'visible',
-        fontFamily: FONTS.PRIMARY,
-        flexDirection: 'column',
-        gap: '2px'
+        overflow: 'hidden',
+        fontFamily: FONTS.PRIMARY
       });
       
-      // Create Leapmotor logo
+      // Create Leapmotor logo - full button size
       const logoImg = document.createElement('img');
       logoImg.src = 'assets/LeapmotorChatNew.png';
       logoImg.alt = 'Leapmotor';
       
       applyStyles(logoImg, {
-        width: '50px',
-        height: 'auto',
+        width: '100%',
+        height: '100%',
         objectFit: 'contain',
-        filter: 'brightness(0) invert(1)', // Make it white
-        marginBottom: '2px'
-      });
-      
-      // Create chat icon (three dots)
-      const chatIcon = createChatIcon();
-      applyStyles(chatIcon, {
-        marginTop: '-4px'
+        display: 'block'
       });
       
       btn.appendChild(logoImg);
-      btn.appendChild(chatIcon);
       
       // Create and append notification badge
       const badge = createNotificationBadge();
@@ -1102,6 +1092,5 @@
   onload="initEmbeddedMessaging()"
 ></script>
 
-
-</body>
+ </body>
 </html>
