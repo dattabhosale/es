@@ -54,24 +54,54 @@
 
   <script src="js/main.js"></script>
   <script type='text/javascript'>
+	/**
+	 * Extract country code from URL pathname
+	 * @returns {string} Country code (defaults to 'en')
+	 */
+	function getCountryCodeFromPath() {
+		const pathParts = window.location.pathname
+			.split('/')
+			.filter(function(part) { return part.length > 0; });
+		
+		return pathParts.length > 0 ? pathParts[0].toLowerCase() : 'en';
+	}
+	
+	/**
+	 * Get country information based on country code
+	 * @param {string} countryCode - Two-letter country code
+	 * @returns {Object} Country information object
+	 */
+	function getCountryInfo(countryCode) {
+		const COUNTRY_MAPPING = {
+			'it': { name: 'Italy', language: 'it', code: 'it' },
+			'es': { name: 'Spain', language: 'es', code: 'es' },
+			'fr': { name: 'France', language: 'fr', code: 'fr' },
+			'de': { name: 'Germany', language: 'de', code: 'de' },
+			'uk': { name: 'United Kingdom', language: 'en_US', code: 'uk' },
+			'us': { name: 'United States', language: 'en_US', code: 'us' },
+			'en': { name: 'United States', language: 'en_US', code: 'en' }
+		};
+		
+		return COUNTRY_MAPPING[countryCode] || COUNTRY_MAPPING['en'];
+	}
+	
 	function initEmbeddedMessaging() {
 		try {
-			
 			const countryCode = getCountryCodeFromPath();
 			const countryInfo = getCountryInfo(countryCode);
 			
-			embeddedservice_bootstrap.settings.language = countryInfo.language; // For example, enter 'en' or 'en-US'
-			embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
-			embeddedservice_bootstrap.settings.chatButtonPosition = '100px, 30px';
-			// Set prechat fields when ready
-			window.addEventListener("onEmbeddedMessagingReady", function() {
-				embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
-					Country: countryInfo.name,
-					Language: countryInfo.language,
-					CountryCode: countryInfo.code,
-				});
-			});
+			console.log('Country Code:', countryCode);
+			console.log('Country Info:', countryInfo);
 			
+			// Set language
+			embeddedservice_bootstrap.settings.language = countryInfo.language;
+			embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
+			
+			// Note: chatButtonPosition might need different format depending on API version
+			// Try removing this if it causes issues
+			// embeddedservice_bootstrap.settings.chatButtonPosition = '100px, 30px';
+			
+			// Initialize the embedded messaging
 			embeddedservice_bootstrap.init(
 				'00Dbl000003uCem',
 				'Leapmotor_Test',
@@ -80,40 +110,31 @@
 					scrt2URL: 'https://leapmotor.my.salesforce-scrt.com'
 				}
 			);
+			
+			console.log('Embedded Messaging initialized successfully');
+			
 		} catch (err) {
 			console.error('Error loading Embedded Messaging: ', err);
 		}
-		
-	   /**
-	   * Extract country code from URL pathname
-	   * @returns {string} Country code (defaults to 'en')
-	   */
-	   function getCountryCodeFromPath() {
-		const pathParts = window.location.pathname
-		  .split('/')
-		  .filter(function(part) { return part.length > 0; });
-		
-		return pathParts.length > 0 ? pathParts[0].toLowerCase() : 'en';
-	  }
-	  /**
-	   * Get country information based on country code
-	   * @param {string} countryCode - Two-letter country code
-	   * @returns {Object} Country information object
-	   */
-	  function getCountryInfo(countryCode) {
-		const COUNTRY_MAPPING = {
-		  'it': { name: 'Italy', language: 'it', code: 'it' },
-		  'es': { name: 'Spain', language: 'es', code: 'es' },
-		  'fr': { name: 'France', language: 'fr', code: 'fr' },
-		  'de': { name: 'Germany', language: 'de', code: 'de' },
-		  'uk': { name: 'United Kingdom', language: 'en_US', code: 'uk' },
-		  'us': { name: 'United States', language: 'en_US', code: 'us' },
-		  'en': { name: 'United States', language: 'en_US', code: 'en' }
-		};
-		
-		return COUNTRY_MAPPING[countryCode] || COUNTRY_MAPPING['en'];
-	  }
-	};
+	}
+	
+	// Set prechat fields when ready (moved outside init function)
+	window.addEventListener("onEmbeddedMessagingReady", function() {
+		try {
+			const countryCode = getCountryCodeFromPath();
+			const countryInfo = getCountryInfo(countryCode);
+			
+			embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+				Country: countryInfo.name,
+				Language: countryInfo.language,
+				CountryCode: countryInfo.code,
+			});
+			
+			console.log('Prechat fields set successfully');
+		} catch (err) {
+			console.error('Error setting prechat fields: ', err);
+		}
+	});
 </script>
 <script type='text/javascript' src='https://leapmotor.my.site.com/ESWLeapmotorTest1765461060847/assets/js/bootstrap.min.js' onload='initEmbeddedMessaging()'></script>
 </body>
