@@ -34,7 +34,7 @@
   </footer>
 
   <script src="js/main.js"></script>
-  <script type="text/javascript">
+ <script type="text/javascript">
   /**
    * Initialize Salesforce Embedded Messaging with country-specific settings
    */
@@ -403,46 +403,36 @@
       const popup = document.createElement("div");
       popup.id = ELEMENT_IDS.NOTIFICATION_POPUP;
       const position = getCircleButtonPosition();
-      const bottomPos = parseFloat(position.bottom) + 90; // Position above button
+      const rightPos = parseFloat(position.right) + 85; // Position to the right of button
       applyStyles(popup, {
         position: "fixed",
-        right: position.right,
-        bottom: bottomPos + "px",
+        right: rightPos + "px",
+        bottom: position.bottom,
         zIndex: "99998",
         backgroundColor: "rgba(255, 255, 255, 0.95)",
         backdropFilter: "blur(10px)",
         borderRadius: "16px",
-        padding: "16px 20px",
+        padding: "12px 20px",
         boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
         border: "1px solid rgba(255,255,255,0.3)",
-        maxWidth: "280px",
+        maxWidth: "250px",
         opacity: "0",
-        transform: "translateY(10px)",
+        transform: "translateX(-10px)",
         transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
         cursor: "pointer",
         fontFamily: FONTS.PRIMARY,
+        whiteSpace: "nowrap"
       });
-      // Message text
+      // Message text - single line only
       const messageText = document.createElement("div");
       messageText.textContent = message;
       applyStyles(messageText, {
         fontSize: "16px",
         fontWeight: "600",
         color: COLORS.MAIN,
-        marginBottom: "8px",
         textAlign: "center",
-      });
-      // Subtext
-      const subtext = document.createElement("div");
-      subtext.textContent = state.localization.message;
-      applyStyles(subtext, {
-        fontSize: "14px",
-        color: COLORS.HIGHLIGHT,
-        textAlign: "center",
-        fontWeight: "500",
       });
       popup.appendChild(messageText);
-      popup.appendChild(subtext);
       // Click to dismiss
       popup.addEventListener("click", function () {
         dismissNotificationPopup();
@@ -462,7 +452,7 @@
       // Trigger animation
       setTimeout(function () {
         popup.style.opacity = "1";
-        popup.style.transform = "translateY(0)";
+        popup.style.transform = "translateX(0)";
       }, 10);
       // Play sound
       if (playSound) {
@@ -481,7 +471,7 @@
       const popup = document.getElementById(ELEMENT_IDS.NOTIFICATION_POPUP);
       if (!popup) return;
       popup.style.opacity = "0";
-      popup.style.transform = "translateY(10px)";
+      popup.style.transform = "translateX(-10px)";
       setTimeout(function () {
         if (popup.parentNode) {
           popup.parentNode.removeChild(popup);
@@ -828,16 +818,16 @@
     function createChatIcon() {
       const iconContainer = document.createElement('div');
       iconContainer.innerHTML = `
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="8" cy="16" r="2.5" fill="white"/>
-          <circle cx="16" cy="16" r="2.5" fill="white"/>
-          <circle cx="24" cy="16" r="2.5" fill="white"/>
+        <svg width="24" height="24" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="8" cy="16" r="2" fill="white"/>
+          <circle cx="16" cy="16" r="2" fill="white"/>
+          <circle cx="24" cy="16" r="2" fill="white"/>
         </svg>
       `;
       
       applyStyles(iconContainer, {
         width: '100%',
-        height: '100%',
+        height: 'auto',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center'
@@ -879,11 +869,31 @@
         padding: '0',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         overflow: 'visible',
-        fontFamily: FONTS.PRIMARY
+        fontFamily: FONTS.PRIMARY,
+        flexDirection: 'column',
+        gap: '2px'
       });
       
-      // Create chat icon
+      // Create Leapmotor logo
+      const logoImg = document.createElement('img');
+      logoImg.src = 'assets/LeapmotorChatNew.png';
+      logoImg.alt = 'Leapmotor';
+      
+      applyStyles(logoImg, {
+        width: '50px',
+        height: 'auto',
+        objectFit: 'contain',
+        filter: 'brightness(0) invert(1)', // Make it white
+        marginBottom: '2px'
+      });
+      
+      // Create chat icon (three dots)
       const chatIcon = createChatIcon();
+      applyStyles(chatIcon, {
+        marginTop: '-4px'
+      });
+      
+      btn.appendChild(logoImg);
       btn.appendChild(chatIcon);
       
       // Create and append notification badge
@@ -1091,6 +1101,7 @@
   src="https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231/assets/js/bootstrap.min.js"
   onload="initEmbeddedMessaging()"
 ></script>
+
 
 </body>
 </html>
