@@ -34,606 +34,1278 @@
   </footer>
 
   <script src="js/main.js"></script>
-  <script type="text/javascript">
-  (function () {
-  "use strict";
-  // ============================================================================
-  // CONSTANTS
-  // ============================================================================
-  const CONFIG = {
-    ELEMENT_IDS: {
-      CHAT_BUTTON: "custom-chat-button",
-      NOTIFICATION_BADGE: "chat-notification-badge",
-      PROACTIVE_BUBBLE: "chat-proactive-bubble",
-      STYLES: "custom-chat-styles",
-    },
-    COLORS: {
-      MAIN: "#2d5016", // Pantone 2427C
-      HIGHLIGHT: "#00a145", // R0 G145 B0
-      NOTIFICATION: "#e74c3c", // Red badge
-      WHITE: "#ffffff",
-    },
-    TIMING: {
-      PROACTIVE_DELAY: 5000, // Show proactive message after 5 seconds
-      POLLING_INTERVAL: 200,
-      MAX_POLLING_ATTEMPTS: 50,
-    },
-    LOCALIZATION: {
-      PROACTIVE_MESSAGES: {
-        it: "Necesitas ayuda?",
-        es: "Necesitas ayuda?",
-        fr: "Besoin d'aide?",
-        de: "Brauchst du Hilfe?",
-        uk: "Need help?",
-        us: "Need help?",
-        en: "Need help?",
-      },
-    },
-  };
-  // ============================================================================
-  // STATE
-  // ============================================================================
-  const state = {
-    embeddedServiceInstance: null,
-    countryCode: getCountryCodeFromPath(),
-    unreadCount: 0,
-    isProactiveVisible: false,
-    isChatOpen: false,
-    proactiveTimer: null,
-    standardButtonPosition: null,
-  };
-  // ============================================================================
-  // UTILITY FUNCTIONS
-  // ============================================================================
+  <script type='text/javascript'>
+  /**
+   * Initialize Salesforce Embedded Messaging with country-specific settings
+   */
+  function initEmbeddedMessaging() {
+    try {
+      const countryCode = getCountryCodeFromPath();
+      const countryInfo = getCountryInfo(countryCode);
+      
+      // Configure embedded service settings
+      embeddedservice_bootstrap.settings.language = countryInfo.language;
+      embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
+      embeddedservice_bootstrap.settings.hideChatButtonOnLoad = true;
+      embeddedservice_bootstrap.settings.chatButtonPosition = '100px, 30px';
+      
+      console.log('Detected country code:', countryCode, '| Setting language to:', countryInfo.language);
+      
+      // Set prechat fields when ready
+      window.addEventListener("onEmbeddedMessagingReady", function() {
+        embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+          Country: countryInfo.name,
+          Language: countryInfo.language,
+          CountryCode: countryInfo.code,
+        });
+      });
+      
+      // Initialize embedded service
+      embeddedservice_bootstrap.init(
+        "00DMA000003XnGM",
+        "LPM_Leapmotor",
+        "https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231",
+        {
+          scrt2URL: "https://leapmotor--dev01.sandbox.my.salesforce-scrt.com",
+        }
+      );
+    } catch (err) {
+      console.error("Error loading Embedded Messaging:", err);
+    }
+  }
+  
   /**
    * Extract country code from URL pathname
+   * @returns {string} Country code (defaults to 'en')
    */
   function getCountryCodeFromPath() {
     const pathParts = window.location.pathname
-      .split("/")
-      .filter(function (part) {
-        return part.length > 0;
-      });
-    return pathParts.length > 0 ? pathParts[0].toLowerCase() : "en";
+      .split('/')
+      .filter(function(part) { return part.length > 0; });
+    
+    return pathParts.length > 0 ? pathParts[0].toLowerCase() : 'en';
   }
+  
   /**
-   * Apply multiple styles to an element
+   * Get country information based on country code
+   * @param {string} countryCode - Two-letter country code
+   * @returns {Object} Country information object
    */
-  function applyStyles(element, styles) {
-    Object.keys(styles).forEach(function (key) {
-      element.style[key] = styles[key];
-    });
+  function getCountryInfo(countryCode) {
+    const COUNTRY_MAPPING = {
+      'it': { name: 'Italy', language: 'it', code: 'it' },
+      'es': { name: 'Spain', language: 'es', code: 'es' },
+      'fr': { name: 'France', language: 'fr', code: 'fr' },
+      'de': { name: 'Germany', language: 'de', code: 'de' },
+      'uk': { name: 'United Kingdom', language: 'en_US', code: 'uk' },
+      'us': { name: 'United States', language: 'en_US', code: 'us' },
+      'en': { name: 'United States', language: 'en_US', code: 'en' }
+    };
+    
+    return COUNTRY_MAPPING[countryCode] || COUNTRY_MAPPING['en'];
   }
+  
   /**
-   * Get standard Salesforce button position
+   * Enhanced Custom Chat Button Module with Notifications
+   * Handles creation and management of custom Leapmotor chat button with:
+   * - Message count badges
+   * - Inactivity detection
+   * - Sound notifications
+   * - Popup reminders
    */
-  function getStandardButtonPosition() {
-    // Try to find the standard Salesforce chat button
-    const standardButton = document.querySelector(
-      '.embeddedMessagingConversationButton, [id*="embeddedMessaging"]'
-    );
-    if (standardButton) {
-      const rect = standardButton.getBoundingClientRect();
+  (function() {
+    'use strict';
+    
+    // ============================================================================
+    // CONSTANTS
+    // ============================================================================
+    
+    const ELEMENT_IDS = {
+      CHAT_BUTTON: 'leap-chat-cta',
+      TOGGLE_BUTTON: 'chat-toggle-btn',
+      CIRCLE_BUTTON: 'chat-circle-btn',
+      NOTIFICATION_BADGE: 'chat-notification-badge',
+      NOTIFICATION_POPUP: 'chat-notification-popup',
+      STYLES: 'leap-chat-styles'
+    };
+    
+    const BREAKPOINTS = {
+      MOBILE: 480,
+      TABLET: 768
+    };
+    
+    const TIMING = {
+      CAROUSEL_INTERVAL: 3000,
+      FADE_DURATION: 500,
+      POLLING_INTERVAL: 200,
+      MAX_POLLING_ATTEMPTS: 50,
+      INACTIVITY_THRESHOLD: 5000,      // 5 seconds for inactivity prompt
+      REMINDER_DELAY: 30000,            // 30 seconds for post-minimize reminder
+      POPUP_DURATION: 5000              // 5 seconds popup display
+    };
+    
+    const COLORS = {
+      PRIMARY: '#64a028',               // Original green
+      MAIN: '#2d5016',                  // Pantone 2427C
+      HIGHLIGHT: '#009100',             // R0 G145 B0
+      WHITE: '#ffffff',
+      BADGE_RED: '#ff3b30'
+    };
+    
+    const FONTS = {
+      PRIMARY: "'Montserrat', 'Arial', sans-serif"
+    };
+    
+    const SOUNDS = {
+      NOTIFICATION: 'assets/notification.mp3',
+      REMINDER: 'assets/reminder.mp3'
+    };
+    
+    const CAR_MODELS = [
+      { name: 'model1', url: 'assets/model1.png' },
+      { name: 'model2', url: 'assets/model2.png' },
+      { name: 'model3', url: 'assets/model3.png' },
+      { name: 'model4', url: 'assets/model4.png' },
+      { name: 'model5', url: 'assets/model5.png' }
+    ];
+    
+    const LOCALIZATION = {
+      MESSAGES: {
+        'it': 'Chatta con me!',
+        'es': '¡Chatea conmigo!',
+        'fr': 'Discutez avec moi!',
+        'de': 'Chatte mit mir!',
+        'uk': 'Chat with me!',
+        'us': 'Chat with me!',
+        'en': 'Chat with me!'
+      },
+      TOGGLE: {
+        'it': { open: 'Massimizza', close: 'Minimizza' },
+        'es': { open: 'Maximizar', close: 'Minimizar' },
+        'fr': { open: 'Maximiser', close: 'Minimiser' },
+        'de': { open: 'Maximieren', close: 'Minimieren' },
+        'uk': { open: 'Maximize', close: 'Minimize' },
+        'us': { open: 'Maximize', close: 'Minimize' },
+        'en': { open: 'Maximize', close: 'Minimize' }
+      },
+      PROMPTS: {
+        'it': 'Hai bisogno di aiuto?',
+        'es': '¿Necesitas ayuda?',
+        'fr': 'Besoin d\'aide?',
+        'de': 'Brauchst du Hilfe?',
+        'uk': 'Need help?',
+        'us': 'Need help?',
+        'en': 'Need help?'
+      }
+    };
+    
+    // ============================================================================
+    // STATE
+    // ============================================================================
+    
+    const state = {
+      chatClicked: false,
+      isChatButtonVisible: true,
+      embeddedServiceInstance: null,
+      currentCarIndex: 0,
+      carouselInterval: null,
+      countryCode: getCountryCodeFromPath(),
+      localization: null,
+      lastUsedButton: 'main',
+      // Notification state
+      unreadCount: 0,
+      lastActivityTime: Date.now(),
+      inactivityTimer: null,
+      reminderTimer: null,
+      hasShownInactivityPrompt: false,
+      isChatMinimized: false,
+      isChatOpen: false,
+      soundsLoaded: false
+    };
+    
+    // Initialize localization
+    state.localization = {
+      message: LOCALIZATION.MESSAGES[state.countryCode] || LOCALIZATION.MESSAGES['en'],
+      toggle: LOCALIZATION.TOGGLE[state.countryCode] || LOCALIZATION.TOGGLE['en'],
+      prompt: LOCALIZATION.PROMPTS[state.countryCode] || LOCALIZATION.PROMPTS['en']
+    };
+    
+    console.log('Detected country:', state.countryCode, '| Message:', state.localization.message);
+    
+    // Load unread count from sessionStorage
+    try {
+      const stored = sessionStorage.getItem('leap_chat_unread');
+      if (stored) {
+        state.unreadCount = parseInt(stored, 10) || 0;
+      }
+    } catch (e) {
+      console.warn('Could not load unread count from sessionStorage:', e);
+    }
+    
+    // ============================================================================
+    // UTILITY FUNCTIONS
+    // ============================================================================
+    
+    /**
+     * Calculate 10% higher position
+     * @param {string} bottomValue - Original bottom value (e.g., '12px')
+     * @returns {string} New bottom value 10% higher
+     */
+    function calculateHigherPosition(bottomValue) {
+      const numericValue = parseFloat(bottomValue);
+      const viewportHeight = window.innerHeight;
+      const additionalOffset = viewportHeight * 0.1;
+      return (numericValue + additionalOffset) + 'px';
+    }
+    
+    /**
+     * Get responsive positioning based on screen width
+     * @returns {Object} Position object with right and bottom values
+     */
+    function getResponsivePosition(isToggle) {
+      const width = window.innerWidth;
+      const positions = {
+        mobile: { right: '6px', bottom: isToggle ? '95px' : '12px' },
+        tablet: { right: '8px', bottom: isToggle ? '100px' : '16px' },
+        desktop: { right: '10px', bottom: isToggle ? '105px' : '24px' }
+      };
+      
+      let position;
+      if (width <= BREAKPOINTS.MOBILE) position = positions.mobile;
+      else if (width <= BREAKPOINTS.TABLET) position = positions.tablet;
+      else position = positions.desktop;
+      
       return {
-        right: window.innerWidth - rect.right + "px",
-        bottom: window.innerHeight - rect.bottom + "px",
+        right: position.right,
+        bottom: calculateHigherPosition(position.bottom)
       };
     }
-    // Fallback to default position
-    return {
-      right: "20px",
-      bottom: "20px",
+    
+    /**
+     * Get circle button position (below toggle button)
+     * @returns {Object} Position object with right and bottom values
+     */
+    function getCircleButtonPosition() {
+      const width = window.innerWidth;
+      const positions = {
+        mobile: { right: '17px', bottom: '12px' },
+        tablet: { right: '21px', bottom: '16px' },
+        desktop: { right: '25px', bottom: '24px' }
+      };
+      
+      let position;
+      if (width <= BREAKPOINTS.MOBILE) position = positions.mobile;
+      else if (width <= BREAKPOINTS.TABLET) position = positions.tablet;
+      else position = positions.desktop;
+      
+      return {
+        right: position.right,
+        bottom: calculateHigherPosition(position.bottom)
+      };
+    }
+    
+    /**
+     * Apply multiple styles to an element
+     * @param {HTMLElement} element - Target element
+     * @param {Object} styles - Styles object
+     */
+    function applyStyles(element, styles) {
+      Object.keys(styles).forEach(function(key) {
+        element.style[key] = styles[key];
+      });
+    }
+    
+    /**
+     * Save unread count to sessionStorage
+     */
+    function saveUnreadCount() {
+      try {
+        sessionStorage.setItem('leap_chat_unread', state.unreadCount.toString());
+      } catch (e) {
+        console.warn('Could not save unread count to sessionStorage:', e);
+      }
+    }
+    
+    // ============================================================================
+    // SOUND MANAGEMENT
+    // ============================================================================
+    
+    const soundManager = {
+      sounds: {},
+      
+      /**
+       * Preload sound files
+       */
+      init: function() {
+        this.sounds.notification = new Audio(SOUNDS.NOTIFICATION);
+        this.sounds.reminder = new Audio(SOUNDS.REMINDER);
+        
+        this.sounds.notification.volume = 0.5;
+        this.sounds.reminder.volume = 0.5;
+        
+        // Preload
+        this.sounds.notification.load();
+        this.sounds.reminder.load();
+        
+        state.soundsLoaded = true;
+        console.log('Sound files preloaded');
+      },
+      
+      /**
+       * Play notification sound
+       */
+      playNotification: function() {
+        if (!state.soundsLoaded) return;
+        
+        try {
+          this.sounds.notification.currentTime = 0;
+          this.sounds.notification.play().catch(function(err) {
+            console.warn('Could not play notification sound:', err);
+          });
+        } catch (e) {
+          console.warn('Error playing notification sound:', e);
+        }
+      },
+      
+      /**
+       * Play reminder sound
+       */
+      playReminder: function() {
+        if (!state.soundsLoaded) return;
+        
+        try {
+          this.sounds.reminder.currentTime = 0;
+          this.sounds.reminder.play().catch(function(err) {
+            console.warn('Could not play reminder sound:', err);
+          });
+        } catch (e) {
+          console.warn('Error playing reminder sound:', e);
+        }
+      }
     };
-  }
-  /**
-   * Inject CSS styles
-   */
-  function injectStyles() {
-    if (document.getElementById(CONFIG.ELEMENT_IDS.STYLES)) return;
-    const style = document.createElement("style");
-    style.id = CONFIG.ELEMENT_IDS.STYLES;
-    style.textContent = `
-      @keyframes pulse {
-        0%, 100% { 
-          transform: scale(1); 
-          box-shadow: 0 4px 12px rgba(0,0,0,0.2), 0 0 20px rgba(0, 161, 69, 0.3); 
-        }
-        50% { 
-          transform: scale(1.05); 
-          box-shadow: 0 6px 16px rgba(0,0,0,0.25), 0 0 30px rgba(0, 161, 69, 0.5); 
-        }
-      }
+    
+    // ============================================================================
+    // NOTIFICATION BADGE
+    // ============================================================================
+    
+    /**
+     * Create notification badge element
+     * @returns {HTMLElement} Badge element
+     */
+    function createNotificationBadge() {
+      const badge = document.createElement('div');
+      badge.id = ELEMENT_IDS.NOTIFICATION_BADGE;
+      badge.setAttribute('aria-label', 'Unread messages');
       
-      @keyframes slideIn {
-        from {
-          opacity: 0;
-          transform: translateX(20px);
-        }
-        to {
-          opacity: 1;
-          transform: translateX(0);
-        }
-      }
+      applyStyles(badge, {
+        position: 'absolute',
+        top: '-5px',
+        right: '-5px',
+        minWidth: '24px',
+        height: '24px',
+        borderRadius: '12px',
+        backgroundColor: COLORS.BADGE_RED,
+        color: COLORS.WHITE,
+        fontSize: '12px',
+        fontWeight: '700',
+        fontFamily: FONTS.PRIMARY,
+        display: 'none',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '0 6px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+        zIndex: '100000',
+        border: '2px solid white'
+      });
       
-      @keyframes badgePulse {
-        0%, 100% { transform: scale(1); }
-        50% { transform: scale(1.1); }
-      }
-      
-      #${CONFIG.ELEMENT_IDS.CHAT_BUTTON} {
-        animation: pulse 2s ease-in-out infinite;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-      }
-      
-      #${CONFIG.ELEMENT_IDS.CHAT_BUTTON}:hover {
-        transform: scale(1.1) !important;
-        box-shadow: 0 6px 16px rgba(0,0,0,0.3), 0 0 40px rgba(0, 161, 69, 0.6) !important;
-      }
-      
-      #${CONFIG.ELEMENT_IDS.PROACTIVE_BUBBLE} {
-        animation: slideIn 0.4s ease-out;
-      }
-      
-      #${CONFIG.ELEMENT_IDS.NOTIFICATION_BADGE} {
-        animation: badgePulse 1s ease-in-out infinite;
-      }
-    `;
-    document.head.appendChild(style);
-  }
-  // ============================================================================
-  // BUTTON CREATION
-  // ============================================================================
-  /**
-   * Create chat icon SVG
-   */
-  function createChatIcon() {
-    const iconContainer = document.createElement("div");
-    iconContainer.innerHTML = `
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M20 2H4C2.9 2 2.01 2.9 2.01 4L2 22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" 
-              fill="white" opacity="0.95"/>
-        <circle cx="7" cy="10" r="1.5" fill="${CONFIG.COLORS.HIGHLIGHT}">
-          <animate attributeName="opacity" values="0.3;1;0.3" dur="1.4s" repeatCount="indefinite" begin="0s"/>
-        </circle>
-        <circle cx="12" cy="10" r="1.5" fill="${CONFIG.COLORS.HIGHLIGHT}">
-          <animate attributeName="opacity" values="0.3;1;0.3" dur="1.4s" repeatCount="indefinite" begin="0.2s"/>
-        </circle>
-        <circle cx="17" cy="10" r="1.5" fill="${CONFIG.COLORS.HIGHLIGHT}">
-          <animate attributeName="opacity" values="0.3;1;0.3" dur="1.4s" repeatCount="indefinite" begin="0.4s"/>
-        </circle>
-      </svg>
-    `;
-    applyStyles(iconContainer, {
-      width: "100%",
-      height: "100%",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-    });
-    return iconContainer;
-  }
-  /**
-   * Create notification badge
-   */
-  function createNotificationBadge() {
-    const badge = document.createElement("div");
-    badge.id = CONFIG.ELEMENT_IDS.NOTIFICATION_BADGE;
-    applyStyles(badge, {
-      position: "absolute",
-      top: "-5px",
-      right: "-5px",
-      backgroundColor: CONFIG.COLORS.NOTIFICATION,
-      color: CONFIG.COLORS.WHITE,
-      borderRadius: "50%",
-      width: "24px",
-      height: "24px",
-      display: "none",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: "12px",
-      fontWeight: "700",
-      fontFamily: "'Arial', sans-serif",
-      border: "2px solid white",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
-      zIndex: "1",
-    });
-    return badge;
-  }
-  /**
-   * Create proactive message bubble
-   */
-  function createProactiveBubble() {
-    const bubble = document.createElement("div");
-    bubble.id = CONFIG.ELEMENT_IDS.PROACTIVE_BUBBLE;
-    const message =
-      CONFIG.LOCALIZATION.PROACTIVE_MESSAGES[state.countryCode] ||
-      CONFIG.LOCALIZATION.PROACTIVE_MESSAGES["en"];
-    bubble.textContent = message;
-    applyStyles(bubble, {
-      position: "absolute",
-      right: "80px",
-      top: "50%",
-      transform: "translateY(-50%)",
-      backgroundColor: CONFIG.COLORS.WHITE,
-      color: CONFIG.COLORS.MAIN,
-      padding: "12px 18px",
-      borderRadius: "20px",
-      fontSize: "14px",
-      fontWeight: "600",
-      fontFamily: "'Montserrat', 'Arial', sans-serif",
-      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
-      whiteSpace: "nowrap",
-      display: "none",
-      zIndex: "0",
-    });
-    // Add arrow pointing to button
-    const arrow = document.createElement("div");
-    applyStyles(arrow, {
-      position: "absolute",
-      right: "-8px",
-      top: "50%",
-      transform: "translateY(-50%)",
-      width: "0",
-      height: "0",
-      borderTop: "8px solid transparent",
-      borderBottom: "8px solid transparent",
-      borderLeft: "8px solid " + CONFIG.COLORS.WHITE,
-    });
-    bubble.appendChild(arrow);
-    return bubble;
-  }
-  /**
-   * Create the main chat button
-   */
-  function createChatButton() {
-    const container = document.createElement("div");
-    applyStyles(container, {
-      position: "fixed",
-      zIndex: "99999",
-      display: "flex",
-      alignItems: "center",
-    });
-    const btn = document.createElement("button");
-    btn.id = CONFIG.ELEMENT_IDS.CHAT_BUTTON;
-    btn.setAttribute("aria-label", "Open chat");
-    applyStyles(btn, {
-      position: "relative",
-      width: "60px",
-      height: "60px",
-      borderRadius: "50%",
-      border: "none",
-      cursor: "pointer",
-      boxShadow: "0 4px 12px rgba(0,0,0,0.2), 0 0 20px rgba(0, 161, 69, 0.3)",
-      background:
-        "linear-gradient(135deg, " +
-        CONFIG.COLORS.HIGHLIGHT +
-        " 0%, #00c853 100%)",
-      color: CONFIG.COLORS.WHITE,
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      padding: "0",
-      overflow: "visible",
-      fontFamily: "'Arial', sans-serif",
-    });
-    // Add chat icon
-    const chatIcon = createChatIcon();
-    btn.appendChild(chatIcon);
-    // Add notification badge
-    const badge = createNotificationBadge();
-    btn.appendChild(badge);
-    // Add proactive bubble
-    const bubble = createProactiveBubble();
-    container.appendChild(bubble);
-    container.appendChild(btn);
-    // Event listeners
-    btn.addEventListener("click", function () {
-      launchChat();
-    });
-    btn.addEventListener("mouseenter", function () {
-      btn.style.transform = "scale(1.1)";
-    });
-    btn.addEventListener("mouseleave", function () {
-      btn.style.transform = "scale(1)";
-    });
-    return container;
-  }
-  // ============================================================================
-  // CHAT FUNCTIONALITY
-  // ============================================================================
-  /**
-   * Launch the chat window
-   */
-  function launchChat() {
-    if (
-      !state.embeddedServiceInstance ||
-      !state.embeddedServiceInstance.utilAPI ||
-      typeof state.embeddedServiceInstance.utilAPI.launchChat !== "function"
-    ) {
-      console.warn("launchChat() not available");
-      return;
+      return badge;
     }
-    state.isChatOpen = true;
-    hideProactiveBubble();
-    hideNotificationBadge();
-    console.log("Launching chat...");
-    const result = state.embeddedServiceInstance.utilAPI.launchChat();
-    if (result && typeof result.then === "function") {
-      result
-        .then(function () {
-          console.log("Chat launched successfully");
-        })
-        .catch(function (error) {
-          console.error("Error launching chat:", error);
-        });
+    
+    /**
+     * Update notification badge
+     */
+    function updateNotificationBadge() {
+      const badge = document.getElementById(ELEMENT_IDS.NOTIFICATION_BADGE);
+      if (!badge) return;
+      
+      if (state.unreadCount > 0 && state.isChatMinimized) {
+        badge.textContent = state.unreadCount > 9 ? '9+' : state.unreadCount.toString();
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
+      }
     }
-  }
-  /**
-   * Hide standard Salesforce button
-   */
-  function hideStandardButton(es) {
-    if (!es || !es.utilAPI || typeof es.utilAPI.hideChatButton !== "function") {
-      return;
+    
+    /**
+     * Increment unread count
+     */
+    function incrementUnreadCount() {
+      state.unreadCount++;
+      saveUnreadCount();
+      updateNotificationBadge();
+      console.log('Unread count:', state.unreadCount);
     }
-    try {
-      es.utilAPI.hideChatButton();
-      console.log("Standard chat button hidden");
-    } catch (error) {
-      console.warn("Error hiding standard chat button:", error);
-    }
-  }
-  // ============================================================================
-  // NOTIFICATION SYSTEM
-  // ============================================================================
-  /**
-   * Update notification badge
-   */
-  function updateNotificationBadge(count) {
-    const badge = document.getElementById(
-      CONFIG.ELEMENT_IDS.NOTIFICATION_BADGE
-    );
-    if (!badge) return;
-    state.unreadCount = count;
-    if (count > 0 && !state.isChatOpen) {
-      badge.textContent = count > 9 ? "9+" : count.toString();
-      badge.style.display = "flex";
-      console.log("Notification badge shown with count:", count);
-    } else {
-      badge.style.display = "none";
-    }
-  }
-  /**
-   * Hide notification badge
-   */
-  function hideNotificationBadge() {
-    const badge = document.getElementById(
-      CONFIG.ELEMENT_IDS.NOTIFICATION_BADGE
-    );
-    if (badge) {
-      badge.style.display = "none";
+    
+    /**
+     * Clear unread count
+     */
+    function clearUnreadCount() {
       state.unreadCount = 0;
+      saveUnreadCount();
+      updateNotificationBadge();
+      console.log('Unread count cleared');
     }
-  }
-  /**
-   * Listen for message events from Salesforce
-   */
-  function setupMessageListener() {
-    // Listen for Salesforce messaging events
-    window.addEventListener(
-      "onEmbeddedMessagingMessageReceived",
-      function (event) {
-        console.log("Message received event:", event);
-        // Only show notification if chat is minimized
-        if (!state.isChatOpen) {
-          state.unreadCount++;
-          updateNotificationBadge(state.unreadCount);
+    
+    // ============================================================================
+    // NOTIFICATION POPUP
+    // ============================================================================
+    
+    /**
+     * Create notification popup
+     * @param {string} message - Message to display
+     * @returns {HTMLElement} Popup element
+     */
+    function createNotificationPopup(message) {
+      const popup = document.createElement('div');
+      popup.id = ELEMENT_IDS.NOTIFICATION_POPUP;
+      
+      const position = getCircleButtonPosition();
+      const bottomPos = parseFloat(position.bottom) + 90; // Position above button
+      
+      applyStyles(popup, {
+        position: 'fixed',
+        right: position.right,
+        bottom: bottomPos + 'px',
+        zIndex: '99998',
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(10px)',
+        borderRadius: '16px',
+        padding: '16px 20px',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
+        border: '1px solid rgba(255,255,255,0.3)',
+        maxWidth: '280px',
+        opacity: '0',
+        transform: 'translateY(10px)',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        cursor: 'pointer',
+        fontFamily: FONTS.PRIMARY
+      });
+      
+      // Message text
+      const messageText = document.createElement('div');
+      messageText.textContent = message;
+      applyStyles(messageText, {
+        fontSize: '16px',
+        fontWeight: '600',
+        color: COLORS.MAIN,
+        marginBottom: '8px',
+        textAlign: 'center'
+      });
+      
+      // Subtext
+      const subtext = document.createElement('div');
+      subtext.textContent = state.localization.message;
+      applyStyles(subtext, {
+        fontSize: '14px',
+        color: COLORS.HIGHLIGHT,
+        textAlign: 'center',
+        fontWeight: '500'
+      });
+      
+      popup.appendChild(messageText);
+      popup.appendChild(subtext);
+      
+      // Click to dismiss
+      popup.addEventListener('click', function() {
+        dismissNotificationPopup();
+      });
+      
+      return popup;
+    }
+    
+    /**
+     * Show notification popup
+     * @param {string} message - Message to display
+     * @param {boolean} playSound - Whether to play sound
+     */
+    function showNotificationPopup(message, playSound) {
+      // Remove existing popup
+      dismissNotificationPopup();
+      
+      const popup = createNotificationPopup(message);
+      document.body.appendChild(popup);
+      
+      // Trigger animation
+      setTimeout(function() {
+        popup.style.opacity = '1';
+        popup.style.transform = 'translateY(0)';
+      }, 10);
+      
+      // Play sound
+      if (playSound) {
+        soundManager.playNotification();
+      }
+      
+      // Auto-dismiss after duration
+      setTimeout(function() {
+        dismissNotificationPopup();
+      }, TIMING.POPUP_DURATION);
+      
+      console.log('Notification popup shown:', message);
+    }
+    
+    /**
+     * Dismiss notification popup
+     */
+    function dismissNotificationPopup() {
+      const popup = document.getElementById(ELEMENT_IDS.NOTIFICATION_POPUP);
+      if (!popup) return;
+      
+      popup.style.opacity = '0';
+      popup.style.transform = 'translateY(10px)';
+      
+      setTimeout(function() {
+        if (popup.parentNode) {
+          popup.parentNode.removeChild(popup);
         }
+      }, 300);
+    }
+    
+    // ============================================================================
+    // INACTIVITY DETECTION
+    // ============================================================================
+    
+    /**
+     * Reset activity timer
+     */
+    function resetActivityTimer() {
+      state.lastActivityTime = Date.now();
+      state.hasShownInactivityPrompt = false;
+      
+      // Clear existing timer
+      if (state.inactivityTimer) {
+        clearTimeout(state.inactivityTimer);
       }
-    );
-    // Alternative: Poll for unread messages if event not available
-    // This is a fallback mechanism
-    if (
-      state.embeddedServiceInstance &&
-      state.embeddedServiceInstance.utilAPI
-    ) {
-      // Check if there's an API to get unread count
-      // This depends on Salesforce's API availability
+      
+      // Don't start timer if chat is open
+      if (state.isChatOpen) return;
+      
+      // Start new timer
+      state.inactivityTimer = setTimeout(function() {
+        if (!state.hasShownInactivityPrompt && !state.isChatOpen) {
+          showNotificationPopup(state.localization.prompt, true);
+          state.hasShownInactivityPrompt = true;
+        }
+      }, TIMING.INACTIVITY_THRESHOLD);
     }
-  }
-  // ============================================================================
-  // PROACTIVE ENGAGEMENT
-  // ============================================================================
-  /**
-   * Show proactive message bubble
-   */
-  function showProactiveBubble() {
-    const bubble = document.getElementById(CONFIG.ELEMENT_IDS.PROACTIVE_BUBBLE);
-    if (bubble && !state.isProactiveVisible && !state.isChatOpen) {
-      bubble.style.display = "block";
-      state.isProactiveVisible = true;
-      console.log("Proactive message shown");
+    
+    /**
+     * Track user activity
+     */
+    function trackActivity() {
+      resetActivityTimer();
     }
-  }
-  /**
-   * Hide proactive message bubble
-   */
-  function hideProactiveBubble() {
-    const bubble = document.getElementById(CONFIG.ELEMENT_IDS.PROACTIVE_BUBBLE);
-    if (bubble) {
-      bubble.style.display = "none";
-      state.isProactiveVisible = false;
+    
+    /**
+     * Initialize activity tracking
+     */
+    function initActivityTracking() {
+      const events = ['mousemove', 'click', 'scroll', 'keypress', 'touchstart'];
+      
+      events.forEach(function(eventName) {
+        window.addEventListener(eventName, trackActivity, { passive: true });
+      });
+      
+      // Start initial timer
+      resetActivityTimer();
+      
+      console.log('Activity tracking initialized');
     }
-  }
-  /**
-   * Start proactive engagement timer
-   */
-  function startProactiveTimer() {
-    // Clear existing timer
-    if (state.proactiveTimer) {
-      clearTimeout(state.proactiveTimer);
+    
+    // ============================================================================
+    // REMINDER TIMER
+    // ============================================================================
+    
+    /**
+     * Start reminder timer (30 seconds after minimize)
+     */
+    function startReminderTimer() {
+      // Clear existing timer
+      if (state.reminderTimer) {
+        clearTimeout(state.reminderTimer);
+      }
+      
+      state.reminderTimer = setTimeout(function() {
+        if (state.isChatMinimized && !state.isChatOpen && state.unreadCount > 0) {
+          showNotificationPopup(state.localization.prompt, true);
+          soundManager.playReminder();
+          console.log('Reminder shown after 30 seconds');
+        }
+      }, TIMING.REMINDER_DELAY);
     }
-    // Set new timer
-    state.proactiveTimer = setTimeout(function () {
-      showProactiveBubble();
-    }, CONFIG.TIMING.PROACTIVE_DELAY);
-  }
-  /**
-   * Reset proactive timer on user activity
-   */
-  function resetProactiveTimer() {
-    hideProactiveBubble();
-    startProactiveTimer();
-  }
-  // ============================================================================
-  // BUTTON VISIBILITY MANAGEMENT
-  // ============================================================================
-  /**
-   * Show custom chat button
-   */
-  function showCustomButton(es) {
-    if (!es || !es.utilAPI) {
-      console.warn("utilAPI not available");
-      return;
+    
+    /**
+     * Clear reminder timer
+     */
+    function clearReminderTimer() {
+      if (state.reminderTimer) {
+        clearTimeout(state.reminderTimer);
+        state.reminderTimer = null;
+      }
     }
-    // Check if button already exists
-    const existing = document.getElementById(CONFIG.ELEMENT_IDS.CHAT_BUTTON);
-    if (existing) {
-      existing.parentElement.style.display = "flex";
+    
+    // ============================================================================
+    // STYLES
+    // ============================================================================
+    
+    /**
+     * Create and append stylesheet to document head
+     */
+    function injectStyles() {
+      if (document.getElementById(ELEMENT_IDS.STYLES)) return;
+      
+      const style = document.createElement('style');
+      style.id = ELEMENT_IDS.STYLES;
+      style.textContent = `
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+        
+        @keyframes energyFlow {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        
+        @keyframes electricPulse {
+          0%, 100% { 
+            transform: scale(1); 
+            box-shadow: 0 12px 32px rgba(0,0,0,0.3), 0 0 40px rgba(0, 150, 255, 0.3); 
+          }
+          50% { 
+            transform: scale(1.02); 
+            box-shadow: 0 12px 32px rgba(0,0,0,0.3), 0 0 50px rgba(0, 200, 255, 0.5); 
+          }
+        }
+        
+        @keyframes circlePulse {
+          0%, 100% { 
+            transform: scale(1); 
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3), 0 0 30px rgba(100, 160, 40, 0.4); 
+          }
+          50% { 
+            transform: scale(1.05); 
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3), 0 0 40px rgba(100, 160, 40, 0.6); 
+          }
+        }
+        
+        @keyframes badgePulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.1); }
+        }
+        
+        #${ELEMENT_IDS.CHAT_BUTTON} {
+          animation: energyFlow 3s ease infinite, electricPulse 2s ease-in-out infinite;
+        }
+        
+        #${ELEMENT_IDS.CHAT_BUTTON}:hover {
+          transform: scale(1.08) !important;
+          box-shadow: 0 12px 32px rgba(0,0,0,0.4), 0 0 60px rgba(0, 200, 255, 0.6) !important;
+        }
+        
+        #${ELEMENT_IDS.TOGGLE_BUTTON}:hover {
+          background-color: ${COLORS.PRIMARY} !important;
+          color: ${COLORS.WHITE} !important;
+          transform: scale(1.05) !important;
+        }
+        
+        #${ELEMENT_IDS.CIRCLE_BUTTON} {
+          animation: circlePulse 2s ease-in-out infinite;
+        }
+        
+        #${ELEMENT_IDS.CIRCLE_BUTTON}:hover {
+          transform: scale(1.1) !important;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.4), 0 0 50px rgba(100, 160, 40, 0.7) !important;
+        }
+        
+        #${ELEMENT_IDS.NOTIFICATION_BADGE} {
+          animation: badgePulse 1s ease-in-out infinite;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    /**
+     * Hide the standard Salesforce chat button
+     * @param {Object} es - Embedded service instance
+     */
+    function hideStandardButton(es) {
+      if (!es || !es.utilAPI || typeof es.utilAPI.hideChatButton !== 'function') {
+        return;
+      }
+      
+      try {
+        es.utilAPI.hideChatButton();
+        console.log('Standard chat button hidden');
+      } catch (error) {
+        console.warn('Error hiding standard chat button:', error);
+      }
+    }
+    
+    /**
+     * Launch the chat window
+     * @param {string} buttonType - Type of button used: 'main' or 'circle'
+     */
+    function launchChat(buttonType) {
+      if (!state.embeddedServiceInstance || 
+          !state.embeddedServiceInstance.utilAPI ||
+          typeof state.embeddedServiceInstance.utilAPI.launchChat !== 'function') {
+        console.warn('launchChat() not available');
+        return;
+      }
+      
+      state.chatClicked = true;
+      state.lastUsedButton = buttonType || 'main';
+      state.isChatOpen = true;
+      state.isChatMinimized = false;
+      
+      // Clear notifications
+      clearUnreadCount();
+      clearReminderTimer();
+      dismissNotificationPopup();
+      
+      console.log('Launching chat from ' + state.lastUsedButton + ' button...');
+      
+      const result = state.embeddedServiceInstance.utilAPI.launchChat();
+      
+      if (result && typeof result.then === 'function') {
+        result
+          .then(function() {
+            console.log('Chat launched successfully');
+          })
+          .catch(function(error) {
+            console.error('Error launching chat:', error);
+          });
+      }
+    }
+    
+    // ============================================================================
+    // CAR CAROUSEL
+    // ============================================================================
+    
+    /**
+     * Create car image element with styling
+     * @returns {HTMLImageElement} Configured car image element
+     */
+    function createCarImage() {
+      const img = document.createElement('img');
+      img.src = CAR_MODELS[0].url;
+      img.alt = CAR_MODELS[0].name;
+      
+      applyStyles(img, {
+        width: '100%',
+        height: '100%',
+        objectFit: 'contain',
+        display: 'block',
+        transition: 'opacity 0.5s ease, transform 0.3s ease',
+        filter: 'drop-shadow(0 3px 8px rgba(0,0,0,0.2)) brightness(1.15) contrast(1.08) saturate(1.1)',
+        background: 'rgba(255, 255, 255, 0.15)',
+        borderRadius: '16px',
+        padding: '8px',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        boxShadow: 'inset 0 1px 2px rgba(255,255,255,0.3)',
+        backdropFilter: 'blur(10px)'
+      });
+      
+      return img;
+    }
+    
+    /**
+     * Create modern chat icon for circle button
+     * @returns {HTMLElement} Configured chat icon element
+     */
+    function createChatIcon() {
+      const iconContainer = document.createElement('div');
+      iconContainer.innerHTML = `
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M20 2H4C2.9 2 2.01 2.9 2.01 4L2 22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2Z" fill="white" opacity="0.95"/>
+          <circle cx="7" cy="10" r="1.5" fill="${COLORS.PRIMARY}">
+            <animate attributeName="opacity" values="0.3;1;0.3" dur="1.4s" repeatCount="indefinite" begin="0s"/>
+          </circle>
+          <circle cx="12" cy="10" r="1.5" fill="${COLORS.PRIMARY}">
+            <animate attributeName="opacity" values="0.3;1;0.3" dur="1.4s" repeatCount="indefinite" begin="0.2s"/>
+          </circle>
+          <circle cx="17" cy="10" r="1.5" fill="${COLORS.PRIMARY}">
+            <animate attributeName="opacity" values="0.3;1;0.3" dur="1.4s" repeatCount="indefinite" begin="0.4s"/>
+          </circle>
+        </svg>
+      `;
+      
+      applyStyles(iconContainer, {
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
+      });
+      
+      return iconContainer;
+    }
+    
+    /**
+     * Start the car carousel animation
+     * @param {HTMLImageElement} carImg - Car image element
+     */
+    function startCarousel(carImg) {
+      if (state.carouselInterval) {
+        clearInterval(state.carouselInterval);
+      }
+      
+      state.carouselInterval = setInterval(function() {
+        carImg.style.opacity = '0';
+        
+        setTimeout(function() {
+          state.currentCarIndex = (state.currentCarIndex + 1) % CAR_MODELS.length;
+          const nextCar = CAR_MODELS[state.currentCarIndex];
+          carImg.src = nextCar.url;
+          carImg.alt = nextCar.name;
+          carImg.style.opacity = '1';
+        }, TIMING.FADE_DURATION);
+      }, TIMING.CAROUSEL_INTERVAL);
+    }
+    
+    // ============================================================================
+    // BUTTON CREATION
+    // ============================================================================
+    
+    /**
+     * Create the main chat button
+     * @returns {HTMLButtonElement} Configured chat button
+     */
+    function createChatButton() {
+      const btn = document.createElement('button');
+      btn.id = ELEMENT_IDS.CHAT_BUTTON;
+      btn.setAttribute('aria-label', state.localization.message);
+      
+      const position = getResponsivePosition(false);
+      
+      applyStyles(btn, {
+        position: 'fixed',
+        right: position.right,
+        bottom: position.bottom,
+        zIndex: '99999',
+        padding: '11px 39px',
+        fontSize: '22px',
+        fontWeight: '700',
+        borderRadius: '999px',
+        border: 'none',
+        cursor: 'pointer',
+        boxShadow: '0 12px 32px rgba(0,0,0,0.3), 0 0 40px rgba(100, 160, 40, 0.4)',
+        background: COLORS.PRIMARY,
+        backgroundSize: '200% 200%',
+        color: COLORS.WHITE,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '18px',
+        transition: 'all 0.3s ease',
+        overflow: 'visible',
+        fontFamily: FONTS.PRIMARY,
+        textShadow: '3px 3px 6px rgba(0,0,0,0.4)',
+        minWidth: '284px',
+        minHeight: '77px'
+      });
+      
+      // Create icon container with car carousel
+      const iconContainer = document.createElement('div');
+      applyStyles(iconContainer, {
+        position: 'relative',
+        width: '85px',
+        height: '60px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden'
+      });
+      
+      const carImg = createCarImage();
+      iconContainer.appendChild(carImg);
+      
+      // Create text span
+      const textSpan = document.createElement('span');
+      textSpan.textContent = state.localization.message;
+      textSpan.style.letterSpacing = '0.5px';
+      
+      // Create logo
+      const logoImg = document.createElement('img');
+      logoImg.src = 'assets/Leapmotor.png';
+      logoImg.alt = 'Leapmotor';
+      
+      applyStyles(logoImg, {
+        height: '42px',
+        width: 'auto',
+        objectFit: 'contain',
+        marginLeft: '16px',
+        opacity: '1',
+        filter: 'drop-shadow(0 3px 10px rgba(0,0,0,0.2)) brightness(1.25) contrast(1.08)',
+        background: 'transparent',
+        padding: '0',
+        borderRadius: '0',
+        border: 'none',
+        boxShadow: 'none'
+      });
+      
+      // Assemble button
+      btn.appendChild(iconContainer);
+      btn.appendChild(textSpan);
+      btn.appendChild(logoImg);
+      
+      // Add event listeners
+      btn.addEventListener('click', function() {
+        launchChat('main');
+      });
+      btn.addEventListener('mouseenter', function() {
+        btn.style.transform = 'scale(1.08)';
+      });
+      btn.addEventListener('mouseleave', function() {
+        btn.style.transform = 'scale(1)';
+      });
+      
+      // Start carousel
+      startCarousel(carImg);
+      
+      return btn;
+    }
+    
+    /**
+     * Create the circular chat button
+     * @returns {HTMLButtonElement} Configured circular button
+     */
+    function createCircleButton() {
+      const btn = document.createElement('button');
+      btn.id = ELEMENT_IDS.CIRCLE_BUTTON;
+      btn.setAttribute('aria-label', 'Open chat');
+      
+      const position = getCircleButtonPosition();
+      
+      applyStyles(btn, {
+        position: 'fixed',
+        right: position.right,
+        bottom: position.bottom,
+        zIndex: '99999',
+        width: '70px',
+        height: '70px',
+        borderRadius: '50%',
+        border: 'none',
+        cursor: 'pointer',
+        boxShadow: '0 8px 24px rgba(0,0,0,0.25), 0 4px 12px rgba(100, 160, 40, 0.3)',
+        background: 'linear-gradient(135deg, ' + COLORS.PRIMARY + ' 0%, #7bc043 100%)',
+        color: COLORS.WHITE,
+        display: 'none',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '0',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        overflow: 'visible',
+        fontFamily: FONTS.PRIMARY
+      });
+      
+      // Create chat icon
+      const chatIcon = createChatIcon();
+      btn.appendChild(chatIcon);
+      
+      // Create and append notification badge
+      const badge = createNotificationBadge();
+      btn.appendChild(badge);
+      
+      // Add event listeners
+      btn.addEventListener('click', function() {
+        launchChat('circle');
+      });
+      btn.addEventListener('mouseenter', function() {
+        btn.style.transform = 'scale(1.1)';
+        btn.style.boxShadow = '0 12px 32px rgba(0,0,0,0.3), 0 6px 16px rgba(100, 160, 40, 0.5)';
+      });
+      btn.addEventListener('mouseleave', function() {
+        btn.style.transform = 'scale(1)';
+        btn.style.boxShadow = '0 8px 24px rgba(0,0,0,0.25), 0 4px 12px rgba(100, 160, 40, 0.3)';
+      });
+      
+      return btn;
+    }
+    
+    /**
+     * Create the toggle button
+     * @returns {HTMLButtonElement} Configured toggle button
+     */
+    function createToggleButton() {
+      const toggleBtn = document.createElement('button');
+      toggleBtn.id = ELEMENT_IDS.TOGGLE_BUTTON;
+      toggleBtn.textContent = state.localization.toggle.close;
+      toggleBtn.setAttribute('aria-label', state.localization.toggle.close);
+      
+      const position = getResponsivePosition(true);
+      
+      applyStyles(toggleBtn, {
+        position: 'fixed',
+        right: position.right,
+        bottom: position.bottom,
+        zIndex: '99999',
+        padding: '8px 16px',
+        fontSize: '14px',
+        fontWeight: '600',
+        borderRadius: '20px',
+        border: '2px solid ' + COLORS.PRIMARY,
+        cursor: 'pointer',
+        backgroundColor: COLORS.WHITE,
+        color: COLORS.PRIMARY,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+        transition: 'all 0.3s ease',
+        fontFamily: FONTS.PRIMARY
+      });
+      
+      // Toggle functionality
+      toggleBtn.addEventListener('click', function() {
+        const mainBtn = document.getElementById(ELEMENT_IDS.CHAT_BUTTON);
+        const circleBtn = document.getElementById(ELEMENT_IDS.CIRCLE_BUTTON);
+        if (!mainBtn) return;
+        
+        state.isChatButtonVisible = !state.isChatButtonVisible;
+        
+        if (state.isChatButtonVisible) {
+          mainBtn.style.display = 'inline-flex';
+          if (circleBtn) circleBtn.style.display = 'none';
+          toggleBtn.textContent = state.localization.toggle.close;
+          toggleBtn.setAttribute('aria-label', state.localization.toggle.close);
+        } else {
+          mainBtn.style.display = 'none';
+          if (circleBtn) circleBtn.style.display = 'flex';
+          toggleBtn.textContent = state.localization.toggle.open;
+          toggleBtn.setAttribute('aria-label', state.localization.toggle.open);
+          updateNotificationBadge();
+        }
+      });
+      
+      return toggleBtn;
+    }
+    
+    // ============================================================================
+    // BUTTON VISIBILITY MANAGEMENT
+    // ============================================================================
+    
+    /**
+     * Show the custom chat button
+     * @param {Object} es - Embedded service instance
+     */
+    function showCustomCTA(es) {
+      if (!es || !es.utilAPI) {
+        console.warn('utilAPI not available');
+        return;
+      }
+      
+      // Check if button already exists
+      const existing = document.getElementById(ELEMENT_IDS.CHAT_BUTTON);
+      if (existing) {
+        existing.style.display = 'inline-flex';
+        const circleBtn = document.getElementById(ELEMENT_IDS.CIRCLE_BUTTON);
+        if (circleBtn) circleBtn.style.display = 'none';
+        hideStandardButton(es);
+        updateNotificationBadge();
+        console.log('Custom CTA shown again');
+        return;
+      }
+      
+      // Inject styles
+      injectStyles();
+      
+      // Create and append buttons
+      const chatButton = createChatButton();
+      const toggleButton = createToggleButton();
+      const circleButton = createCircleButton();
+      
+      document.body.appendChild(chatButton);
+      document.body.appendChild(toggleButton);
+      document.body.appendChild(circleButton);
+      
+      // Store instance and hide standard button
+      state.embeddedServiceInstance = es;
       hideStandardButton(es);
-      console.log("Custom button shown again");
-      return;
+      
+      // Update badge if there are unread messages
+      updateNotificationBadge();
+      
+      console.log('Custom CTA created with notifications - positioned 10% higher');
     }
-    // Inject styles
-    injectStyles();
-    // Get position from standard button
-    state.standardButtonPosition = getStandardButtonPosition();
-    // Create and append button
-    const chatButton = createChatButton();
-    applyStyles(chatButton, state.standardButtonPosition);
-    document.body.appendChild(chatButton);
-    // Store instance and hide standard button
-    state.embeddedServiceInstance = es;
-    hideStandardButton(es);
-    // Setup message listener
-    setupMessageListener();
-    // Start proactive timer
-    startProactiveTimer();
-    // Reset timer on user activity
-    document.addEventListener("mousemove", resetProactiveTimer);
-    document.addEventListener("keydown", resetProactiveTimer);
-    document.addEventListener("scroll", resetProactiveTimer);
-    console.log(
-      "Custom chat button created at position:",
-      state.standardButtonPosition
-    );
-  }
-  /**
-   * Hide custom chat button
-   */
-  function hideCustomButton() {
-    const btn = document.getElementById(CONFIG.ELEMENT_IDS.CHAT_BUTTON);
-    if (btn && btn.parentElement) {
-      btn.parentElement.style.display = "none";
-      console.log("Custom button hidden");
+    
+    /**
+     * Hide the custom chat button
+     */
+    function hideCustomCTA() {
+      const btn = document.getElementById(ELEMENT_IDS.CHAT_BUTTON);
+      if (btn) {
+        btn.style.display = 'none';
+      }
+      
+      const circleBtn = document.getElementById(ELEMENT_IDS.CIRCLE_BUTTON);
+      if (circleBtn) {
+        circleBtn.style.display = 'none';
+      }
+      
+      dismissNotificationPopup();
     }
-  }
-  // ============================================================================
-  // EVENT HANDLERS
-  // ============================================================================
-  /**
-   * Handle button created event
-   */
-  function handleButtonCreated() {
-    console.log("onEmbeddedMessagingButtonCreated fired");
-    const es = window.embeddedservice_bootstrap;
-    if (es) {
-      showCustomButton(es);
+    
+    /**
+     * Toggle visibility of toggle button
+     * @param {boolean} show - Whether to show or hide
+     */
+    function toggleButtonVisibility(show) {
+      const toggleBtn = document.getElementById(ELEMENT_IDS.TOGGLE_BUTTON);
+      if (toggleBtn) {
+        toggleBtn.style.display = show ? 'block' : 'none';
+      }
     }
-  }
-  /**
-   * Handle window maximized event
-   */
-  function handleWindowMaximized() {
-    console.log("onEmbeddedMessagingWindowMaximized fired");
-    state.isChatOpen = true;
-    hideCustomButton();
-    hideProactiveBubble();
-    hideNotificationBadge();
-  }
-  /**
-   * Handle window minimized event
-   */
-  function handleWindowMinimized() {
-    console.log("onEmbeddedMessagingWindowMinimized fired");
-    state.isChatOpen = false;
-    const es = window.embeddedservice_bootstrap;
-    if (es) {
-      hideStandardButton(es);
-      showCustomButton(es);
-      // Don't show notification badge immediately
-      // It will only appear when new messages arrive
-      // Restart proactive timer
-      startProactiveTimer();
-    }
-  }
-  // ============================================================================
-  // INITIALIZATION
-  // ============================================================================
-  /**
-   * Poll for embedded service availability
-   */
-  function waitForEmbeddedService() {
-    let attempts = 0;
-    (function check() {
-      attempts++;
+    
+    // ============================================================================
+    // SALESFORCE EVENT HANDLERS
+    // ============================================================================
+    
+    /**
+     * Handle button created event
+     */
+    function handleButtonCreated() {
+      console.log('onEmbeddedMessagingButtonCreated fired');
       const es = window.embeddedservice_bootstrap;
-      if (es && es.utilAPI) {
-        console.log("utilAPI ready");
-        showCustomButton(es);
-        return;
+      if (es) {
+        showCustomCTA(es);
       }
-      if (attempts >= CONFIG.TIMING.MAX_POLLING_ATTEMPTS) {
-        console.warn("utilAPI not found after " + attempts + " attempts");
-        return;
-      }
-      setTimeout(check, CONFIG.TIMING.POLLING_INTERVAL);
-    })();
-  }
-  /**
-   * Initialize the custom chat button
-   */
-  function init() {
-    console.log(
-      "Initializing custom chat button for country:",
-      state.countryCode
-    );
-    // Register event listeners
-    window.addEventListener(
-      "onEmbeddedMessagingButtonCreated",
-      handleButtonCreated
-    );
-    window.addEventListener(
-      "onEmbeddedMessagingWindowMaximized",
-      handleWindowMaximized
-    );
-    window.addEventListener(
-      "onEmbeddedMessagingWindowMinimized",
-      handleWindowMinimized
-    );
-    // Start polling for embedded service
-    if (
-      document.readyState === "complete" ||
-      document.readyState === "interactive"
-    ) {
-      waitForEmbeddedService();
-    } else {
-      window.addEventListener("DOMContentLoaded", waitForEmbeddedService);
     }
-  }
-  // Start initialization
-  init();
-})();
-
+    
+    /**
+     * Handle window maximized event
+     */
+    function handleWindowMaximized() {
+      console.log('onEmbeddedMessagingWindowMaximized fired');
+      state.isChatOpen = true;
+      state.isChatMinimized = false;
+      
+      hideCustomCTA();
+      toggleButtonVisibility(false);
+      clearUnreadCount();
+      clearReminderTimer();
+      dismissNotificationPopup();
+    }
+    
+    /**
+     * Handle window minimized event
+     */
+    function handleWindowMinimized() {
+      console.log('onEmbeddedMessagingWindowMinimized fired');
+      state.isChatOpen = false;
+      state.isChatMinimized = true;
+      
+      const es = window.embeddedservice_bootstrap;
+      if (es) {
+        hideStandardButton(es);
+        
+        // Show the button that was last used
+        const mainBtn = document.getElementById(ELEMENT_IDS.CHAT_BUTTON);
+        const circleBtn = document.getElementById(ELEMENT_IDS.CIRCLE_BUTTON);
+        
+        if (state.lastUsedButton === 'circle') {
+          if (mainBtn) mainBtn.style.display = 'none';
+          if (circleBtn) circleBtn.style.display = 'flex';
+          state.isChatButtonVisible = false;
+        } else {
+          if (mainBtn) mainBtn.style.display = 'inline-flex';
+          if (circleBtn) circleBtn.style.display = 'none';
+          state.isChatButtonVisible = true;
+        }
+        
+        toggleButtonVisibility(true);
+        updateNotificationBadge();
+        
+        // Start reminder timer
+        startReminderTimer();
+      }
+    }
+    
+    /**
+     * Handle message received event
+     */
+    function handleMessageReceived(event) {
+      console.log('onEmbeddedMessagingMessageReceived fired', event);
+      
+      // Only count messages when chat is minimized
+      if (state.isChatMinimized && !state.isChatOpen) {
+        incrementUnreadCount();
+        soundManager.playNotification();
+        
+        // Restart reminder timer
+        startReminderTimer();
+      }
+    }
+    
+    // ============================================================================
+    // INITIALIZATION
+    // ============================================================================
+    
+    /**
+     * Poll for embedded service availability
+     */
+    function waitForEmbeddedService() {
+      let attempts = 0;
+      
+      (function check() {
+        attempts++;
+        const es = window.embeddedservice_bootstrap;
+        
+        if (es && es.utilAPI) {
+          console.log('utilAPI ready');
+          showCustomCTA(es);
+          return;
+        }
+        
+        if (attempts >= TIMING.MAX_POLLING_ATTEMPTS) {
+          console.warn('utilAPI not found after ' + attempts + ' attempts');
+          return;
+        }
+        
+        setTimeout(check, TIMING.POLLING_INTERVAL);
+      })();
+    }
+    
+    /**
+     * Initialize the custom chat button
+     */
+    function init() {
+      // Register Salesforce event listeners
+      window.addEventListener('onEmbeddedMessagingButtonCreated', handleButtonCreated);
+      window.addEventListener('onEmbeddedMessagingWindowMaximized', handleWindowMaximized);
+      window.addEventListener('onEmbeddedMessagingWindowMinimized', handleWindowMinimized);
+      window.addEventListener('onEmbeddedMessagingMessageReceived', handleMessageReceived);
+      
+      // Initialize sound manager
+      soundManager.init();
+      
+      // Initialize activity tracking
+      initActivityTracking();
+      
+      // Start polling for embedded service
+      if (document.readyState === 'complete' || document.readyState === 'interactive') {
+        waitForEmbeddedService();
+      } else {
+        window.addEventListener('DOMContentLoaded', waitForEmbeddedService);
+      }
+      
+      console.log('Enhanced chat button module initialized');
+    }
+    
+    // Start initialization
+    init();
+  })();
+</script>
+<script
+  type="text/javascript"
+  src="https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231/assets/js/bootstrap.min.js"
+  onload="initEmbeddedMessaging()"
 ></script>
 </body>
 </html>
