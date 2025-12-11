@@ -34,11 +34,7 @@
   </footer>
 
   <script src="js/main.js"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
-</style>
-
-<script type='text/javascript'>
+  script type='text/javascript'>
     /**
      * Initialize Salesforce Embedded Messaging
      */
@@ -46,21 +42,16 @@
         try {
             const countryCode = getCountryCodeFromPath();
             const countryInfo = getCountryInfo(countryCode);
-
             // Configure settings
             embeddedservice_bootstrap.settings.language = countryInfo.language;
             embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
             embeddedservice_bootstrap.settings.hideChatButtonOnLoad = true;
-
             // Set prechat fields
-            window.addEventListener("onEmbeddedMessagingReady", function() {
-                embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
-                    Country: countryInfo.name,
-                    Language: countryInfo.language,
-                    CountryCode: countryInfo.code,
-                });
+            embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+                Country: countryInfo.name,
+                Language: countryInfo.language,
+                CountryCode: countryInfo.code,
             });
-
             // Initialize
             embeddedservice_bootstrap.init(
                 "00DMA000003XnGM",
@@ -69,17 +60,17 @@
                     scrt2URL: "https://leapmotor--dev01.sandbox.my.salesforce-scrt.com",
                 }
             );
+            // Initialize custom button AFTER Salesforce is ready
+            window.dispatchEvent(new Event('salesforceReady'));
         } catch (err) {
             console.error("Error loading Embedded Messaging:", err);
         }
     }
-
     /* --- Helper Functions for Country Logic --- */
     function getCountryCodeFromPath() {
         const pathParts = window.location.pathname.split('/').filter(p => p.length > 0);
         return pathParts.length > 0 ? pathParts[0].toLowerCase() : 'en';
     }
-
     function getCountryInfo(countryCode) {
         const MAPPING = {
             'it': { name: 'Italy', language: 'it', code: 'it' },
@@ -92,14 +83,12 @@
         };
         return MAPPING[countryCode] || MAPPING['en'];
     }
-
     /**
      * Custom Chat Button Module
      * Implements PDF Design: Circular Button + Idle Proactive Message
      */
     (function() {
         'use strict';
-
         const CONFIG = {
             ids: {
                 BUTTON: 'leap-chat-btn',
@@ -108,16 +97,14 @@
                 STYLES: 'leap-chat-css'
             },
             colors: {
-                primary: '#009100', // Approx for Pantone 2427C / R0 G145 B0
+                primary: '#009100',
                 white: '#ffffff',
                 text: '#333333'
             },
             timing: {
-                idleThreshold: 5000 // 5 seconds (ADV 1 in PDF)
+                idleThreshold: 5000
             }
         };
-
-        [cite_start]// Localization for the "Proactive" bubble [cite: 14]
         const MESSAGES = {
             'es': '¿Necesitas ayuda?',
             'it': 'Hai bisogno di aiuto?',
@@ -125,13 +112,12 @@
             'de': 'Brauchen Sie Hilfe?',
             'en': 'Do you need help?'
         };
-
         let state = {
             idleTimer: null,
             countryCode: getCountryCodeFromPath(),
-            esInstance: null
+            esInstance: null,
+            isReady: false
         };
-
         // --- Styles Injection ---
         function injectStyles() {
             if (document.getElementById(CONFIG.ids.STYLES)) return;
@@ -158,24 +144,22 @@
                 #${CONFIG.ids.BUTTON}:hover {
                     transform: scale(1.1);
                 }
-                /* Chat Icon SVG */
                 .leap-icon {
                     width: 32px;
                     height: 32px;
                     fill: ${CONFIG.colors.white};
                 }
                 
-                /* Proactive Bubble (ADV 1) */
                 #${CONFIG.ids.BUBBLE} {
                     position: fixed;
-                    right: 95px; /* Left of the button */
+                    right: 95px;
                     bottom: 35px;
                     background: ${CONFIG.colors.white};
                     color: ${CONFIG.colors.text};
                     padding: 12px 20px;
                     border-radius: 20px 20px 0 20px;
                     box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-                    font-family: 'Montserrat', sans-serif; [cite_start]/* [cite: 18] */
+                    font-family: 'Montserrat', sans-serif;
                     font-weight: 600;
                     font-size: 14px;
                     opacity: 0;
@@ -191,7 +175,6 @@
                     pointer-events: auto;
                 }
                 
-                /* Notification Badge (ADV 2) */
                 #${CONFIG.ids.BADGE} {
                     position: absolute;
                     top: -2px;
@@ -208,41 +191,27 @@
                     align-items: center;
                     justify-content: center;
                     border: 2px solid white;
-                    display: none; /* Hidden by default */
+                    display: none;
                 }
             `;
             document.head.appendChild(style);
         }
-
-        // --- Logic: Idle Timer (ADV 1) ---
+        // --- Logic: Idle Timer ---
         function resetIdleTimer() {
-            const bubble = document.getElementById(CONFIG.ids.BUBBLE);
-            if (bubble && bubble.classList.contains('visible')) {
-                // Optional: Hide bubble when user moves again? 
-                // Based on PDF "When you dont move... you are on a specific page"
-                // Usually we keep it open until clicked or dismissed, but let's hide it on interaction
-                // bubble.classList.remove('visible'); 
-            }
-
             clearTimeout(state.idleTimer);
             state.idleTimer = setTimeout(() => {
                 showProactiveMessage();
             }, CONFIG.timing.idleThreshold);
         }
-
         function showProactiveMessage() {
             const bubble = document.getElementById(CONFIG.ids.BUBBLE);
-            if (bubble && document.getElementById(CONFIG.ids.BUTTON).style.display !== 'none') {
+            const button = document.getElementById(CONFIG.ids.BUTTON);
+            if (bubble && button && button.style.display !== 'none') {
                 bubble.classList.add('visible');
-                // Play Sound logic would go here (Browsers often block auto-audio without interaction)
-                // const audio = new Audio('path/to/notification.mp3');
-                // audio.play().catch(e => console.log('Audio blocked'));
             }
         }
-
         // --- DOM Elements ---
         function createElements() {
-            // 1. Main Button
             const btn = document.createElement('button');
             btn.id = CONFIG.ids.BUTTON;
             btn.innerHTML = `
@@ -252,71 +221,106 @@
                 <div id="${CONFIG.ids.BADGE}">1</div>
             `;
             
-            // 2. Proactive Bubble
             const bubble = document.createElement('div');
             bubble.id = CONFIG.ids.BUBBLE;
-            // Get localized text or default to English
             bubble.textContent = MESSAGES[state.countryCode] || MESSAGES['en'];
             
-            // Append
             document.body.appendChild(btn);
             document.body.appendChild(bubble);
-
-            // Events
             btn.onclick = function() {
-                // Hide bubble on click
-                bubble.classList.remove('visible'); 
-                // Launch Chat
-                if (state.esInstance && state.esInstance.utilAPI) {
-                    state.esInstance.utilAPI.launchChat();
-                }
+                bubble.classList.remove('visible');
+                launchChat();
             };
             
-            // Initialize Idle Listeners
             document.addEventListener('mousemove', resetIdleTimer);
             document.addEventListener('keypress', resetIdleTimer);
             document.addEventListener('scroll', resetIdleTimer);
-            resetIdleTimer(); // Start immediately
+            resetIdleTimer();
         }
-
-        // --- Salesforce Integration ---
-        function hideStandardButton(es) {
-            if (es && es.utilAPI && es.utilAPI.hideChatButton) {
-                es.utilAPI.hideChatButton();
+        // --- Launch Chat Function ---
+        function launchChat() {
+            if (!state.isReady) {
+                console.warn('Embedded Messaging not ready yet');
+                return;
+            }
+            try {
+                // Try different methods to open the chat
+                if (window.embeddedservice_bootstrap) {
+                    if (window.embeddedservice_bootstrap.utilAPI && 
+                        typeof window.embeddedservice_bootstrap.utilAPI.launchChat === 'function') {
+                        window.embeddedservice_bootstrap.utilAPI.launchChat();
+                    } else if (window.embeddedservice_bootstrap.maximizeWindow) {
+                        window.embeddedservice_bootstrap.maximizeWindow();
+                    } else {
+                        console.error('No launch method available');
+                    }
+                }
+            } catch (err) {
+                console.error('Error launching chat:', err);
             }
         }
-
+        // --- Salesforce Integration ---
+        function hideStandardButton() {
+            try {
+                if (window.embeddedservice_bootstrap && 
+                    window.embeddedservice_bootstrap.utilAPI && 
+                    typeof window.embeddedservice_bootstrap.utilAPI.hideChatButton === 'function') {
+                    window.embeddedservice_bootstrap.utilAPI.hideChatButton();
+                }
+            } catch (err) {
+                console.error('Error hiding standard button:', err);
+            }
+        }
+        function setupEventListeners() {
+            window.addEventListener('onEmbeddedMessagingReady', () => {
+                console.log('Embedded Messaging Ready');
+                state.isReady = true;
+                hideStandardButton();
+            });
+            window.addEventListener('onEmbeddedMessagingWindowMaximized', () => {
+                const btn = document.getElementById(CONFIG.ids.BUTTON);
+                const bubble = document.getElementById(CONFIG.ids.BUBBLE);
+                if (btn) btn.style.display = 'none';
+                if (bubble) bubble.classList.remove('visible');
+            });
+            window.addEventListener('onEmbeddedMessagingWindowMinimized', () => {
+                const btn = document.getElementById(CONFIG.ids.BUTTON);
+                if (btn) btn.style.display = 'flex';
+            });
+        }
         function init() {
-            // Wait for Embedded Service
-            const checkInterval = setInterval(() => {
-                const es = window.embeddedservice_bootstrap;
-                if (es && es.utilAPI) {
-                    clearInterval(checkInterval);
-                    state.esInstance = es;
+            // Wait for Salesforce to be initialized
+            window.addEventListener('salesforceReady', () => {
+                setTimeout(() => {
                     injectStyles();
                     createElements();
-                    hideStandardButton(es);
-
-                    // Handle Window Events
-                    window.addEventListener('onEmbeddedMessagingWindowMaximized', () => {
-                        document.getElementById(CONFIG.ids.BUTTON).style.display = 'none';
-                        document.getElementById(CONFIG.ids.BUBBLE).classList.remove('visible');
-                    });
-
-                    window.addEventListener('onEmbeddedMessagingWindowMinimized', () => {
-                        document.getElementById(CONFIG.ids.BUTTON).style.display = 'flex';
-                        // Example: Show badge when minimized (ADV 2)
-                        // In a real scenario, you'd check for unread messages event
-                        // document.getElementById(CONFIG.ids.BADGE).style.display = 'flex'; 
-                    });
+                    setupEventListeners();
+                    hideStandardButton();
+                }, 500); // Small delay to ensure everything is loaded
+            });
+            // Fallback: Check periodically if salesforceReady event was missed
+            let attempts = 0;
+            const maxAttempts = 50;
+            const checkInterval = setInterval(() => {
+                attempts++;
+                if (window.embeddedservice_bootstrap && window.embeddedservice_bootstrap.utilAPI) {
+                    clearInterval(checkInterval);
+                    if (!document.getElementById(CONFIG.ids.BUTTON)) {
+                        injectStyles();
+                        createElements();
+                        setupEventListeners();
+                        hideStandardButton();
+                        state.isReady = true;
+                    }
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(checkInterval);
+                    console.error('Embedded Messaging failed to load');
                 }
             }, 200);
         }
-
         init();
     })();
 </script>
-
 <script type="text/javascript" 
     src="https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231/assets/js/bootstrap.min.js" 
     onload="initEmbeddedMessaging()">
