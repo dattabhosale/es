@@ -56,66 +56,65 @@
   <script type='text/javascript'>
 	function initEmbeddedMessaging() {
 		try {
-			embeddedservice_bootstrap.settings.language = 'en_US'; // For example, enter 'en' or 'en-US'
-			window.addEventListener("onEmbeddedMessagingReady", () => {
-				const currentUrl = window.location.href;
-				console.log(currentUrl); // Example: https://www.example.com/path/to/page?param1=value1#section
-				const urlArray = currentUrl.split("/")
-				console.log( "urlArray", urlArray );
-				console.log(" Url Country", urlArray[3]);
-				const country = urlArray[3];
-				const languageData = [
-  										['uk', 'English'],
-  										['it', 'Italian'],
-  										['de', 'Deutsch'],
-										['fr', 'Français'],
-										['cz', 'Czech'],
-										['ie', 'English'],
-										['hu', 'Magyar'],
-										['gr', 'Greek'],
-										['hr', 'Croatian'],
-										['bg','Bulgarian'],
-										['nl', 'Nederland'],
-										['pt', 'Português']
-									];
-				const languageMap = new Map(languageData);
-				const countryData = [
-  										['uk', 'United Kingdom'],
-  										['it', 'Italy'],
-  										['de', 'Deutschland'],
-										['fr', 'France'],
-										['cz', 'Czech Republic'],
-										['ie', 'Ireland'],
-										['hu', 'Hungary'],
-										['gr', 'Greece'],
-										['hr', 'Croatia'],
-										['bg', 'Bulgaria'],
-										['nl', 'Nederland'],
-										['pt', 'Portugal']
-									];
-				const countryMap = new Map(countryData);
-				const ct = countryMap.get(urlArray[3]);
-				const lg = languageMap.get(urlArray[3]);
-				console.log('value of ct',ct);
-				console.log('value of lg',lg);
+			
+			const countryCode = getCountryCodeFromPath();
+			const countryInfo = getCountryInfo(countryCode);
+			
+			embeddedservice_bootstrap.settings.language = countryInfo.language; // For example, enter 'en' or 'en-US'
+			embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
+			embeddedservice_bootstrap.settings.chatButtonPosition = '100px, 30px';
+			// Set prechat fields when ready
+			window.addEventListener("onEmbeddedMessagingReady", function() {
 				embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
-  																				Country: ct,
-  																				Language: lg,
- 																			});
+					Country: countryInfo.name,
+					Language: countryInfo.language,
+					CountryCode: countryInfo.code,
+				});
 			});
+			
 			embeddedservice_bootstrap.init(
-				'00DMA000003XnGM',
-				'LPM_Leapmotor',
-				'https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231',
+				'00Dbl000003uCem',
+				'Leapmotor_Test',
+				'https://leapmotor.my.site.com/ESWLeapmotorTest1765461060847',
 				{
-					scrt2URL: 'https://leapmotor--dev01.sandbox.my.salesforce-scrt.com'
+					scrt2URL: 'https://leapmotor.my.salesforce-scrt.com'
 				}
 			);
 		} catch (err) {
 			console.error('Error loading Embedded Messaging: ', err);
 		}
+		
+	   /**
+	   * Extract country code from URL pathname
+	   * @returns {string} Country code (defaults to 'en')
+	   */
+	   function getCountryCodeFromPath() {
+		const pathParts = window.location.pathname
+		  .split('/')
+		  .filter(function(part) { return part.length > 0; });
+		
+		return pathParts.length > 0 ? pathParts[0].toLowerCase() : 'en';
+	  }
+	  /**
+	   * Get country information based on country code
+	   * @param {string} countryCode - Two-letter country code
+	   * @returns {Object} Country information object
+	   */
+	  function getCountryInfo(countryCode) {
+		const COUNTRY_MAPPING = {
+		  'it': { name: 'Italy', language: 'it', code: 'it' },
+		  'es': { name: 'Spain', language: 'es', code: 'es' },
+		  'fr': { name: 'France', language: 'fr', code: 'fr' },
+		  'de': { name: 'Germany', language: 'de', code: 'de' },
+		  'uk': { name: 'United Kingdom', language: 'en_US', code: 'uk' },
+		  'us': { name: 'United States', language: 'en_US', code: 'us' },
+		  'en': { name: 'United States', language: 'en_US', code: 'en' }
+		};
+		
+		return COUNTRY_MAPPING[countryCode] || COUNTRY_MAPPING['en'];
+	  }
 	};
 </script>
-<script type='text/javascript' src='https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231/assets/js/bootstrap.min.js' onload='initEmbeddedMessaging()'></script>
+<script type='text/javascript' src='https://leapmotor.my.site.com/ESWLeapmotorTest1765461060847/assets/js/bootstrap.min.js' onload='initEmbeddedMessaging()'></script>
 </body>
 </html>
