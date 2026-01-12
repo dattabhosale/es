@@ -1,6 +1,5 @@
 <!doctype html>
 <html lang="en">
-
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -10,7 +9,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
 </head>
-
 <body>
   <header class="site-header">
     <div class="container header-inner">
@@ -24,7 +22,6 @@
       <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation">☰</button>
     </div>
   </header>
-
   <main>
     <section class="hero">
       <div class="container hero-inner">
@@ -38,7 +35,6 @@
         </div>
       </div>
     </section>
-
     <section class="highlights">
       <div class="container">
         <h2>Featured Models</h2>
@@ -49,14 +45,12 @@
             <p>Long range, fast charging, advanced driver assistance.</p>
             <p><a class="link" href="products.html">Learn more</a></p>
           </article>
-
           <article class="card">
             <img src="assets/model-b.jpg" alt="Model B">
             <h3>Model B</h3>
             <p>Urban performance with compact design and premium interior.</p>
             <p><a class="link" href="products.html">Learn more</a></p>
           </article>
-
           <article class="card">
             <img src="assets/model-c.jpg" alt="Model C">
             <h3>Model C</h3>
@@ -66,7 +60,6 @@
         </div>
       </div>
     </section>
-
     <section class="about-teaser">
       <div class="container">
         <h2>Our Vision</h2>
@@ -76,7 +69,6 @@
       </div>
     </section>
   </main>
-
   <footer class="site-footer">
     <div class="container">
       <div>© 2025 LeapReplica</div>
@@ -86,56 +78,55 @@
       </nav>
     </div>
   </footer>
-
+  <!-- Salesforce Embedded Messaging Script -->
   <script type="text/javascript">
-  function initEmbeddedMessaging() {
-    try {
-      embeddedservice_bootstrap.settings.language = "es"; // For example, enter 'en' or 'en-US'
-      // Personalizzazione del pulsante
-      window.addEventListener("onEmbeddedMessagingReady", () => {
-        embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
-          Country: "Spain",
-          Language: "es",
-          CountryCode: "es",
+    function initEmbeddedMessaging() {
+      try {
+        embeddedservice_bootstrap.settings.language = "es"; // For example, enter 'en' or 'en-US'
+        // Personalizzazione del pulsante
+        window.addEventListener("onEmbeddedMessagingReady", () => {
+          embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+            Country: "Spain",
+            Language: "es",
+            CountryCode: "es",
+          });
         });
-      });
-      embeddedservice_bootstrap.init(
-        "00DMA000003XnGM",
-        "LPM_Leapmotor",
-        "https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231",
-        {
-          scrt2URL: "https://leapmotor--dev01.sandbox.my.salesforce-scrt.com",
-        }
-      );
-    } catch (err) {
-      console.error("Error loading Embedded Messaging: ", err);
+        embeddedservice_bootstrap.init(
+          "00DMA000003XnGM",
+          "LPM_Leapmotor",
+          "https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231",
+          {
+            scrt2URL: "https://leapmotor--dev01.sandbox.my.salesforce-scrt.com",
+          }
+        );
+      } catch (err) {
+        console.error("Error loading Embedded Messaging: ", err);
+      }
     }
-  }
+  </script>
+  <!-- Custom Styles for Embedded Messaging Chat -->
   <style>
-	.embeddedMessagingFrame {
-		bottom: 80px !important;
-		border-radius: 16px !important;
-		overflow: hidden !important;
-	}
- 
-
-	.embeddedMessagingHeader {
-		border-top-left-radius: 16px !important;
-		border-top-right-radius: 16px !important;
-	}
- 
-
-	.embeddedMessagingConversation {
-		border-bottom-left-radius: 16px !important;
-		border-bottom-right-radius: 16px !important;
-	}
-</style>     
-</script>
-<script
-  type="text/javascript"
-  src="https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231/assets/js/bootstrap.min.js"
-  onload="initEmbeddedMessaging()"
-></script>
+    /* Sposta verso l'alto la finestra della chat */
+    .embeddedMessagingFrame {
+      transform: translateY(-80px) !important;
+      border-radius: 16px !important;
+      overflow: hidden !important;
+    }
+    /* Arrotondamenti */
+    .embeddedMessagingHeader {
+      border-top-left-radius: 16px !important;
+      border-top-right-radius: 16px !important;
+    }
+    .embeddedMessagingConversation {
+      border-bottom-left-radius: 16px !important;
+      border-bottom-right-radius: 16px !important;
+    }
+  </style>
+  <!-- Load Salesforce Embedded Messaging Bootstrap -->
+  <script
+    type="text/javascript"
+    src="https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231/assets/js/bootstrap.min.js"
+    onload="initEmbeddedMessaging()"
+  ></script>
 </body>
-
 </html>
