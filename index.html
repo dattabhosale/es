@@ -104,69 +104,83 @@
       }
     }
 	  (function () {
-
 	let chatOpened = false;
-
 	let nudge = null;
+	let timer = null;
+	function playBeep(frequency = 440, duration = 200) {
+		try {
+			const ctx = new (window.AudioContext || window.webkitAudioContext)();
+			const oscillator = ctx.createOscillator();
+			const gainNode = ctx.createGain();
  
-	function showNudge() {
-
+			oscillator.connect(gainNode);
+			gainNode.connect(ctx.destination);
+ 
+			oscillator.type = "sine"; // onda sinusoidale
+			oscillator.frequency.value = frequency; // Hz
+			gainNode.gain.setValueAtTime(0.1, ctx.currentTime); // volume basso
+ 
+			oscillator.start();
+			oscillator.stop(ctx.currentTime + duration / 1000);
+		} catch (e) {
+			console.warn("Beep non supportato dal browser", e);
+		}
+	}
+ 
+	function showNudge(message) {
 		if (nudge) return;
- 
+		playBeep();
 		nudge = document.createElement("div");
-
 		nudge.className = "chat-nudge";
-
-		nudge.textContent = "¡Habla conmigo!";
+		nudge.textContent = message;
  
 		nudge.addEventListener("click", function () {
-
 			embeddedservice_bootstrap.open();
-
 			removeNudge();
-
 		});
  
 		document.body.appendChild(nudge);
-
 	}
  
 	function removeNudge() {
-
 		if (nudge) {
-
 			nudge.remove();
-
 			nudge = null;
-
 		}
-
+		if (timer) {
+			clearTimeout(timer);
+			timer = null;
+		}
 	}
  
+	/* Chat aperta */
 	window.addEventListener("onEmbeddedMessagingConversationOpened", function () {
-
 		chatOpened = true;
-
 		removeNudge();
-
 	});
  
-	window.addEventListener("onEmbeddedMessagingReady", function () {
-
-		setTimeout(function () {
-
+	/* Chat chiusa */
+	window.addEventListener("onEmbeddedMessagingConversationClosed", function () {
+		chatOpened = false;
+		removeNudge();
+ 
+		/* Dopo 30 sec dalla chiusura */
+		timer = setTimeout(function () {
 			if (!chatOpened) {
-
-				showNudge();
-
+				showNudge("Sigue hablándome.");
 			}
-
 		}, 30000);
-
 	});
-
+ 
+	/* Primo accesso al sito */
+	window.addEventListener("onEmbeddedMessagingReady", function () {
+		timer = setTimeout(function () {
+			if (!chatOpened) {
+				showNudge("¡Habla conmigo!");
+			}
+		}, 30000);
+	});
 })();
-
 
   </script>
   <!-- Custom Styles for Embedded Messaging Chat -->
