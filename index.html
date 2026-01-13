@@ -104,33 +104,69 @@
       }
     }
 	  (function () {
+
 	let chatOpened = false;
-	let nudgeTimeout = null;
+
+	let nudge = null;
  
-	/* Evento ufficiale: chat aperta */
-	window.addEventListener("onEmbeddedMessagingConversationOpened", function () {
-		chatOpened = true;
-		if (nudgeTimeout) {
-			clearTimeout(nudgeTimeout);
+	function showNudge() {
+
+		if (nudge) return;
+ 
+		nudge = document.createElement("div");
+
+		nudge.className = "chat-nudge";
+
+		nudge.textContent = "¡Habla conmigo!";
+ 
+		nudge.addEventListener("click", function () {
+
+			embeddedservice_bootstrap.open();
+
+			removeNudge();
+
+		});
+ 
+		document.body.appendChild(nudge);
+
+	}
+ 
+	function removeNudge() {
+
+		if (nudge) {
+
+			nudge.remove();
+
+			nudge = null;
+
 		}
+
+	}
+ 
+	window.addEventListener("onEmbeddedMessagingConversationOpened", function () {
+
+		chatOpened = true;
+
+		removeNudge();
+
 	});
  
-	/* Quando Embedded Messaging è pronto */
 	window.addEventListener("onEmbeddedMessagingReady", function () {
-		nudgeTimeout = setTimeout(function () {
+
+		setTimeout(function () {
+
 			if (!chatOpened) {
-				try {
-					embeddedservice_bootstrap.showToast({
-						message: "¡Habla conmigo!",
-						variant: "info"
-					});
-				} catch (e) {
-					console.warn("Toast non supportato");
-				}
+
+				showNudge();
+
 			}
+
 		}, 30000);
+
 	});
+
 })();
+
 
   </script>
   <!-- Custom Styles for Embedded Messaging Chat -->
@@ -138,7 +174,76 @@
 	/* =========================
 	   DEFAULT = DESKTOP
 	   ========================= */
+ .chat-nudge {
+
+		position: fixed;
+
+		bottom: 110px;
+
+		right: 30px;
+
+		background: #ffffff;
+
+		color: #000;
+
+		padding: 10px 14px;
+
+		border-radius: 12px;
+
+		box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+
+		font-size: 14px;
+
+		font-weight: 500;
+
+		z-index: 9999;
+
+		cursor: pointer;
+
+		animation: bounce 1.5s infinite;
+
+	}
  
+	.chat-nudge::after {
+
+		content: "";
+
+		position: absolute;
+
+		bottom: -8px;
+
+		right: 20px;
+
+		border-width: 8px 8px 0 8px;
+
+		border-style: solid;
+
+		border-color: #ffffff transparent transparent transparent;
+
+	}
+ 
+	@keyframes bounce {
+
+		0%, 100% { transform: translateY(0); }
+
+		50% { transform: translateY(-6px); }
+
+	}
+ 
+	@media (max-width: 1024px) {
+
+		.chat-nudge {
+
+			bottom: 90px;
+
+			right: 20px;
+
+			font-size: 13px;
+
+		}
+
+	}
+
 	.embeddedMessagingFrame {
 		transform: translateY(-80px) !important; /* chat più in alto */
 		border-radius: 16px !important;
