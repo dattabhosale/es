@@ -108,40 +108,44 @@
 	let nudge = null;
 	let firstTimer = null;
 	let followupTimer = null;
-	let audioUnlocked = false;
+	let audioCtx = null;
  
 	console.log("[DEBUG] Script nudge caricato");
  
-	/* ===== Sblocca audio al primo click ===== */
-	function unlockAudio() {
-		if (!audioUnlocked) {
-			const ctx = new (window.AudioContext || window.webkitAudioContext)();
-			ctx.resume();
-			audioUnlocked = true;
-			console.log("[DEBUG] Audio sbloccato");
-			document.removeEventListener("click", unlockAudio);
+	/* ===== Inizializza AudioContext subito ===== */
+	function initAudio() {
+		if (!audioCtx) {
+			try {
+				audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+				audioCtx.resume();
+				console.log("[DEBUG] AudioContext inizializzato e sbloccato");
+			} catch(e) {
+				console.warn("[DEBUG] AudioContext non supportato", e);
+			}
 		}
 	}
-	document.addEventListener("click", unlockAudio);
+	initAudio(); // proviamo subito a sbloccare
  
 	/* ===== Beep standard browser ===== */
 	function playBeep(frequency = 440, duration = 200) {
-		console.log("[DEBUG] playBeep chiamato, audioUnlocked=", audioUnlocked);
-		if (!audioUnlocked) return;
+		console.log("[DEBUG] playBeep chiamato");
+		if (!audioCtx) {
+			console.warn("[DEBUG] AudioContext non inizializzato");
+			return;
+		}
 		try {
-			const ctx = new (window.AudioContext || window.webkitAudioContext)();
-			const oscillator = ctx.createOscillator();
-			const gainNode = ctx.createGain();
+			const oscillator = audioCtx.createOscillator();
+			const gainNode = audioCtx.createGain();
 			oscillator.connect(gainNode);
-			gainNode.connect(ctx.destination);
+			gainNode.connect(audioCtx.destination);
 			oscillator.type = "sine";
 			oscillator.frequency.value = frequency;
-			gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+			gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
 			oscillator.start();
-			oscillator.stop(ctx.currentTime + duration / 1000);
+			oscillator.stop(audioCtx.currentTime + duration / 1000);
 			console.log("[DEBUG] beep riprodotto");
 		} catch (e) {
-			console.warn("[DEBUG] Beep non supportato dal browser", e);
+			console.warn("[DEBUG] Beep non supportato", e);
 		}
 	}
  
@@ -327,6 +331,7 @@
 	}
 }
 </style>
+
 
   <!-- Load Salesforce Embedded Messaging Bootstrap -->
   <script
