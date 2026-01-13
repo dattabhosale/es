@@ -104,64 +104,33 @@
       }
     }
 	  (function () {
-
-		let chatOpened = false;
-
-		let nudgeTimeout = null;
+	let chatOpened = false;
+	let nudgeTimeout = null;
  
-		/* Quando Embedded Messaging è pronto */
-
-		window.addEventListener("onEmbeddedMessagingReady", function () {
+	/* Evento ufficiale: chat aperta */
+	window.addEventListener("onEmbeddedMessagingConversationOpened", function () {
+		chatOpened = true;
+		if (nudgeTimeout) {
+			clearTimeout(nudgeTimeout);
+		}
+	});
  
-			/* Traccia apertura chat */
-
-			embeddedservice_bootstrap.messagingAPI.addEventHandler(
-
-				"conversationOpened",
-
-				function () {
-
-					chatOpened = true;
-
-					if (nudgeTimeout) {
-
-						clearTimeout(nudgeTimeout);
-
-					}
-
+	/* Quando Embedded Messaging è pronto */
+	window.addEventListener("onEmbeddedMessagingReady", function () {
+		nudgeTimeout = setTimeout(function () {
+			if (!chatOpened) {
+				try {
+					embeddedservice_bootstrap.showToast({
+						message: "¡Habla conmigo!",
+						variant: "info"
+					});
+				} catch (e) {
+					console.warn("Toast non supportato");
 				}
-
-			);
- 
-			/* Avvia timer 30 secondi */
-
-			nudgeTimeout = setTimeout(function () {
-
-				if (!chatOpened) {
-
-					try {
-
-						embeddedservice_bootstrap.messagingAPI.showToast({
-
-							message: "¡Habla conmigo!",
-
-							variant: "info"
-
-						});
-
-					} catch (e) {
-
-						console.warn("Toast non supportato, fallback visivo");
-
-					}
-
-				}
-
-			}, 30000);
-
-		});
-
-	})();
+			}
+		}, 30000);
+	});
+})();
 
   </script>
   <!-- Custom Styles for Embedded Messaging Chat -->
