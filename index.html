@@ -103,19 +103,22 @@
         console.error("Error loading Embedded Messaging: ", err);
       }
     }
-	  (function () {
+	 (function () {
 	let chatOpened = false;
 	let nudge = null;
-	let firstTimer = null;      // timer per ¡Habla conmigo!
-	let followupTimer = null;   // timer per Sigue hablándome.
+	let firstTimer = null;
+	let followupTimer = null;
 	let audioUnlocked = false;
  
-	/* ===== Sblocca Audio al primo click ===== */
+	console.log("[DEBUG] Script nudge caricato");
+ 
+	/* ===== Sblocca audio al primo click ===== */
 	function unlockAudio() {
 		if (!audioUnlocked) {
 			const ctx = new (window.AudioContext || window.webkitAudioContext)();
 			ctx.resume();
 			audioUnlocked = true;
+			console.log("[DEBUG] Audio sbloccato");
 			document.removeEventListener("click", unlockAudio);
 		}
 	}
@@ -123,6 +126,7 @@
  
 	/* ===== Beep standard browser ===== */
 	function playBeep(frequency = 440, duration = 200) {
+		console.log("[DEBUG] playBeep chiamato, audioUnlocked=", audioUnlocked);
 		if (!audioUnlocked) return;
 		try {
 			const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -135,14 +139,19 @@
 			gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
 			oscillator.start();
 			oscillator.stop(ctx.currentTime + duration / 1000);
+			console.log("[DEBUG] beep riprodotto");
 		} catch (e) {
-			console.warn("Beep non supportato dal browser", e);
+			console.warn("[DEBUG] Beep non supportato dal browser", e);
 		}
 	}
  
 	/* ===== Mostra Nudge ===== */
 	function showNudge(message) {
-		if (nudge) return;
+		console.log("[DEBUG] showNudge chiamato con messaggio:", message);
+		if (nudge) {
+			console.log("[DEBUG] nudge già presente, non creo nuovo");
+			return;
+		}
  
 		playBeep();
  
@@ -155,54 +164,69 @@
 		closeBtn.className = "close-btn";
 		closeBtn.textContent = "×";
 		closeBtn.addEventListener("click", function(e) {
-			e.stopPropagation(); // non apre chat
+			e.stopPropagation();
+			console.log("[DEBUG] Nudge chiuso con X");
 			removeNudge();
 		});
 		nudge.appendChild(closeBtn);
  
 		// Click sul nudge apre chat
 		nudge.addEventListener("click", function () {
-			embeddedservice_bootstrap.open();
+			console.log("[DEBUG] Nudge cliccato, apro chat");
+			if (embeddedservice_bootstrap && embeddedservice_bootstrap.open) {
+				embeddedservice_bootstrap.open();
+			} else {
+				console.warn("[DEBUG] embeddedservice_bootstrap.open non disponibile");
+			}
 			removeNudge();
 		});
  
 		document.body.appendChild(nudge);
+		console.log("[DEBUG] Nudge aggiunto al DOM");
 	}
  
 	function removeNudge() {
 		if (nudge) {
 			nudge.remove();
+			console.log("[DEBUG] Nudge rimosso");
 			nudge = null;
 		}
 	}
  
 	/* ===== Eventi Embedded Messaging ===== */
-	// Chat aperta
 	window.addEventListener("onEmbeddedMessagingConversationOpened", function () {
+		console.log("[DEBUG] Chat aperta");
 		chatOpened = true;
 		removeNudge();
-		if (firstTimer) clearTimeout(firstTimer);
-		if (followupTimer) clearTimeout(followupTimer);
+		if (firstTimer) {
+			clearTimeout(firstTimer);
+			console.log("[DEBUG] Primo timer cancellato");
+		}
+		if (followupTimer) {
+			clearTimeout(followupTimer);
+			console.log("[DEBUG] Followup timer cancellato");
+		}
 	});
  
-	// Chat chiusa
 	window.addEventListener("onEmbeddedMessagingConversationClosed", function () {
+		console.log("[DEBUG] Chat chiusa");
 		chatOpened = false;
 		removeNudge();
-		if (followupTimer) clearTimeout(followupTimer);
  
-		// Dopo 30 sec dalla chiusura
+		if (followupTimer) clearTimeout(followupTimer);
 		followupTimer = setTimeout(function () {
+			console.log("[DEBUG] Followup timer scaduto, chatOpened=", chatOpened);
 			if (!chatOpened) {
 				showNudge("Sigue hablándome.");
 			}
 		}, 30000);
 	});
  
-	// Primo accesso al sito
 	window.addEventListener("onEmbeddedMessagingReady", function () {
+		console.log("[DEBUG] onEmbeddedMessagingReady");
 		if (firstTimer) clearTimeout(firstTimer);
 		firstTimer = setTimeout(function () {
+			console.log("[DEBUG] Primo timer scaduto, chatOpened=", chatOpened);
 			if (!chatOpened) {
 				showNudge("¡Habla conmigo!");
 			}
