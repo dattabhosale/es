@@ -79,7 +79,7 @@
     </div>
   </footer>
   <!-- Salesforce Embedded Messaging Script -->
-  <script type="text/javascript">
+<script type="text/javascript">
     function initEmbeddedMessaging() {
       try {
         embeddedservice_bootstrap.settings.language = "es"; // For example, enter 'en' or 'en-US'
@@ -91,6 +91,7 @@
             CountryCode: "es",
           });
         });
+		embeddedservice_bootstrap.settings.chatButtonPosition = '60px, 30px';
         embeddedservice_bootstrap.init(
           "00DMA000003XnGM",
           "LPM_Leapmotor",
@@ -118,7 +119,7 @@
 		nudge.textContent = message;
 		const closeBtn = document.createElement("span");
 		closeBtn.className = "close-btn";
-		closeBtn.textContent = "×";
+		closeBtn.textContent = "  ×";
 		closeBtn.onclick = function (e) {
 			e.stopPropagation();
 			removeNudge();
@@ -141,6 +142,7 @@
 	/* ===== Primo timer: primo nudge dopo 30s ===== */
 	window.addEventListener("onEmbeddedMessagingReady", function () {
 		console.log("[DEBUG] Embedded Messaging ready");
+		document.body.classList.add("chat-launcher-fixed");
 		if (firstTimer) clearTimeout(firstTimer);
 		firstTimer = setTimeout(() => {
 			if (!chatOpened) {
@@ -148,9 +150,6 @@
 				showNudge("¡Habla conmigo!");
 			}
 		}, 30000);
-	});
-	window.addEventListener("onEmbeddedMessagingReady", function () {
-	document.body.classList.add("chat-launcher-fixed");
 	});
 	/* ===== Evento: click sul pulsante della chat ===== */
 	window.addEventListener("onEmbeddedMessagingButtonClicked", function () {
@@ -167,13 +166,13 @@
 		if (followupTimer) clearTimeout(followupTimer);
 		followupTimer = setTimeout(() => {
 			console.log("[DEBUG] Timer follow-up scaduto");
-			showNudge("Sigue hablándome.");
+			showNudge("¡Sigue hablándome!");
 		}, 30000);
 	});
 })();
-
+ 
   </script>
-  <!-- Custom Styles for Embedded Messaging Chat -->
+<!-- Custom Styles for Embedded Messaging Chat -->
 <style>
 /* =========================================================
    CHAT EMBEDDED – DESKTOP
@@ -183,17 +182,14 @@
 	border-radius: 16px !important;
 	overflow: hidden !important;
 }
- 
 .embeddedMessagingHeader {
 	border-top-left-radius: 16px !important;
 	border-top-right-radius: 16px !important;
 }
- 
 .embeddedMessagingConversation {
 	border-bottom-left-radius: 16px !important;
 	border-bottom-right-radius: 16px !important;
 }
- 
 /* =========================================================
    LAUNCHER CHAT – POSIZIONE FISSA (CONTROLLATA DA JS)
    ========================================================= */
@@ -202,9 +198,7 @@
 	position: fixed !important;
 	bottom: 60px !important; /* posizione finale coerente */
 	right: 30px !important;
-	z-index: 9999 !important;
 }
- 
 /* =========================================================
    MOBILE / TABLET
    ========================================================= */
@@ -213,19 +207,16 @@
 		transform: translateY(0) !important;
 		border-radius: 0 !important;
 	}
- 
 	.embeddedMessagingHeader,
 	.embeddedMessagingConversation {
 		border-radius: 0 !important;
 	}
- 
 	.chat-launcher-fixed .embeddedServiceLauncher,
 	.chat-launcher-fixed .embeddedServiceSidebarButton {
 		bottom: 20px !important;
 		right: 20px !important;
 	}
 }
- 
 /* =========================================================
    NUDGE MESSAGGIO
    ========================================================= */
@@ -244,7 +235,6 @@
 	cursor: pointer;
 	animation: bounce 5s ease-out;
 }
- 
 /* Animazione bounce (5s poi ferma) */
 @keyframes bounce {
 	0%   { transform: translateY(0); }
@@ -254,7 +244,6 @@
 	80%  { transform: translateY(0); }
 	100% { transform: translateY(0); }
 }
- 
 /* Bottone chiusura X */
 .chat-nudge .close-btn {
 	position: absolute;
@@ -266,11 +255,9 @@
 	cursor: pointer;
 	user-select: none;
 }
- 
 .chat-nudge .close-btn:hover {
 	color: #000;
 }
- 
 /* =========================================================
    NUDGE – MOBILE / TABLET
    ========================================================= */
@@ -282,7 +269,6 @@
 	}
 }
 </style>
-
 
   <!-- Load Salesforce Embedded Messaging Bootstrap -->
   <script
