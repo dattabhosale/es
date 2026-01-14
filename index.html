@@ -79,221 +79,253 @@
     </div>
   </footer>
   <!-- Salesforce Embedded Messaging Script -->
+<!-- Salesforce Embedded Messaging Script + Custom Styles -->
 <script type="text/javascript">
-    function initEmbeddedMessaging() {
-      try {
-        embeddedservice_bootstrap.settings.language = "es"; // For example, enter 'en' or 'en-US'
-        // Personalizzazione del pulsante
-        window.addEventListener("onEmbeddedMessagingReady", () => {
-          embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
-            Country: "Spain",
-            Language: "es",
-            CountryCode: "es",
-          });
-        });
-		embeddedservice_bootstrap.settings.chatButtonPosition = '60px, 30px';
-        embeddedservice_bootstrap.init(
-          "00DMA000003XnGM",
-          "LPM_Leapmotor",
-          "https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231",
-          {
-            scrt2URL: "https://leapmotor--dev01.sandbox.my.salesforce-scrt.com",
-          }
-        );
-      } catch (err) {
-        console.error("Error loading Embedded Messaging: ", err);
-      }
-    }
-	 (function () {
-	let chatOpened = false;
-	let firstTimer = null;
-	let followupTimer = null;
-	let nudge = null;
-	console.log("[DEBUG] Nudge script inizializzato");
-	/* ===== Nudge ===== */
-	function showNudge(message) {
-		if (nudge) return;
-		console.log("[DEBUG] Mostro nudge:", message);
-		nudge = document.createElement("div");
-		nudge.className = "chat-nudge";
-		nudge.textContent = message;
-		const closeBtn = document.createElement("span");
-		closeBtn.className = "close-btn";
-		closeBtn.textContent = "  ×";
-		closeBtn.onclick = function (e) {
-			e.stopPropagation();
-			removeNudge();
-		};
-		nudge.appendChild(closeBtn);
-		nudge.onclick = function () {
-			console.log("[DEBUG] Nudge cliccato → apro chat");
-			window.embeddedservice_bootstrap?.open?.();
-			removeNudge();
-		};
-		document.body.appendChild(nudge);
-	}
-	function removeNudge() {
-		if (nudge) {
-			nudge.remove();
-			nudge = null;
-			console.log("[DEBUG] Nudge rimosso");
-		}
-	}
-	window.addEventListener("onEmbeddedMessagingReady", function () {
-    console.log("[DEBUG] Embedded Messaging ready → forzo launcher");
+function initEmbeddedMessaging() {
+  try {
+    embeddedservice_bootstrap.settings.language = "es";
  
-    // Applico la classe per CSS
+    window.addEventListener("onEmbeddedMessagingReady", () => {
+      embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+        Country: "Spain",
+        Language: "es",
+        CountryCode: "es",
+      });
+    });
+ 
+    // Posizione iniziale del launcher
+    embeddedservice_bootstrap.settings.chatButtonPosition = '60px, 30px';
+ 
+    embeddedservice_bootstrap.init(
+      "00DMA000003XnGM",
+      "LPM_Leapmotor",
+      "https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231",
+      {
+        scrt2URL: "https://leapmotor--dev01.sandbox.my.salesforce-scrt.com",
+      }
+    );
+ 
+  } catch (err) {
+    console.error("Error loading Embedded Messaging: ", err);
+  }
+}
+ 
+(function () {
+  let chatOpened = false;
+  let firstTimer = null;
+  let followupTimer = null;
+  let nudge = null;
+ 
+  console.log("[DEBUG] Nudge script inizializzato");
+ 
+  /* ===== Nudge ===== */
+  function showNudge(message) {
+    if (nudge) return;
+    console.log("[DEBUG] Mostro nudge:", message);
+ 
+    nudge = document.createElement("div");
+    nudge.className = "chat-nudge";
+    nudge.textContent = message;
+ 
+    const closeBtn = document.createElement("span");
+    closeBtn.className = "close-btn";
+    closeBtn.textContent = "×";
+    closeBtn.onclick = function(e) {
+      e.stopPropagation();
+      removeNudge();
+    };
+    nudge.appendChild(closeBtn);
+ 
+    nudge.onclick = function () {
+      console.log("[DEBUG] Nudge cliccato → apro chat");
+      window.embeddedservice_bootstrap?.open?.();
+      removeNudge();
+    };
+ 
+    document.body.appendChild(nudge);
+    updateNudgePosition();
+  }
+ 
+  function removeNudge() {
+    if (nudge) {
+      nudge.remove();
+      nudge = null;
+      console.log("[DEBUG] Nudge rimosso");
+    }
+  }
+ 
+  function updateNudgePosition() {
+    const launcher = document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
+    if (launcher && nudge) {
+      const rect = launcher.getBoundingClientRect();
+      nudge.style.bottom = (window.innerHeight - rect.top + 20) + "px";
+    }
+  }
+ 
+  /* ===== Embedded Messaging Ready ===== */
+  window.addEventListener("onEmbeddedMessagingReady", function () {
+    console.log("[DEBUG] Embedded Messaging ready → forzo launcher");
     document.body.classList.add("chat-launcher-fixed");
  
-    // Individuo il launcher
     const launcher = document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
-    if (!launcher) return;
+    if (launcher) {
+      launcher.style.bottom = "60px";
+      launcher.style.right = "30px";
  
-    // Funzione per aggiornare posizione nudge
-    function updateNudgePosition() {
-        if (nudge) {
-            const rect = launcher.getBoundingClientRect();
-            nudge.style.bottom = (window.innerHeight - rect.top + 20) + "px";
-        }
+      const observer = new MutationObserver(() => {
+        launcher.style.bottom = "60px";
+        launcher.style.right = "30px";
+        updateNudgePosition();
+      });
+      observer.observe(launcher, { attributes: true, attributeFilter: ["style"] });
     }
  
-    // Osservatore per forzare launcher e aggiornare nudge
-    const observer = new MutationObserver(() => {
-        launcher.style.bottom = "60px"; // forziamo bottom
-        launcher.style.right = "30px";  // forziamo right
-        updateNudgePosition();
-    });
-    observer.observe(launcher, { attributes: true, attributeFilter: ["style"] });
- 
-    // Aggiorna nudge anche su resize
     window.addEventListener("resize", updateNudgePosition);
  
-    // Primo timer per nudge
     if (firstTimer) clearTimeout(firstTimer);
     firstTimer = setTimeout(() => {
-        if (!chatOpened) {
-            showNudge("¡Habla conmigo!");
-            updateNudgePosition();
-        }
+      if (!chatOpened) {
+        showNudge("¡Habla conmigo!  ");
+      }
     }, 30000);
-});
-	/* ===== Evento: click sul pulsante della chat ===== */
-	window.addEventListener("onEmbeddedMessagingButtonClicked", function () {
-		console.log("[DEBUG] Launcher / pulsante cliccato");
-		chatOpened = true;
-		removeNudge();
-		if (firstTimer) clearTimeout(firstTimer);
-		if (followupTimer) clearTimeout(followupTimer);
-	});
-	/* ===== Evento: chat minimizzata ===== */
-	window.addEventListener("onEmbeddedMessagingWindowMinimized", function () {
-		console.log("[DEBUG] Chat minimizzata");
-		chatOpened = false;
-		if (followupTimer) clearTimeout(followupTimer);
-		followupTimer = setTimeout(() => {
-			console.log("[DEBUG] Timer follow-up scaduto");
-			showNudge("¡Sigue hablándome!  ");
-		}, 30000);
-	});
-})();
+  });
  
-  </script>
+  /* ===== Click sul pulsante della chat ===== */
+  window.addEventListener("onEmbeddedMessagingButtonClicked", function () {
+    console.log("[DEBUG] Launcher / pulsante cliccato");
+    chatOpened = true;
+    removeNudge();
+    if (firstTimer) clearTimeout(firstTimer);
+    if (followupTimer) clearTimeout(followupTimer);
+  });
+ 
+  /* ===== Chat minimizzata ===== */
+  window.addEventListener("onEmbeddedMessagingWindowMinimized", function () {
+    console.log("[DEBUG] Chat minimizzata");
+    chatOpened = false;
+ 
+    const launcher = document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
+    if (launcher) {
+      launcher.style.bottom = "60px";
+      launcher.style.right = "30px";
+    }
+    if (window.embeddedservice_bootstrap?.settings) {
+      window.embeddedservice_bootstrap.settings.chatButtonPosition = '60px, 30px';
+    }
+ 
+    if (followupTimer) clearTimeout(followupTimer);
+    followupTimer = setTimeout(() => {
+      console.log("[DEBUG] Timer follow-up scaduto");
+      showNudge("¡Sigue hablándome!  ");
+    }, 30000);
+  });
+ 
+})();
+</script>
+ 
 <!-- Custom Styles for Embedded Messaging Chat -->
 <style>
 /* =========================================================
    CHAT EMBEDDED – DESKTOP
    ========================================================= */
 .embeddedMessagingFrame {
-	transform: translateY(-80px) !important; /* solleva chat desktop */
-	border-radius: 16px !important;
-	overflow: hidden !important;
+  transform: translateY(-80px) !important;
+  border-radius: 16px !important;
+  overflow: hidden !important;
 }
 .embeddedMessagingHeader {
-	border-top-left-radius: 16px !important;
-	border-top-right-radius: 16px !important;
+  border-top-left-radius: 16px !important;
+  border-top-right-radius: 16px !important;
 }
 .embeddedMessagingConversation {
-	border-bottom-left-radius: 16px !important;
-	border-bottom-right-radius: 16px !important;
+  border-bottom-left-radius: 16px !important;
+  border-bottom-right-radius: 16px !important;
 }
+ 
 /* =========================================================
-   LAUNCHER CHAT – POSIZIONE FISSA (CONTROLLATA DA JS)
+   LAUNCHER CHAT – POSIZIONE FISSA
    ========================================================= */
 .chat-launcher-fixed .embeddedServiceLauncher,
 .chat-launcher-fixed .embeddedServiceSidebarButton {
-	position: fixed !important;
-	bottom: 60px !important; /* posizione finale coerente */
-	right: 30px !important;
-	z-index: 9999 !important;
+  position: fixed !important;
+  bottom: 60px !important;
+  right: 30px !important;
+  z-index: 9999 !important;
 }
+ 
 /* =========================================================
    MOBILE / TABLET
    ========================================================= */
 @media (max-width: 1024px) {
-	.embeddedMessagingFrame {
-		transform: translateY(0) !important;
-		border-radius: 0 !important;
-	}
-	.embeddedMessagingHeader,
-	.embeddedMessagingConversation {
-		border-radius: 0 !important;
-	}
-	.chat-launcher-fixed .embeddedServiceLauncher,
-	.chat-launcher-fixed .embeddedServiceSidebarButton {
-		bottom: 20px !important;
-		right: 20px !important;
-	}
+  .embeddedMessagingFrame {
+    transform: translateY(0) !important;
+    border-radius: 0 !important;
+  }
+  .embeddedMessagingHeader,
+  .embeddedMessagingConversation {
+    border-radius: 0 !important;
+  }
+  .chat-launcher-fixed .embeddedServiceLauncher,
+  .chat-launcher-fixed .embeddedServiceSidebarButton {
+    bottom: 20px !important;
+    right: 20px !important;
+  }
 }
+ 
 /* =========================================================
    NUDGE MESSAGGIO
    ========================================================= */
 .chat-nudge {
-	position: fixed;
-	bottom: 130px; /* allineato sopra il launcher */
-	right: 30px;
-	background: #ffffff;
-	color: #000;
-	padding: 10px 14px 10px 12px;
-	border-radius: 12px;
-	box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-	font-size: 14px;
-	font-weight: 500;
-	z-index: 9999;
-	cursor: pointer;
-	animation: bounce 5s ease-out;
+  position: fixed;
+  bottom: 130px;
+  right: 30px;
+  background: #ffffff;
+  color: #000;
+  padding: 10px 30px 10px 12px; /* spazio a destra per X */
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 9999;
+  cursor: pointer;
+  animation: bounce 5s ease-out;
 }
-/* Animazione bounce (5s poi ferma) */
+ 
+/* Animazione bounce */
 @keyframes bounce {
-	0%   { transform: translateY(0); }
-	20%  { transform: translateY(-6px); }
-	40%  { transform: translateY(0); }
-	60%  { transform: translateY(-3px); }
-	80%  { transform: translateY(0); }
-	100% { transform: translateY(0); }
+  0% { transform: translateY(0); }
+  20% { transform: translateY(-6px); }
+  40% { transform: translateY(0); }
+  60% { transform: translateY(-3px); }
+  80% { transform: translateY(0); }
+  100% { transform: translateY(0); }
 }
+ 
 /* Bottone chiusura X */
 .chat-nudge .close-btn {
-	position: absolute;
-	top: 4px;
-	right: 6px;
-	font-weight: bold;
-	font-size: 14px;
-	color: #666;
-	cursor: pointer;
-	user-select: none;
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-weight: bold;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+  user-select: none;
+  margin-left: 8px; /* distanza dal testo */
 }
 .chat-nudge .close-btn:hover {
-	color: #000;
+  color: #000;
 }
+ 
 /* =========================================================
    NUDGE – MOBILE / TABLET
    ========================================================= */
 @media (max-width: 1024px) {
-	.chat-nudge {
-		bottom: 90px;
-		right: 20px;
-		font-size: 13px;
-	}
+  .chat-nudge {
+    bottom: 90px;
+    right: 20px;
+    font-size: 13px;
+  }
 }
 </style>
 
