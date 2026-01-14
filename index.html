@@ -105,24 +105,11 @@
     }
 	 (function () {
 	let chatOpened = false;
-	let launcherSeen = false;
 	let firstTimer = null;
 	let followupTimer = null;
 	let nudge = null;
  
 	console.log("[DEBUG] Nudge script inizializzato");
- 
-	/* ===== Utils ===== */
-	function getLauncher() {
-		return document.querySelector(
-			".embeddedServiceLauncher, .embeddedServiceSidebarButton"
-		);
-	}
- 
-	function isLauncherVisible() {
-		const launcher = getLauncher();
-		return launcher && launcher.offsetParent !== null;
-	}
  
 	/* ===== Nudge ===== */
 	function showNudge(message) {
@@ -146,7 +133,7 @@
  
 		nudge.onclick = function () {
 			console.log("[DEBUG] Nudge cliccato → apro chat");
-			window.embeddedservice_bootstrap?.open?.();
+			openChat();
 			removeNudge();
 		};
  
@@ -161,47 +148,77 @@
 		}
 	}
  
-	/* ===== Observer launcher ===== */
+	/* ===== Chat control ===== */
+	function openChat() {
+		if (window.embeddedservice_bootstrap?.open) {
+			window.embeddedservice_bootstrap.open();
+			onChatOpened();
+		}
+	}
+ 
+	function onChatOpened() {
+		if (chatOpened) return;
+		chatOpened = true;
+		console.log("[DEBUG] Chat aperta");
+ 
+		removeNudge();
+		if (firstTimer) clearTimeout(firstTimer);
+		if (followupTimer) clearTimeout(followupTimer);
+	}
+ 
+	function onChatClosed() {
+		if (!chatOpened) return;
+		chatOpened = false;
+		console.log("[DEBUG] Chat ridotta");
+ 
+		if (followupTimer) clearTimeout(followupTimer);
+		followupTimer = setTimeout(() => {
+			console.log("[DEBUG] Timer follow-up scaduto");
+			showNudge("Sigue hablándome.");
+		}, 30000);
+	}
+ 
+	/* ===== Hook launcher click ===== */
+	function hookLauncher() {
+		const launcher = document.querySelector(
+			".embeddedServiceLauncher, .embeddedServiceSidebarButton"
+		);
+		if (!launcher) return false;
+ 
+		launcher.addEventListener("click", function () {
+			console.log("[DEBUG] Click launcher → chat aperta");
+			onChatOpened();
+		});
+ 
+		console.log("[DEBUG] Launcher hookato");
+		return true;
+	}
+ 
+	/* ===== Hook minimize button ===== */
+	function hookMinimize() {
+		const minimizeBtn = document.querySelector(
+			'button[title="Minimize"], button[aria-label="Minimize"]'
+		);
+		if (!minimizeBtn) return false;
+ 
+		minimizeBtn.addEventListener("click", function () {
+			console.log("[DEBUG] Click minimize → chat ridotta");
+			onChatClosed();
+		});
+ 
+		console.log("[DEBUG] Minimize hookato");
+		return true;
+	}
+ 
+	/* ===== Observer per hook dinamici ===== */
 	const observer = new MutationObserver(() => {
-		const launcher = getLauncher();
- 
-		/* Launcher non ancora renderizzato → ignora */
-		if (!launcher) return;
- 
-		if (!launcherSeen) {
-			launcherSeen = true;
-			console.log("[DEBUG] Launcher inizializzato");
-			return;
-		}
- 
-		const visible = isLauncherVisible();
- 
-		/* Chat aperta = launcher nascosto */
-		if (!visible && !chatOpened) {
-			chatOpened = true;
-			console.log("[DEBUG] Chat aperta (launcher nascosto)");
- 
-			removeNudge();
-			if (followupTimer) clearTimeout(followupTimer);
-		}
- 
-		/* Chat ridotta = launcher visibile */
-		if (visible && chatOpened) {
-			chatOpened = false;
-			console.log("[DEBUG] Chat ridotta (launcher visibile)");
- 
-			if (followupTimer) clearTimeout(followupTimer);
-			followupTimer = setTimeout(() => {
-				console.log("[DEBUG] Timer follow-up scaduto");
-				showNudge("Sigue hablándome.");
-			}, 30000);
-		}
+		hookLauncher();
+		hookMinimize();
 	});
  
 	observer.observe(document.body, {
 		subtree: true,
-		childList: true,
-		attributes: true
+		childList: true
 	});
  
 	/* ===== Primo accesso ===== */
