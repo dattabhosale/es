@@ -104,17 +104,23 @@
       }
     }
 	 (function () {
-	let chatVisible = false;
+	let chatOpened = false;
 	let firstTimer = null;
 	let followupTimer = null;
 	let nudge = null;
  
 	console.log("[DEBUG] Nudge script inizializzato");
  
-	/* ===== Utility ===== */
-	function isChatVisible() {
-		const frame = document.querySelector("iframe.embeddedMessagingFrame");
-		return !!(frame && frame.offsetParent !== null);
+	/* ===== Utils ===== */
+	function getLauncher() {
+		return document.querySelector(
+			".embeddedServiceLauncher, .embeddedServiceSidebarButton"
+		);
+	}
+ 
+	function isLauncherVisible() {
+		const launcher = getLauncher();
+		return launcher && launcher.offsetParent !== null;
 	}
  
 	/* ===== Nudge ===== */
@@ -139,9 +145,7 @@
  
 		nudge.onclick = function () {
 			console.log("[DEBUG] Nudge cliccato → apro chat");
-			if (window.embeddedservice_bootstrap?.open) {
-				window.embeddedservice_bootstrap.open();
-			}
+			window.embeddedservice_bootstrap?.open?.();
 			removeNudge();
 		};
  
@@ -156,21 +160,23 @@
 		}
 	}
  
-	/* ===== Observer riduzione / apertura chat ===== */
+	/* ===== Observer launcher ===== */
 	const observer = new MutationObserver(() => {
-		const visibleNow = isChatVisible();
+		const launcherVisible = isLauncherVisible();
  
-		if (visibleNow && !chatVisible) {
-			chatVisible = true;
-			console.log("[DEBUG] Chat aperta / visibile");
+		/* Chat aperta = launcher nascosto */
+		if (!launcherVisible && !chatOpened) {
+			chatOpened = true;
+			console.log("[DEBUG] Chat aperta (launcher nascosto)");
  
 			removeNudge();
 			if (followupTimer) clearTimeout(followupTimer);
 		}
  
-		if (!visibleNow && chatVisible) {
-			chatVisible = false;
-			console.log("[DEBUG] Chat ridotta");
+		/* Chat ridotta = launcher visibile */
+		if (launcherVisible && chatOpened) {
+			chatOpened = false;
+			console.log("[DEBUG] Chat ridotta (launcher visibile)");
  
 			if (followupTimer) clearTimeout(followupTimer);
 			followupTimer = setTimeout(() => {
@@ -192,7 +198,7 @@
  
 		if (firstTimer) clearTimeout(firstTimer);
 		firstTimer = setTimeout(() => {
-			if (!chatVisible) {
+			if (!chatOpened) {
 				console.log("[DEBUG] Timer iniziale scaduto");
 				showNudge("¡Habla conmigo!");
 			}
