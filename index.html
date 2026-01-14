@@ -105,6 +105,7 @@
     }
 	 (function () {
 	let chatOpened = false;
+	let launcherSeen = false;
 	let firstTimer = null;
 	let followupTimer = null;
 	let nudge = null;
@@ -162,10 +163,21 @@
  
 	/* ===== Observer launcher ===== */
 	const observer = new MutationObserver(() => {
-		const launcherVisible = isLauncherVisible();
+		const launcher = getLauncher();
+ 
+		/* Launcher non ancora renderizzato → ignora */
+		if (!launcher) return;
+ 
+		if (!launcherSeen) {
+			launcherSeen = true;
+			console.log("[DEBUG] Launcher inizializzato");
+			return;
+		}
+ 
+		const visible = isLauncherVisible();
  
 		/* Chat aperta = launcher nascosto */
-		if (!launcherVisible && !chatOpened) {
+		if (!visible && !chatOpened) {
 			chatOpened = true;
 			console.log("[DEBUG] Chat aperta (launcher nascosto)");
  
@@ -174,7 +186,7 @@
 		}
  
 		/* Chat ridotta = launcher visibile */
-		if (launcherVisible && chatOpened) {
+		if (visible && chatOpened) {
 			chatOpened = false;
 			console.log("[DEBUG] Chat ridotta (launcher visibile)");
  
