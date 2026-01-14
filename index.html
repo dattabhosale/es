@@ -104,134 +104,96 @@
       }
     }
 	 (function () {
-	let chatOpened = false;
-	let nudge = null;
+	let chatVisible = false;
 	let firstTimer = null;
 	let followupTimer = null;
-	let audioCtx = null;
+	let nudge = null;
  
-	console.log("[DEBUG] Script nudge caricato");
+	console.log("[DEBUG] Nudge script inizializzato");
  
-	/* ===== Inizializza AudioContext subito ===== */
-	function initAudio() {
-		if (!audioCtx) {
-			try {
-				audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-				audioCtx.resume();
-				console.log("[DEBUG] AudioContext inizializzato e sbloccato");
-			} catch(e) {
-				console.warn("[DEBUG] AudioContext non supportato", e);
-			}
-		}
-	}
-	initAudio(); // proviamo subito a sbloccare
- 
-	/* ===== Beep standard browser ===== */
-	function playBeep(frequency = 440, duration = 200) {
-		console.log("[DEBUG] playBeep chiamato");
-		if (!audioCtx) {
-			console.warn("[DEBUG] AudioContext non inizializzato");
-			return;
-		}
-		try {
-			const oscillator = audioCtx.createOscillator();
-			const gainNode = audioCtx.createGain();
-			oscillator.connect(gainNode);
-			gainNode.connect(audioCtx.destination);
-			oscillator.type = "sine";
-			oscillator.frequency.value = frequency;
-			gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-			oscillator.start();
-			oscillator.stop(audioCtx.currentTime + duration / 1000);
-			console.log("[DEBUG] beep riprodotto");
-		} catch (e) {
-			console.warn("[DEBUG] Beep non supportato", e);
-		}
+	/* ===== Utility ===== */
+	function isChatVisible() {
+		const frame = document.querySelector("iframe.embeddedMessagingFrame");
+		return !!(frame && frame.offsetParent !== null);
 	}
  
-	/* ===== Mostra Nudge ===== */
+	/* ===== Nudge ===== */
 	function showNudge(message) {
-		console.log("[DEBUG] showNudge chiamato con messaggio:", message);
-		if (nudge) {
-			console.log("[DEBUG] nudge già presente, non creo nuovo");
-			return;
-		}
+		if (nudge) return;
  
-		playBeep();
+		console.log("[DEBUG] Mostro nudge:", message);
  
 		nudge = document.createElement("div");
 		nudge.className = "chat-nudge";
 		nudge.textContent = message;
  
-		// Bottone X
 		const closeBtn = document.createElement("span");
 		closeBtn.className = "close-btn";
 		closeBtn.textContent = "×";
-		closeBtn.addEventListener("click", function(e) {
+		closeBtn.onclick = function (e) {
 			e.stopPropagation();
-			console.log("[DEBUG] Nudge chiuso con X");
 			removeNudge();
-		});
+		};
+ 
 		nudge.appendChild(closeBtn);
  
-		// Click sul nudge apre chat
-		nudge.addEventListener("click", function () {
-			console.log("[DEBUG] Nudge cliccato, apro chat");
-			if (embeddedservice_bootstrap && embeddedservice_bootstrap.open) {
-				embeddedservice_bootstrap.open();
-			} else {
-				console.warn("[DEBUG] embeddedservice_bootstrap.open non disponibile");
+		nudge.onclick = function () {
+			console.log("[DEBUG] Nudge cliccato → apro chat");
+			if (window.embeddedservice_bootstrap?.open) {
+				window.embeddedservice_bootstrap.open();
 			}
 			removeNudge();
-		});
+		};
  
 		document.body.appendChild(nudge);
-		console.log("[DEBUG] Nudge aggiunto al DOM");
 	}
  
 	function removeNudge() {
 		if (nudge) {
 			nudge.remove();
-			console.log("[DEBUG] Nudge rimosso");
 			nudge = null;
+			console.log("[DEBUG] Nudge rimosso");
 		}
 	}
  
-	/* ===== Eventi Embedded Messaging ===== */
-	window.addEventListener("onEmbeddedMessagingConversationOpened", function () {
-		console.log("[DEBUG] Chat aperta");
-		chatOpened = true;
-		removeNudge();
-		if (firstTimer) {
-			clearTimeout(firstTimer);
-			console.log("[DEBUG] Primo timer cancellato");
-		}
-		if (followupTimer) {
-			clearTimeout(followupTimer);
-			console.log("[DEBUG] Followup timer cancellato");
-		}
-	});
+	/* ===== Observer riduzione / apertura chat ===== */
+	const observer = new MutationObserver(() => {
+		const visibleNow = isChatVisible();
  
-	window.addEventListener("onEmbeddedMessagingConversationClosed", function () {
-		console.log("[DEBUG] Chat chiusa");
-		chatOpened = false;
-		removeNudge();
+		if (visibleNow && !chatVisible) {
+			chatVisible = true;
+			console.log("[DEBUG] Chat aperta / visibile");
  
-		if (followupTimer) clearTimeout(followupTimer);
-		followupTimer = setTimeout(function () {
-			console.log("[DEBUG] Followup timer scaduto, chatOpened=", chatOpened);
-			if (!chatOpened) {
+			removeNudge();
+			if (followupTimer) clearTimeout(followupTimer);
+		}
+ 
+		if (!visibleNow && chatVisible) {
+			chatVisible = false;
+			console.log("[DEBUG] Chat ridotta");
+ 
+			if (followupTimer) clearTimeout(followupTimer);
+			followupTimer = setTimeout(() => {
+				console.log("[DEBUG] Timer follow-up scaduto");
 				showNudge("Sigue hablándome.");
-			}
-		}, 30000);
+			}, 30000);
+		}
 	});
  
+	observer.observe(document.body, {
+		subtree: true,
+		childList: true,
+		attributes: true
+	});
+ 
+	/* ===== Primo accesso ===== */
 	window.addEventListener("onEmbeddedMessagingReady", function () {
-		console.log("[DEBUG] onEmbeddedMessagingReady");
+		console.log("[DEBUG] Embedded Messaging ready");
+ 
 		if (firstTimer) clearTimeout(firstTimer);
-		firstTimer = setTimeout(function () {
-			console.log("[DEBUG] Primo timer scaduto, chatOpened=", chatOpened);
-			if (!chatOpened) {
+		firstTimer = setTimeout(() => {
+			if (!chatVisible) {
+				console.log("[DEBUG] Timer iniziale scaduto");
 				showNudge("¡Habla conmigo!");
 			}
 		}, 30000);
