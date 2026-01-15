@@ -157,27 +157,29 @@ function initEmbeddedMessaging() {
   function updateNudgePosition() {
     const launcher = document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
     if (launcher && nudge) {
-      const rect = launcher.getBoundingClientRect();
-      nudge.style.bottom = (window.innerHeight - rect.top + 20) + "px";
+        const rect = launcher.getBoundingClientRect();
+        nudge.style.bottom = (window.innerHeight - rect.top + 20) + "px";
     }
-  }
+}
+ 
+	function forceLauncherPosition() {
+		const launcher = document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
+		if (launcher) {
+			launcher.style.bottom = "60px";
+			launcher.style.right = "30px";
+			updateNudgePosition(); // aggiorna la posizione del nudge sopra il launcher
+		}
+	}
  
   /* ===== Embedded Messaging Ready ===== */
   window.addEventListener("onEmbeddedMessagingReady", function () {
     console.log("[DEBUG] Embedded Messaging ready → forzo launcher");
     document.body.classList.add("chat-launcher-fixed");
- 
+	forceLauncherPosition();
     const launcher = document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
     if (launcher) {
-      launcher.style.bottom = "60px";
-      launcher.style.right = "30px";
- 
-      const observer = new MutationObserver(() => {
-        launcher.style.bottom = "60px";
-        launcher.style.right = "30px";
-        updateNudgePosition();
-      });
-      observer.observe(launcher, { attributes: true, attributeFilter: ["style"] });
+        const observer = new MutationObserver(forceLauncherPosition);
+        observer.observe(launcher, { attributes: true, attributeFilter: ["style"] });
     }
  
     window.addEventListener("resize", updateNudgePosition);
@@ -188,6 +190,7 @@ function initEmbeddedMessaging() {
         showNudge("¡Habla conmigo!  ");
       }
     }, 30000);
+	window.addEventListener("resize", updateNudgePosition);
   });
  
   /* ===== Click sul pulsante della chat ===== */
@@ -203,15 +206,8 @@ function initEmbeddedMessaging() {
   window.addEventListener("onEmbeddedMessagingWindowMinimized", function () {
     console.log("[DEBUG] Chat minimizzata");
     chatOpened = false;
- 
-    const launcher = document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
-    if (launcher) {
-      launcher.style.bottom = "60px";
-      launcher.style.right = "30px";
-    }
-    if (window.embeddedservice_bootstrap?.settings) {
-      window.embeddedservice_bootstrap.settings.chatButtonPosition = '60px, 30px';
-    }
+	forceLauncherPosition();
+
  
     if (followupTimer) clearTimeout(followupTimer);
     followupTimer = setTimeout(() => {
