@@ -323,7 +323,6 @@ function initEmbeddedMessaging() {
 
  
 <style>
-
 /* =========================================================
 
    VARIABILI GLOBALI
@@ -338,6 +337,8 @@ function initEmbeddedMessaging() {
 
   --chat-nudge-offset: 70px;
 
+  --embeddedMessagingHeaderHeight: 60px; /* altezza header chat desktop/mobile */
+
 }
  
 /* =========================================================
@@ -348,7 +349,7 @@ function initEmbeddedMessaging() {
 
 .embeddedMessagingFrame {
 
-  transform: translateY(-80px) !important;
+  transform: translateY(-80px) !important; /* solleva chat desktop */
 
   border-radius: 16px !important;
 
@@ -390,6 +391,8 @@ function initEmbeddedMessaging() {
 
   z-index: 9999 !important;
 
+  transform: translateY(0) !important; /* blocca lo spostamento Salesforce */
+
 }
  
 /* =========================================================
@@ -410,7 +413,7 @@ function initEmbeddedMessaging() {
 
   color: #000;
 
-  padding: 10px 32px 10px 12px;
+  padding: 10px 32px 10px 12px; /* spazio a destra per X */
 
   border-radius: 12px;
 
@@ -428,6 +431,8 @@ function initEmbeddedMessaging() {
 
 }
  
+/* Animazione bounce */
+
 @keyframes bounce {
 
   0% { transform: translateY(0); }
@@ -444,7 +449,7 @@ function initEmbeddedMessaging() {
 
 }
  
-/* Bottone X */
+/* Bottone chiusura X */
 
 .chat-nudge .close-btn {
 
@@ -462,6 +467,8 @@ function initEmbeddedMessaging() {
 
   cursor: pointer;
 
+  margin-left: 8px; /* distanza dal testo */
+
 }
  
 .chat-nudge .close-btn:hover {
@@ -477,34 +484,71 @@ function initEmbeddedMessaging() {
    ========================================================= */
 
 @media (max-width: 1024px) {
+ 
+  /* Launcher */
 
-  :root {
+  .chat-launcher-fixed .embeddedServiceLauncher,
 
-    --chat-launcher-bottom: 20px;
+  .chat-launcher-fixed .embeddedServiceSidebarButton {
 
-    --chat-launcher-right: 20px;
+    bottom: 20px !important;
 
-    --chat-nudge-offset: 60px;
+    right: 20px !important;
+
+    transform: translateY(0) !important;
 
   }
  
+  /* Chat a tutto schermo */
+
   .embeddedMessagingFrame {
+
+    width: 100% !important;
+
+    height: 100vh !important; /* altezza viewport intera */
+
+    top: 0 !important;
+
+    left: 0 !important;
 
     transform: translateY(0) !important;
 
     border-radius: 0 !important;
 
+    overflow: hidden !important;
+
   }
  
-  .embeddedMessagingHeader,
-
-  .embeddedMessagingConversation {
+  .embeddedMessagingHeader {
 
     border-radius: 0 !important;
 
   }
+ 
+  .embeddedMessagingConversation {
+
+    border-radius: 0 !important;
+
+    height: calc(100% - var(--embeddedMessagingHeaderHeight)) !important;
+
+    overflow-y: auto !important;
+
+  }
+ 
+  /* Nudge */
+
+  .chat-nudge {
+
+    bottom: calc(20px + var(--chat-nudge-offset)) !important;
+
+    right: 20px !important;
+
+    font-size: 13px;
+
+  }
 
 }
+
 </style>
  
 
