@@ -93,35 +93,193 @@ function initEmbeddedMessaging() {
       });
     });
  
-    // Posizione iniziale del launcher
+    // Fallback posizione launcher (Salesforce può ignorarla; lasciamo comunque)
     embeddedservice_bootstrap.settings.chatButtonPosition = '60px, 30px';
  
     embeddedservice_bootstrap.init(
       "00DMA000003XnGM",
       "LPM_Leapmotor",
       "https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231",
-      {
-        scrt2URL: "https://leapmotor--dev01.sandbox.my.salesforce-scrt.com",
-      }
+      { scrt2URL: "https://leapmotor--dev01.sandbox.my.salesforce-scrt.com" }
     );
- 
   } catch (err) {
     console.error("Error loading Embedded Messaging: ", err);
   }
 }
  
+// ======================== ENHANCED CONTROL SCRIPT =========================
 (function () {
   let chatOpened = false;
   let firstTimer = null;
   let followupTimer = null;
   let nudge = null;
+  let launcherObserver = null;
+  let bodyObserver = null;
  
-  console.log("[DEBUG] Nudge script inizializzato");
+  console.log("[ESW] Script inizializzato");
  
-  /* ===== Nudge ===== */
+  /* ---------- Helpers sito: header e banner ---------- */
+  function getHeaderEl() {
+    // Permette override via data-esw-header sul body
+    const fromAttr = document.body?.getAttribute?.("data-esw-header");
+    const candidates = (fromAttr ? fromAttr.split(",") : []).map(s => s.trim()).filter(Boolean);
+ 
+    // Selettori comuni per GitHub Pages / landing
+    const defaults = [
+      "header.site-header",
+      "header.navbar",
+      "header#header",
+      "#site-header",
+      "header.header",
+      "header",
+      ".topbar",
+      ".navbar",
+    ];
+ 
+    const list = [...candidates, ...defaults];
+    for (const sel of list) {
+      const el = document.querySelector(sel);
+      if (el) return el;
+    }
+    return null;
+  }
+ 
+  function getBottomBannerEl() {
+    // Se hai un banner sticky inferiore, aggiungi il selettore qui o via data-esw-banner
+    const fromAttr = document.body?.getAttribute?.("data-esw-banner") || "";
+    const candidates = (fromAttr ? fromAttr.split(",") : []).map(s => s.trim()).filter(Boolean);
+ 
+    const defaults = [
+      "#cookie-banner",
+      ".cookie-banner",
+      ".cookieConsentContainer",
+      "#consent-banner",
+      ".sticky-bottom",
+      "footer.sticky-footer",
+    ];
+ 
+    const list = [...candidates, ...defaults];
+    for (const sel of list) {
+      const el = document.querySelector(sel);
+      if (el && isElementVisible(el)) return el;
+    }
+    return null;
+  }
+ 
+  function isElementVisible(el) {
+    const style = window.getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 0 && rect.height > 0;
+  }
+ 
+  function updateHeaderHeightVar() {
+    const header = getHeaderEl();
+    const h = header ? header.offsetHeight : 60; // fallback
+    document.documentElement.style.setProperty("--site-header-height", h + "px");
+    // Debug
+    // console.log("[ESW] header height =", h);
+  }
+ 
+  function updateLauncherBottomForBanner() {
+    // Se c'è un banner sticky in basso, sposta su il launcher
+    const banner = getBottomBannerEl();
+    const base = 60; // default desktop
+    let offset = base;
+ 
+    if (banner) {
+      const rect = banner.getBoundingClientRect();
+      // Se il banner è in vista e tocca il bottom
+      if (rect.height > 0) {
+        offset = Math.max(base, rect.height + 16); // 16px di margine
+      }
+    }
+    document.documentElement.style.setProperty("--chat-launcher-bottom", offset + "px");
+    // Dopo aggiornamento variabile, rilock stile del launcher
+    requestAnimationFrame(() => setTimeout(lockLauncherStyle, 50));
+  }
+ 
+  /* ---------- Selettori ESW ---------- */
+  function getLauncherEl() {
+    return (
+      document.querySelector(".embeddedServiceLauncher") ||
+      document.querySelector(".embeddedServiceSidebarButton") ||
+      document.querySelector('[data-embedded-messaging-launcher]') ||
+      document.querySelector('#embedded-messaging .embeddedMessagingIcon') ||
+      document.querySelector('#embedded-messaging button') ||
+      document.querySelector('button[class*="Launcher"], div[class*="Launcher"]')
+    );
+  }
+ 
+  function getChatFrameEl() {
+    return (
+      document.querySelector(".embeddedMessagingFrame") ||
+      document.querySelector('iframe[data-embedded-messaging-iframe]') ||
+      document.querySelector('iframe[src*="embeddedmessaging"]') ||
+      document.querySelector('iframe[id*="embeddedMessaging"]')
+    );
+  }
+ 
+  /* ---------- Forza posizione launcher ---------- */
+  function lockLauncherStyle() {
+    const launcher = getLauncherEl();
+    if (!launcher) return;
+ 
+    // Prendi i valori correnti dalle CSS vars (adattati ai banner)
+    const cs = getComputedStyle(document.documentElement);
+    const bottom = cs.getPropertyValue("--chat-launcher-bottom").trim() || "60px";
+    const right = cs.getPropertyValue("--chat-launcher-right").trim() || "30px";
+ 
+    launcher.style.position = "fixed";
+    launcher.style.bottom = bottom;
+    launcher.style.right = right;
+    launcher.style.left = "auto";
+    launcher.style.top = "auto";
+    launcher.style.transform = "none";
+    launcher.style.transition = "none";
+    launcher.style.zIndex = "2147483647";
+ 
+    updateNudgePosition();
+  }
+ 
+  function observeLauncher() {
+    if (launcherObserver) {
+      launcherObserver.disconnect();
+      launcherObserver = null;
+    }
+    const launcher = getLauncherEl();
+    if (!launcher) return;
+ 
+    launcherObserver = new MutationObserver(() => {
+      // Qualsiasi variazione di stile/classe → riapplica il lock
+      lockLauncherStyle();
+    });
+    launcherObserver.observe(launcher, { attributes: true, attributeFilter: ["style", "class"] });
+  }
+ 
+  function observeBodyForLauncher() {
+    if (bodyObserver) {
+      bodyObserver.disconnect();
+      bodyObserver = null;
+    }
+    bodyObserver = new MutationObserver(() => {
+      if (getLauncherEl()) {
+        lockLauncherStyle();
+        observeLauncher();
+      }
+      // Controlla anche banner dinamici
+      updateLauncherBottomForBanner();
+    });
+    bodyObserver.observe(document.body, { childList: true, subtree: true });
+  }
+ 
+  function rafThenTimeout(fn, delay = 0) {
+    requestAnimationFrame(() => setTimeout(fn, delay));
+  }
+ 
+  /* ---------- Nudge ---------- */
   function showNudge(message) {
     if (nudge) return;
-    console.log("[DEBUG] Mostro nudge:", message);
  
     nudge = document.createElement("div");
     nudge.className = "chat-nudge";
@@ -130,14 +288,13 @@ function initEmbeddedMessaging() {
     const closeBtn = document.createElement("span");
     closeBtn.className = "close-btn";
     closeBtn.textContent = "×";
-    closeBtn.onclick = function(e) {
+    closeBtn.onclick = function (e) {
       e.stopPropagation();
       removeNudge();
     };
     nudge.appendChild(closeBtn);
  
     nudge.onclick = function () {
-      console.log("[DEBUG] Nudge cliccato → apro chat");
       window.embeddedservice_bootstrap?.open?.();
       removeNudge();
     };
@@ -150,77 +307,93 @@ function initEmbeddedMessaging() {
     if (nudge) {
       nudge.remove();
       nudge = null;
-      console.log("[DEBUG] Nudge rimosso");
     }
   }
  
   function updateNudgePosition() {
-    const launcher = document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
+    const launcher = getLauncherEl();
     if (launcher && nudge) {
       const rect = launcher.getBoundingClientRect();
-      nudge.style.bottom = (window.innerHeight - rect.top + 20) + "px";
+      const bottom = Math.max(0, window.innerHeight - rect.top + 20);
+      nudge.style.bottom = bottom + "px";
     }
   }
  
-  function forceLauncherPosition() {
-    const launcher = document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
-    if (launcher) {
-      launcher.style.bottom = "60px";
-      launcher.style.right = "30px";
-      launcher.style.transform = "translateY(0)";
-      launcher.style.transition = "none"; // blocca animazioni Salesforce
-      updateNudgePosition();
-    }
-    if (window.embeddedservice_bootstrap?.settings) {
-      window.embeddedservice_bootstrap.settings.chatButtonPosition = '60px, 30px';
-    }
-  }
- 
-  /* ===== Embedded Messaging Ready ===== */
+  /* ---------- Eventi Embedded Messaging ---------- */
   window.addEventListener("onEmbeddedMessagingReady", function () {
-    console.log("[DEBUG] Embedded Messaging ready → forzo launcher");
     document.body.classList.add("chat-launcher-fixed");
-    forceLauncherPosition();
  
-    const launcher = document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
-    if (launcher) {
-      const observer = new MutationObserver(forceLauncherPosition);
-      observer.observe(launcher, { attributes: true, attributeFilter: ["style"] });
-    }
+    updateHeaderHeightVar();
+    updateLauncherBottomForBanner();
  
-    window.addEventListener("resize", updateNudgePosition);
+    // Blocca subito (e in più step per superare animazioni)
+    lockLauncherStyle();
+    observeLauncher();
+    observeBodyForLauncher();
+    rafThenTimeout(lockLauncherStyle, 50);
+    rafThenTimeout(lockLauncherStyle, 200);
+    rafThenTimeout(lockLauncherStyle, 400);
  
+    window.addEventListener("resize", () => {
+      updateHeaderHeightVar();
+      updateLauncherBottomForBanner();
+      updateNudgePosition();
+      rafThenTimeout(lockLauncherStyle, 50);
+    });
+ 
+    // Nudge iniziale
     if (firstTimer) clearTimeout(firstTimer);
     firstTimer = setTimeout(() => {
       if (!chatOpened) {
-        showNudge("¡Habla conmigo!  ");
+        showNudge("¡Habla conmigo!");
       }
     }, 30000);
   });
  
-  /* ===== Click sul pulsante della chat ===== */
   window.addEventListener("onEmbeddedMessagingButtonClicked", function () {
-    console.log("[DEBUG] Launcher / pulsante cliccato");
     chatOpened = true;
     removeNudge();
     if (firstTimer) clearTimeout(firstTimer);
     if (followupTimer) clearTimeout(followupTimer);
   });
  
-  /* ===== Chat minimizzata ===== */
-  window.addEventListener("onEmbeddedMessagingWindowMinimized", function () {
-    console.log("[DEBUG] Chat minimizzata");
-    chatOpened = false;
+  window.addEventListener("onEmbeddedMessagingWindowOpened", function () {
+    chatOpened = true;
+    document.body.classList.add("esw-open");
+    updateHeaderHeightVar();
+    updateLauncherBottomForBanner();
  
-    // Forza posizione launcher dopo minimizzazione con piccolo delay
-    setTimeout(forceLauncherPosition, 50);
+    rafThenTimeout(lockLauncherStyle, 50);
+    rafThenTimeout(lockLauncherStyle, 200);
+  });
+ 
+  window.addEventListener("onEmbeddedMessagingWindowMinimized", function () {
+    chatOpened = false;
+    document.body.classList.remove("esw-open");
+ 
+    rafThenTimeout(lockLauncherStyle, 50);
+    rafThenTimeout(lockLauncherStyle, 200);
  
     if (followupTimer) clearTimeout(followupTimer);
     followupTimer = setTimeout(() => {
-      showNudge("¡Sigue hablándome!  ");
+      showNudge("¡Sigue hablándome!");
     }, 30000);
   });
  
+  window.addEventListener("onEmbeddedMessagingWindowClosed", function () {
+    document.body.classList.remove("esw-open");
+    chatOpened = false;
+    rafThenTimeout(lockLauncherStyle, 50);
+  });
+ 
+  window.addEventListener("orientationchange", () => {
+    updateHeaderHeightVar();
+    updateLauncherBottomForBanner();
+    rafThenTimeout(() => {
+      updateNudgePosition();
+      lockLauncherStyle();
+    }, 100);
+  });
 })();
 </script>
  
@@ -230,14 +403,12 @@ function initEmbeddedMessaging() {
   --chat-launcher-bottom: 60px;
   --chat-launcher-right: 30px;
   --chat-nudge-offset: 70px;
-  --chat-header-height: 60px; /* altezza header chat su mobile */
+  --chat-header-height: 60px; /* fallback */
+  --site-header-height: 60px; /* calcolata via JS */
 }
  
-/* =========================================================
-   CHAT EMBEDDED – DESKTOP
-   ========================================================= */
+/* ========== DESKTOP: nessuna trasformazione sul frame (evita “salti”) ========== */
 .embeddedMessagingFrame {
-  transform: translateY(-80px) !important;
   border-radius: 16px !important;
   overflow: hidden !important;
 }
@@ -250,21 +421,22 @@ function initEmbeddedMessaging() {
   border-bottom-right-radius: 16px !important;
 }
  
-/* =========================================================
-   LAUNCHER – POSIZIONE BLOCCATA
-   ========================================================= */
+/* ========== LAUNCHER BLOCCATO ========== */
 .chat-launcher-fixed .embeddedServiceLauncher,
-.chat-launcher-fixed .embeddedServiceSidebarButton {
+.chat-launcher-fixed .embeddedServiceSidebarButton,
+.chat-launcher-fixed #embedded-messaging .embeddedMessagingIcon,
+.chat-launcher-fixed button[class*="Launcher"],
+.chat-launcher-fixed div[class*="Launcher"] {
   position: fixed !important;
   bottom: var(--chat-launcher-bottom) !important;
   right: var(--chat-launcher-right) !important;
-  z-index: 9999 !important;
-  transform: translateY(0) !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  z-index: 2147483647 !important;
 }
  
-/* =========================================================
-   NUDGE
-   ========================================================= */
+/* ========== NUDGE ========== */
 .chat-nudge {
   position: fixed;
   bottom: calc(var(--chat-launcher-bottom) + var(--chat-nudge-offset));
@@ -276,11 +448,10 @@ function initEmbeddedMessaging() {
   box-shadow: 0 6px 20px rgba(0,0,0,0.15);
   font-size: 14px;
   font-weight: 500;
-  z-index: 9999;
+  z-index: 2147483646;
   cursor: pointer;
   animation: bounce 5s ease-out;
 }
- 
 @keyframes bounce {
   0% { transform: translateY(0); }
   20% { transform: translateY(-6px); }
@@ -289,7 +460,6 @@ function initEmbeddedMessaging() {
   80% { transform: translateY(0); }
   100% { transform: translateY(0); }
 }
- 
 .chat-nudge .close-btn {
   position: absolute;
   top: 4px;
@@ -302,25 +472,31 @@ function initEmbeddedMessaging() {
 }
 .chat-nudge .close-btn:hover { color: #000; }
  
-/* =========================================================
-   MOBILE / TABLET
-   ========================================================= */
+/* ========== MOBILE/TABLET: full screen sotto l’header del sito ========== */
 @media (max-width: 1024px) {
-  .embeddedMessagingFrame {
-    top: var(--chat-header-height) !important;
-    bottom: 0 !important;
-    right: 0 !important;
+  body.esw-open { overflow: hidden; }
+ 
+  .esw-open .embeddedMessagingFrame,
+  .esw-open iframe[data-embedded-messaging-iframe] {
+    position: fixed !important;
+    top: var(--site-header-height, var(--chat-header-height)) !important;
     left: 0 !important;
+    right: 0 !important;
     width: 100% !important;
-    height: calc(100% - var(--chat-header-height)) !important;
+    height: calc(100dvh - var(--site-header-height, var(--chat-header-height))) !important;
+    bottom: 0 !important;
     border-radius: 0 !important;
+    z-index: 2147483645 !important;
   }
  
   .chat-launcher-fixed .embeddedServiceLauncher,
-  .chat-launcher-fixed .embeddedServiceSidebarButton {
+  .chat-launcher-fixed .embeddedServiceSidebarButton,
+  .chat-launcher-fixed #embedded-messaging .embeddedMessagingIcon,
+  .chat-launcher-fixed button[class*="Launcher"],
+  .chat-launcher-fixed div[class*="Launcher"] {
     bottom: 20px !important;
     right: 20px !important;
-    transform: translateY(0) !important;
+    transform: none !important;
   }
  
   .chat-nudge {
