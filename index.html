@@ -102,9 +102,9 @@ function initEmbeddedMessaging() {
 
     });
  
-    // Posizione iniziale (serve solo al primo render)
+    // Posizione iniziale del launcher
 
-    embeddedservice_bootstrap.settings.chatButtonPosition = "60px, 30px";
+    embeddedservice_bootstrap.settings.chatButtonPosition = '60px, 30px';
  
     embeddedservice_bootstrap.init(
 
@@ -121,7 +121,7 @@ function initEmbeddedMessaging() {
       }
 
     );
-
+ 
   } catch (err) {
 
     console.error("Error loading Embedded Messaging: ", err);
@@ -140,11 +140,15 @@ function initEmbeddedMessaging() {
 
   let nudge = null;
  
+  console.log("[DEBUG] Nudge script inizializzato");
+ 
   /* ===== Nudge ===== */
 
   function showNudge(message) {
 
     if (nudge) return;
+
+    console.log("[DEBUG] Mostro nudge:", message);
  
     nudge = document.createElement("div");
 
@@ -158,17 +162,19 @@ function initEmbeddedMessaging() {
 
     closeBtn.textContent = "×";
 
-    closeBtn.onclick = function (e) {
+    closeBtn.onclick = function(e) {
 
       e.stopPropagation();
 
       removeNudge();
 
     };
- 
+
     nudge.appendChild(closeBtn);
  
     nudge.onclick = function () {
+
+      console.log("[DEBUG] Nudge cliccato → apro chat");
 
       window.embeddedservice_bootstrap?.open?.();
 
@@ -177,6 +183,8 @@ function initEmbeddedMessaging() {
     };
  
     document.body.appendChild(nudge);
+
+    updateNudgePosition();
 
   }
  
@@ -188,6 +196,50 @@ function initEmbeddedMessaging() {
 
       nudge = null;
 
+      console.log("[DEBUG] Nudge rimosso");
+
+    }
+
+  }
+ 
+  function updateNudgePosition() {
+
+    const launcher = document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
+
+    if (launcher && nudge) {
+
+      const rect = launcher.getBoundingClientRect();
+
+      nudge.style.bottom = (window.innerHeight - rect.top + 20) + "px";
+
+    }
+
+  }
+ 
+  /* ===== Forza sempre la posizione del launcher ===== */
+
+  function forceLauncherPosition() {
+
+    const launcher = document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
+
+    if (launcher) {
+
+      launcher.style.bottom = "60px";
+
+      launcher.style.right = "30px";
+
+      launcher.style.transform = "translateY(0)"; // blocca qualsiasi spostamento
+
+      updateNudgePosition();
+
+    }
+
+    // Aggiorna anche la proprietà di Salesforce
+
+    if (window.embeddedservice_bootstrap?.settings) {
+
+      window.embeddedservice_bootstrap.settings.chatButtonPosition = '60px, 30px';
+
     }
 
   }
@@ -196,7 +248,23 @@ function initEmbeddedMessaging() {
 
   window.addEventListener("onEmbeddedMessagingReady", function () {
 
+    console.log("[DEBUG] Embedded Messaging ready → forzo launcher");
+
     document.body.classList.add("chat-launcher-fixed");
+ 
+    forceLauncherPosition();
+ 
+    const launcher = document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
+
+    if (launcher) {
+
+      const observer = new MutationObserver(forceLauncherPosition);
+
+      observer.observe(launcher, { attributes: true, attributeFilter: ["style"] });
+
+    }
+ 
+    window.addEventListener("resize", updateNudgePosition);
  
     if (firstTimer) clearTimeout(firstTimer);
 
@@ -204,7 +272,7 @@ function initEmbeddedMessaging() {
 
       if (!chatOpened) {
 
-        showNudge("¡Habla conmigo!");
+        showNudge("¡Habla conmigo!  ");
 
       }
 
@@ -212,17 +280,19 @@ function initEmbeddedMessaging() {
 
   });
  
-  /* ===== Click sul pulsante ===== */
+  /* ===== Click sul pulsante della chat ===== */
 
   window.addEventListener("onEmbeddedMessagingButtonClicked", function () {
+
+    console.log("[DEBUG] Launcher / pulsante cliccato");
 
     chatOpened = true;
 
     removeNudge();
 
-    clearTimeout(firstTimer);
+    if (firstTimer) clearTimeout(firstTimer);
 
-    clearTimeout(followupTimer);
+    if (followupTimer) clearTimeout(followupTimer);
 
   });
  
@@ -230,20 +300,27 @@ function initEmbeddedMessaging() {
 
   window.addEventListener("onEmbeddedMessagingWindowMinimized", function () {
 
+    console.log("[DEBUG] Chat minimizzata");
+
     chatOpened = false;
  
-    clearTimeout(followupTimer);
+    forceLauncherPosition(); // blocca il launcher alla stessa posizione iniziale
+ 
+    if (followupTimer) clearTimeout(followupTimer);
 
     followupTimer = setTimeout(() => {
 
-      showNudge("¡Sigue hablándome!");
+      console.log("[DEBUG] Timer follow-up scaduto");
+
+      showNudge("¡Sigue hablándome!  ");
 
     }, 30000);
 
   });
-
+ 
 })();
 </script>
+
  
 <style>
 
