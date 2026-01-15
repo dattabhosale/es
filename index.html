@@ -79,7 +79,6 @@
     </div>
   </footer>
   <!-- Salesforce Embedded Messaging Script -->
-<!-- Salesforce Embedded Messaging Script + Custom Styles -->
 <script type="text/javascript">
 function initEmbeddedMessaging() {
   try {
@@ -93,16 +92,13 @@ function initEmbeddedMessaging() {
       });
     });
  
-    // Posizione iniziale del launcher
     embeddedservice_bootstrap.settings.chatButtonPosition = '60px, 30px';
  
     embeddedservice_bootstrap.init(
       "00DMA000003XnGM",
       "LPM_Leapmotor",
       "https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231",
-      {
-        scrt2URL: "https://leapmotor--dev01.sandbox.my.salesforce-scrt.com",
-      }
+      { scrt2URL: "https://leapmotor--dev01.sandbox.my.salesforce-scrt.com" }
     );
  
   } catch (err) {
@@ -110,45 +106,28 @@ function initEmbeddedMessaging() {
   }
 }
  
-(function () {
+(function() {
   let chatOpened = false;
   let firstTimer = null;
   let followupTimer = null;
   let nudge = null;
  
-  console.log("[DEBUG] Nudge script inizializzato");
- 
-  /* ===== Nudge ===== */
   function showNudge(message) {
     if (nudge) return;
     nudge = document.createElement("div");
     nudge.className = "chat-nudge";
     nudge.textContent = message;
- 
     const closeBtn = document.createElement("span");
     closeBtn.className = "close-btn";
     closeBtn.textContent = "×";
-    closeBtn.onclick = function(e) {
-      e.stopPropagation();
-      removeNudge();
-    };
+    closeBtn.onclick = e => { e.stopPropagation(); removeNudge(); };
     nudge.appendChild(closeBtn);
- 
-    nudge.onclick = function () {
-      window.embeddedservice_bootstrap?.open?.();
-      removeNudge();
-    };
- 
+    nudge.onclick = () => { window.embeddedservice_bootstrap?.open?.(); removeNudge(); };
     document.body.appendChild(nudge);
     updateNudgePosition();
   }
  
-  function removeNudge() {
-    if (nudge) {
-      nudge.remove();
-      nudge = null;
-    }
-  }
+  function removeNudge() { if (nudge) { nudge.remove(); nudge = null; } }
  
   function updateNudgePosition() {
     const launcher = document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
@@ -171,46 +150,34 @@ function initEmbeddedMessaging() {
     }
   }
  
-  /* ===== Embedded Messaging Ready ===== */
-  window.addEventListener("onEmbeddedMessagingReady", function () {
+  window.addEventListener("onEmbeddedMessagingReady", () => {
     document.body.classList.add("chat-launcher-fixed");
     forceLauncherPosition();
  
     const launcher = document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
     if (launcher) {
       const observer = new MutationObserver(forceLauncherPosition);
-      observer.observe(launcher, { attributes: true, attributeFilter: ["style"] });
+      observer.observe(launcher, { attributes: true, attributeFilter: ["style","class"] });
     }
  
-    window.addEventListener("resize", updateNudgePosition);
- 
     if (firstTimer) clearTimeout(firstTimer);
-    firstTimer = setTimeout(() => {
-      if (!chatOpened) {
-        showNudge("¡Habla conmigo!  ");
-      }
-    }, 30000);
+    firstTimer = setTimeout(() => { if (!chatOpened) showNudge("¡Habla conmigo!"); }, 30000);
+    window.addEventListener("resize", updateNudgePosition);
   });
  
-  /* ===== Click sul pulsante della chat ===== */
-  window.addEventListener("onEmbeddedMessagingButtonClicked", function () {
+  window.addEventListener("onEmbeddedMessagingButtonClicked", () => {
     chatOpened = true;
     removeNudge();
     if (firstTimer) clearTimeout(firstTimer);
     if (followupTimer) clearTimeout(followupTimer);
   });
  
-  /* ===== Chat minimizzata ===== */
-  window.addEventListener("onEmbeddedMessagingWindowMinimized", function () {
+  window.addEventListener("onEmbeddedMessagingWindowMinimized", () => {
     chatOpened = false;
- 
-    // Forza la posizione con piccolo delay per sovrascrivere Salesforce
-    setTimeout(forceLauncherPosition, 50);
- 
+    // Forza la posizione più volte con delay per bypassare il ricalcolo di Salesforce
+    [0, 50, 100].forEach(delay => setTimeout(forceLauncherPosition, delay));
     if (followupTimer) clearTimeout(followupTimer);
-    followupTimer = setTimeout(() => {
-      showNudge("¡Sigue hablándome!  ");
-    }, 30000);
+    followupTimer = setTimeout(() => showNudge("¡Sigue hablándome!"), 30000);
   });
 })();
 </script>
@@ -222,20 +189,10 @@ function initEmbeddedMessaging() {
   --chat-nudge-offset: 70px;
 }
  
-/* Chat embedded desktop */
-.embeddedMessagingFrame {
-  transform: translateY(-80px) !important;
-  border-radius: 16px !important;
-  overflow: hidden !important;
-}
-.embeddedMessagingHeader {
-  border-top-left-radius: 16px !important;
-  border-top-right-radius: 16px !important;
-}
-.embeddedMessagingConversation {
-  border-bottom-left-radius: 16px !important;
-  border-bottom-right-radius: 16px !important;
-}
+/* Chat desktop */
+.embeddedMessagingFrame { transform: translateY(-80px) !important; border-radius: 16px !important; overflow: hidden !important; }
+.embeddedMessagingHeader { border-top-left-radius: 16px !important; border-top-right-radius: 16px !important; }
+.embeddedMessagingConversation { border-bottom-left-radius: 16px !important; border-bottom-right-radius: 16px !important; }
  
 /* Launcher bloccato */
 .chat-launcher-fixed .embeddedServiceLauncher,
@@ -263,26 +220,10 @@ function initEmbeddedMessaging() {
   cursor: pointer;
   animation: bounce 5s ease-out;
 }
-.chat-nudge .close-btn {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  font-weight: bold;
-  font-size: 14px;
-  color: #666;
-  cursor: pointer;
-  margin-left: 8px;
-}
+.chat-nudge .close-btn { position: absolute; top: 4px; right: 6px; font-weight: bold; font-size: 14px; color: #666; cursor: pointer; margin-left: 8px; }
 .chat-nudge .close-btn:hover { color: #000; }
  
-@keyframes bounce {
-  0% { transform: translateY(0); }
-  20% { transform: translateY(-6px); }
-  40% { transform: translateY(0); }
-  60% { transform: translateY(-3px); }
-  80% { transform: translateY(0); }
-  100% { transform: translateY(0); }
-}
+@keyframes bounce {0%{transform:translateY(0);}20%{transform:translateY(-6px);}40%{transform:translateY(0);}60%{transform:translateY(-3px);}80%{transform:translateY(0);}100%{transform:translateY(0);}}
  
 /* Mobile / tablet */
 @media (max-width: 1024px) {
@@ -293,12 +234,10 @@ function initEmbeddedMessaging() {
     top: 0 !important;
     left: 0 !important;
     width: 100% !important;
-    height: 100% !important;
-    max-height: 100% !important;
+    height: calc(100% - 60px) !important; /* lascia header visibile */
+    max-height: calc(100% - 60px) !important;
   }
-  .embeddedMessagingHeader {
-    border-radius: 0 !important;
-  }
+  .embeddedMessagingHeader { border-radius: 0 !important; }
   .chat-launcher-fixed .embeddedServiceLauncher,
   .chat-launcher-fixed .embeddedServiceSidebarButton {
     bottom: 20px !important;
