@@ -93,7 +93,7 @@ function initEmbeddedMessaging() {
       });
     });
  
-    // Fallback posizione launcher (Salesforce può ignorarla; lasciamo comunque)
+    // Fallback posizione launcher (Salesforce può ignorarla; la manteniamo)
     embeddedservice_bootstrap.settings.chatButtonPosition = '60px, 30px';
  
     embeddedservice_bootstrap.init(
@@ -115,27 +115,21 @@ function initEmbeddedMessaging() {
   let nudge = null;
   let launcherObserver = null;
   let bodyObserver = null;
+  let containerObserver = null;
  
-  console.log("[ESW] Script inizializzato");
+  // Watcher di visibilità/minimizzazione (migliorato)
+  let visInterval = null;
+  let lastMinimizedState = null;
  
   /* ---------- Helpers sito: header e banner ---------- */
   function getHeaderEl() {
-    // Permette override via data-esw-header sul body
     const fromAttr = document.body?.getAttribute?.("data-esw-header");
     const candidates = (fromAttr ? fromAttr.split(",") : []).map(s => s.trim()).filter(Boolean);
  
-    // Selettori comuni per GitHub Pages / landing
     const defaults = [
-      "header.site-header",
-      "header.navbar",
-      "header#header",
-      "#site-header",
-      "header.header",
-      "header",
-      ".topbar",
-      ".navbar",
+      "header.site-header","header.navbar","header#header","#site-header",
+      "header.header","header",".topbar",".navbar",
     ];
- 
     const list = [...candidates, ...defaults];
     for (const sel of list) {
       const el = document.querySelector(sel);
@@ -145,19 +139,12 @@ function initEmbeddedMessaging() {
   }
  
   function getBottomBannerEl() {
-    // Se hai un banner sticky inferiore, aggiungi il selettore qui o via data-esw-banner
     const fromAttr = document.body?.getAttribute?.("data-esw-banner") || "";
     const candidates = (fromAttr ? fromAttr.split(",") : []).map(s => s.trim()).filter(Boolean);
- 
     const defaults = [
-      "#cookie-banner",
-      ".cookie-banner",
-      ".cookieConsentContainer",
-      "#consent-banner",
-      ".sticky-bottom",
-      "footer.sticky-footer",
+      "#cookie-banner",".cookie-banner",".cookieConsentContainer",
+      "#consent-banner",".sticky-bottom","footer.sticky-footer",
     ];
- 
     const list = [...candidates, ...defaults];
     for (const sel of list) {
       const el = document.querySelector(sel);
@@ -175,27 +162,22 @@ function initEmbeddedMessaging() {
  
   function updateHeaderHeightVar() {
     const header = getHeaderEl();
-    const h = header ? header.offsetHeight : 60; // fallback
+    const h = header ? header.offsetHeight : 60;
     document.documentElement.style.setProperty("--site-header-height", h + "px");
-    // Debug
-    // console.log("[ESW] header height =", h);
   }
  
   function updateLauncherBottomForBanner() {
-    // Se c'è un banner sticky in basso, sposta su il launcher
     const banner = getBottomBannerEl();
-    const base = 60; // default desktop
+    const base = 60; // default launcher
     let offset = base;
  
     if (banner) {
       const rect = banner.getBoundingClientRect();
-      // Se il banner è in vista e tocca il bottom
       if (rect.height > 0) {
-        offset = Math.max(base, rect.height + 16); // 16px di margine
+        offset = Math.max(base, rect.height + 16);
       }
     }
     document.documentElement.style.setProperty("--chat-launcher-bottom", offset + "px");
-    // Dopo aggiornamento variabile, rilock stile del launcher
     requestAnimationFrame(() => setTimeout(lockLauncherStyle, 50));
   }
  
@@ -211,6 +193,16 @@ function initEmbeddedMessaging() {
     );
   }
  
+  // Container root di Embedded Messaging (quello che va sollevato di 40px)
+  function getChatContainerEl() {
+    return (
+      document.querySelector("#embedded-messaging") ||
+      document.querySelector('[data-embedded-messaging-root]') ||
+      document.querySelector('div[id*="embeddedMessaging"], div[class*="embeddedMessaging"]')
+    );
+  }
+ 
+  // iFrame della conversazione (spesso dentro il container)
   function getChatFrameEl() {
     return (
       document.querySelector(".embeddedMessagingFrame") ||
@@ -220,12 +212,11 @@ function initEmbeddedMessaging() {
     );
   }
  
-  /* ---------- Forza posizione launcher ---------- */
+  /* ---------- Spostamento e lock: launcher + container ---------- */
   function lockLauncherStyle() {
     const launcher = getLauncherEl();
     if (!launcher) return;
  
-    // Prendi i valori correnti dalle CSS vars (adattati ai banner)
     const cs = getComputedStyle(document.documentElement);
     const bottom = cs.getPropertyValue("--chat-launcher-bottom").trim() || "60px";
     const right = cs.getPropertyValue("--chat-launcher-right").trim() || "30px";
@@ -242,33 +233,64 @@ function initEmbeddedMessaging() {
     updateNudgePosition();
   }
  
+  // **NUOVO**: sposta il CONTAINER root a 40px dal fondo su desktop
+  function lockContainerStyle() {
+    const container = getChatContainerEl();
+    if (!container) return;
+ 
+    // Solleva di 40px dal fondo solo su desktop; su mobile lo gestiamo full-screen
+    const gap = getComputedStyle(document.documentElement)
+      .getPropertyValue("--chat-frame-bottom-gap").trim() || "40px";
+ 
+    const rightGap = getComputedStyle(document.documentElement)
+      .getPropertyValue("--chat-frame-right-gap").trim() || "30px";
+ 
+    // Il container spesso è already fixed; imponiamo la nostra posizione
+    container.style.position = "fixed";
+    container.style.bottom = gap;
+    container.style.right = rightGap;
+    container.style.left = "auto";
+    container.style.top = "auto";
+    container.style.zIndex = "2147483645"; // sotto il launcher
+  }
+ 
   function observeLauncher() {
-    if (launcherObserver) {
-      launcherObserver.disconnect();
-      launcherObserver = null;
-    }
+    if (launcherObserver) { launcherObserver.disconnect(); launcherObserver = null; }
     const launcher = getLauncherEl();
     if (!launcher) return;
  
     launcherObserver = new MutationObserver(() => {
-      // Qualsiasi variazione di stile/classe → riapplica il lock
       lockLauncherStyle();
     });
-    launcherObserver.observe(launcher, { attributes: true, attributeFilter: ["style", "class"] });
+    launcherObserver.observe(launcher, { attributes: true, attributeFilter: ["style", "class", "aria-pressed", "aria-expanded"] });
+ 
+    // Intercetta anche i click sul launcher per capire toggle open/minimize
+    launcher.addEventListener("click", onLauncherClick, { capture: true });
   }
  
-  function observeBodyForLauncher() {
-    if (bodyObserver) {
-      bodyObserver.disconnect();
-      bodyObserver = null;
-    }
+  // **NUOVO**: osserva il CONTAINER per reimporre il bottom 40px
+  function observeContainer() {
+    if (containerObserver) { containerObserver.disconnect(); containerObserver = null; }
+    const container = getChatContainerEl();
+    if (!container) return;
+    containerObserver = new MutationObserver(() => {
+      lockContainerStyle();
+    });
+    containerObserver.observe(container, { attributes: true, attributeFilter: ["style", "class"] });
+  }
+ 
+  function observeBodyForReattach() {
+    if (bodyObserver) { bodyObserver.disconnect(); bodyObserver = null; }
     bodyObserver = new MutationObserver(() => {
+      // Se Salesforce ricrea elementi, rilock
       if (getLauncherEl()) {
         lockLauncherStyle();
         observeLauncher();
       }
-      // Controlla anche banner dinamici
-      updateLauncherBottomForBanner();
+      if (getChatContainerEl()) {
+        lockContainerStyle();
+        observeContainer();
+      }
     });
     bodyObserver.observe(document.body, { childList: true, subtree: true });
   }
@@ -319,6 +341,101 @@ function initEmbeddedMessaging() {
     }
   }
  
+  /* ---------- Rilevazione minimizzazione robusta ---------- */
+  function isMinimizedHeuristic() {
+    // Heuristics combinate su container e frame
+    const container = getChatContainerEl();
+    const frame = getChatFrameEl();
+ 
+    let minimized = false;
+ 
+    if (container) {
+      const cr = container.getBoundingClientRect();
+      const cs = getComputedStyle(container);
+      // se il container è visibile ma con altezza molto bassa o è “nascosto”
+      if (cs.display === "none" || cs.visibility === "hidden") minimized = true;
+      if (cr.height <= 80) minimized = true; // molte UIs riducono a un launcher/mini
+      // se è a bottom pieno (0) quando dovrebbe essere > 0 in desktop, lo consideriamo minimizzato
+      const desiredGap = parseInt((getComputedStyle(document.documentElement).getPropertyValue("--chat-frame-bottom-gap") || "40").replace("px",""), 10);
+      const bottomIsZero = Math.abs((window.innerHeight - cr.bottom)) < 2; // attaccato al fondo
+      if (bottomIsZero && desiredGap >= 40) minimized = true;
+    }
+ 
+    if (frame && !minimized) {
+      const fr = frame.getBoundingClientRect();
+      const fs = getComputedStyle(frame);
+      if (fs.display === "none" || fs.visibility === "hidden") minimized = true;
+      if (fr.height <= 80) minimized = true;
+    }
+ 
+    return minimized;
+  }
+ 
+  function triggerMinimizedFlow() {
+    // logica unica per minimizzazione (evento o heuristic)
+    chatOpened = false;
+    document.body.classList.remove("esw-open");
+ 
+    rafThenTimeout(lockLauncherStyle, 50);
+    rafThenTimeout(() => { lockLauncherStyle(); lockContainerStyle(); }, 200);
+ 
+    if (followupTimer) clearTimeout(followupTimer);
+    followupTimer = setTimeout(() => {
+      showNudge("¡Sigue hablándome!");
+    }, 30000);
+  }
+ 
+  function startVisibilityWatcher() {
+    if (visInterval) clearInterval(visInterval);
+    lastMinimizedState = isMinimizedHeuristic();
+    visInterval = setInterval(() => {
+      const nowMin = isMinimizedHeuristic();
+      if (lastMinimizedState !== nowMin) {
+        // Transizione di stato
+        if (nowMin) {
+          // appena minimizzato
+          triggerMinimizedFlow();
+        } else {
+          // appena espanso
+          chatOpened = true;
+          document.body.classList.add("esw-open");
+          removeNudge();
+        }
+      }
+      lastMinimizedState = nowMin;
+    }, 700);
+  }
+ 
+  function stopVisibilityWatcher() {
+    if (visInterval) {
+      clearInterval(visInterval);
+      visInterval = null;
+    }
+  }
+ 
+  // Intercetto i click del launcher per dedurre il toggle open/minimize
+  function onLauncherClick() {
+    const launcher = getLauncherEl();
+    if (!launcher) return;
+    // Molti launchers aggiornano aria-pressed/expanded
+    const pressed = launcher.getAttribute("aria-pressed");
+    const expanded = launcher.getAttribute("aria-expanded");
+ 
+    // Piccolo delay per lasciare aggiornare lo stato al widget
+    setTimeout(() => {
+      const isPressed = launcher.getAttribute("aria-pressed") === "true";
+      const isExpanded = launcher.getAttribute("aria-expanded") === "true";
+      // Heuristic: se prima era open e ora non è expanded/pressed → minimizzato
+      if (chatOpened && !(isPressed || isExpanded)) {
+        triggerMinimizedFlow();
+      } else if (!chatOpened && (isPressed || isExpanded)) {
+        chatOpened = true;
+        document.body.classList.add("esw-open");
+        removeNudge();
+      }
+    }, 50);
+  }
+ 
   /* ---------- Eventi Embedded Messaging ---------- */
   window.addEventListener("onEmbeddedMessagingReady", function () {
     document.body.classList.add("chat-launcher-fixed");
@@ -328,26 +445,28 @@ function initEmbeddedMessaging() {
  
     // Blocca subito (e in più step per superare animazioni)
     lockLauncherStyle();
+    lockContainerStyle();
     observeLauncher();
-    observeBodyForLauncher();
-    rafThenTimeout(lockLauncherStyle, 50);
-    rafThenTimeout(lockLauncherStyle, 200);
-    rafThenTimeout(lockLauncherStyle, 400);
+    observeContainer();
+    observeBodyForReattach();
+    rafThenTimeout(() => { lockLauncherStyle(); lockContainerStyle(); }, 50);
+    rafThenTimeout(() => { lockLauncherStyle(); lockContainerStyle(); }, 200);
+    rafThenTimeout(() => { lockLauncherStyle(); lockContainerStyle(); }, 400);
  
     window.addEventListener("resize", () => {
       updateHeaderHeightVar();
       updateLauncherBottomForBanner();
       updateNudgePosition();
-      rafThenTimeout(lockLauncherStyle, 50);
+      rafThenTimeout(() => { lockLauncherStyle(); lockContainerStyle(); }, 50);
     });
  
-    // Nudge iniziale
+    // Nudge iniziale (se non aperta)
     if (firstTimer) clearTimeout(firstTimer);
     firstTimer = setTimeout(() => {
-      if (!chatOpened) {
-        showNudge("¡Habla conmigo!");
-      }
+      if (!chatOpened) showNudge("¡Habla conmigo!");
     }, 30000);
+ 
+    startVisibilityWatcher();
   });
  
   window.addEventListener("onEmbeddedMessagingButtonClicked", function () {
@@ -363,27 +482,20 @@ function initEmbeddedMessaging() {
     updateHeaderHeightVar();
     updateLauncherBottomForBanner();
  
-    rafThenTimeout(lockLauncherStyle, 50);
-    rafThenTimeout(lockLauncherStyle, 200);
+    rafThenTimeout(() => { lockLauncherStyle(); lockContainerStyle(); }, 50);
+    rafThenTimeout(() => { lockLauncherStyle(); lockContainerStyle(); }, 200);
   });
  
   window.addEventListener("onEmbeddedMessagingWindowMinimized", function () {
-    chatOpened = false;
-    document.body.classList.remove("esw-open");
- 
-    rafThenTimeout(lockLauncherStyle, 50);
-    rafThenTimeout(lockLauncherStyle, 200);
- 
-    if (followupTimer) clearTimeout(followupTimer);
-    followupTimer = setTimeout(() => {
-      showNudge("¡Sigue hablándome!");
-    }, 30000);
+    // Se l’SDK emette l’evento, bene: avviamo la stessa logica
+    triggerMinimizedFlow();
   });
  
   window.addEventListener("onEmbeddedMessagingWindowClosed", function () {
     document.body.classList.remove("esw-open");
     chatOpened = false;
-    rafThenTimeout(lockLauncherStyle, 50);
+    rafThenTimeout(() => { lockLauncherStyle(); lockContainerStyle(); }, 50);
+    stopVisibilityWatcher();
   });
  
   window.addEventListener("orientationchange", () => {
@@ -392,6 +504,7 @@ function initEmbeddedMessaging() {
     rafThenTimeout(() => {
       updateNudgePosition();
       lockLauncherStyle();
+      lockContainerStyle();
     }, 100);
   });
 })();
@@ -400,28 +513,42 @@ function initEmbeddedMessaging() {
 <!-- Custom Styles for Embedded Messaging Chat -->
 <style>
 :root {
+  /* Launcher (bottone) */
   --chat-launcher-bottom: 60px;
   --chat-launcher-right: 30px;
+ 
+  /* Nudge */
   --chat-nudge-offset: 70px;
-  --chat-header-height: 60px; /* fallback */
-  --site-header-height: 60px; /* calcolata via JS */
+ 
+  /* Header mobile */
+  --chat-header-height: 60px;   /* fallback */
+  --site-header-height: 60px;   /* calcolata via JS */
+ 
+  /* Desktop: solleva il CONTAINER della chat di 40px dal fondo */
+  --chat-frame-bottom-gap: 40px;  /* <<< richiesta */
+  --chat-frame-right-gap: 30px;   /* allineato al launcher */
 }
  
-/* ========== DESKTOP: nessuna trasformazione sul frame (evita “salti”) ========== */
-.embeddedMessagingFrame {
-  border-radius: 16px !important;
-  overflow: hidden !important;
-}
-.embeddedMessagingHeader {
-  border-top-left-radius: 16px !important;
-  border-top-right-radius: 16px !important;
-}
-.embeddedMessagingConversation {
-  border-bottom-left-radius: 16px !important;
-  border-bottom-right-radius: 16px !important;
+/* ======= DESKTOP ======= */
+/* Lasciamo che ESW gestisca dimensioni/rounding sul frame; spostiamo il CONTAINER via JS */
+@media (min-width: 1025px) {
+  .embeddedMessagingFrame {
+    border-radius: 16px !important;
+    overflow: hidden !important;
+    /* niente transform, niente bottom qui: lo fa il container */
+    z-index: 2147483645 !important;
+  }
+  .embeddedMessagingHeader {
+    border-top-left-radius: 16px !important;
+    border-top-right-radius: 16px !important;
+  }
+  .embeddedMessagingConversation {
+    border-bottom-left-radius: 16px !important;
+    border-bottom-right-radius: 16px !important;
+  }
 }
  
-/* ========== LAUNCHER BLOCCATO ========== */
+/* ======= LAUNCHER BLOCCATO ======= */
 .chat-launcher-fixed .embeddedServiceLauncher,
 .chat-launcher-fixed .embeddedServiceSidebarButton,
 .chat-launcher-fixed #embedded-messaging .embeddedMessagingIcon,
@@ -436,7 +563,7 @@ function initEmbeddedMessaging() {
   z-index: 2147483647 !important;
 }
  
-/* ========== NUDGE ========== */
+/* ======= NUDGE ======= */
 .chat-nudge {
   position: fixed;
   bottom: calc(var(--chat-launcher-bottom) + var(--chat-nudge-offset));
@@ -472,10 +599,12 @@ function initEmbeddedMessaging() {
 }
 .chat-nudge .close-btn:hover { color: #000; }
  
-/* ========== MOBILE/TABLET: full screen sotto l’header del sito ========== */
+/* ======= MOBILE/TABLET: full screen sotto l’header del sito ======= */
 @media (max-width: 1024px) {
   body.esw-open { overflow: hidden; }
  
+  /* Nota: su mobile spingiamo il frame full-screen sotto l’header;
+     il container resta a bottom 0; il JS non forza il gap sul container in mobile */
   .esw-open .embeddedMessagingFrame,
   .esw-open iframe[data-embedded-messaging-iframe] {
     position: fixed !important;
@@ -489,6 +618,7 @@ function initEmbeddedMessaging() {
     z-index: 2147483645 !important;
   }
  
+  /* Launcher mobile */
   .chat-launcher-fixed .embeddedServiceLauncher,
   .chat-launcher-fixed .embeddedServiceSidebarButton,
   .chat-launcher-fixed #embedded-messaging .embeddedMessagingIcon,
