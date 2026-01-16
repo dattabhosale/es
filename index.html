@@ -290,12 +290,23 @@ function initEmbeddedMessaging() {
     setTimeout(evaluateAndApplyOpenState, 300);
   });
 
-  window.addEventListener("onEmbeddedMessagingWindowOpened", () => {
-    removeNudge();
-    followupScheduled = false;
+
+window.addEventListener("onEmbeddedMessagingWindowOpened", () => {
+  removeNudge();
+  followupScheduled = false;
+  lastIsOpen = true;
+
+  // Forza offset DOPO che Salesforce ha applicato i suoi stili
+  setTimeout(() => {
     lockFixedRootStyle();
-    lastIsOpen = true;
-  });
+  }, 0);
+
+  // Doppio colpo di sicurezza per la primissima apertura
+  setTimeout(() => {
+    lockFixedRootStyle();
+  }, 100);
+});
+
 
   window.addEventListener("onEmbeddedMessagingWindowMinimized", () => {
     lockFixedRootStyle();
@@ -408,6 +419,7 @@ function initEmbeddedMessaging() {
   }
 }
 </style>
+
  
   <!-- Load Salesforce Embedded Messaging Bootstrap -->
   <script
