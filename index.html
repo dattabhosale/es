@@ -326,19 +326,21 @@ function initEmbeddedMessaging() {
     console.log("[ESW] window opened");
     removeNudge();
     followupScheduled = false;
+  lockFixedRootStyle();
     lastIsOpen = true;
   });
 
   window.addEventListener("onEmbeddedMessagingWindowMinimized", () => {
     console.log("[ESW] window minimized (evento)");
+  lockFixedRootStyle();
     setTimeout(evaluateAndApplyOpenState, 300);
   });
 
 })();
 </script>
- 
- 
-<!-- Custom Styles for Embedded Messaging Chat -->
+
+
+
 <style>
 /* =========================================================
    VARIABILI GLOBALI
@@ -347,48 +349,39 @@ function initEmbeddedMessaging() {
   /* Launcher */
   --chat-launcher-bottom: 60px;
   --chat-launcher-right: 30px;
- 
+
   /* Nudge */
   --chat-nudge-offset: 70px;
- 
+
   /* Header (mobile) */
   --chat-header-height: 60px;
   --site-header-height: 60px;
- 
+
   /* Desktop – offset chat */
   --chat-frame-bottom-gap: 40px;
   --chat-frame-right-gap: 30px;
 }
- 
+
 /* =========================================================
    DESKTOP (>= 1025px)
    ========================================================= */
 @media (min-width: 1025px) {
- 
-  /* Root chat: distacco dal fondo */
-  #embedded-messaging {
-    inset: auto var(--chat-frame-right-gap)
-           var(--chat-frame-bottom-gap) auto !important;
-    z-index: 2147483645 !important;
-  }
- 
-  /* Frame */
   .embeddedMessagingFrame {
     border-radius: 16px !important;
     overflow: hidden !important;
   }
- 
+
   .embeddedMessagingHeader {
     border-top-left-radius: 16px !important;
     border-top-right-radius: 16px !important;
   }
- 
+
   .embeddedMessagingConversation {
     border-bottom-left-radius: 16px !important;
     border-bottom-right-radius: 16px !important;
   }
 }
- 
+
 /* =========================================================
    LAUNCHER BLOCCATO
    ========================================================= */
@@ -406,7 +399,7 @@ function initEmbeddedMessaging() {
   transition: none !important;
   z-index: 2147483647 !important;
 }
- 
+
 /* =========================================================
    NUDGE
    ========================================================= */
@@ -425,7 +418,7 @@ function initEmbeddedMessaging() {
   z-index: 2147483646;
   animation: bounce 5s ease-out;
 }
- 
+
 @keyframes bounce {
   0%   { transform: translateY(0); }
   20%  { transform: translateY(-6px); }
@@ -434,7 +427,7 @@ function initEmbeddedMessaging() {
   80%  { transform: translateY(0); }
   100% { transform: translateY(0); }
 }
- 
+
 .chat-nudge .close-btn {
   position: absolute;
   top: 4px;
@@ -444,20 +437,20 @@ function initEmbeddedMessaging() {
   color: #666;
   cursor: pointer;
 }
- 
+
 .chat-nudge .close-btn:hover {
   color: #000;
 }
- 
+
 /* =========================================================
    MOBILE / TABLET (<= 1024px)
    ========================================================= */
 @media (max-width: 1024px) {
- 
+
   body.esw-open {
     overflow: hidden;
   }
- 
+
   /* Chat full screen sotto header */
   .esw-open #embedded-messaging {
     position: fixed !important;
@@ -470,7 +463,7 @@ function initEmbeddedMessaging() {
     border-radius: 0 !important;
     z-index: 2147483645 !important;
   }
- 
+
   /* Launcher mobile */
   .chat-launcher-fixed .embeddedServiceLauncher,
   .chat-launcher-fixed .embeddedServiceSidebarButton,
@@ -480,7 +473,7 @@ function initEmbeddedMessaging() {
     bottom: 20px !important;
     right: 20px !important;
   }
- 
+
   /* Nudge mobile */
   .chat-nudge {
     bottom: calc(20px + var(--chat-nudge-offset));
