@@ -261,24 +261,30 @@ function initEmbeddedMessaging() {
 
   /* ===== EVENTI ===== */
   window.addEventListener("onEmbeddedMessagingReady", () => {
-    document.body.classList.add("chat-launcher-fixed");
+    document.body.classList.add("chat-launcher-fixed");
 
-    lockLauncherStyle();
-    lockFixedRootStyle();
-    observeFixedRoot();
+    lockLauncherStyle();
+    lockFixedRootStyle();
+    observeFixedRoot();
 
-    setTimeout(() => {
-      lockLauncherStyle();
-      lockFixedRootStyle();
-    }, 200);
+    // Retry differito per forzare offset iniziale
+    setTimeout(() => {
+    lockLauncherStyle();
+    lockFixedRootStyle();
+    }, 200);
 
-    startStatePolling();
+    setTimeout(() => {
+    lockLauncherStyle();
+    lockFixedRootStyle();
+    }, 600); // <<< aggiunto secondo retry per apertura iniziale
 
-    if (firstTimer) clearTimeout(firstTimer);
-    firstTimer = setTimeout(() => {
-      if (!isOpenState()) showNudge("¡Habla conmigo!");
-    }, NUDGE_DELAY_MS);
-  });
+    startStatePolling();
+
+    if (firstTimer) clearTimeout(firstTimer);
+    firstTimer = setTimeout(() => {
+    if (!isOpenState()) showNudge("¡Habla conmigo!");
+    }, NUDGE_DELAY_MS);
+  });
 
   window.addEventListener("onEmbeddedMessagingButtonClicked", () => {
     setTimeout(evaluateAndApplyOpenState, 300);
