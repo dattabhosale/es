@@ -143,6 +143,60 @@ function initEmbeddedMessaging() {
     return document.querySelector("#embedded-messaging");
   }
 
+let invisibleBootstrapDone = false;
+
+function invisibleBootstrapOpenClose() {
+  if (invisibleBootstrapDone) return;
+
+  try {
+    // Apri la chat
+    embeddedservice_bootstrap?.open?.();
+
+    // Nascondi subito qualsiasi UI visibile
+    const hideStyles = () => {
+      const frame = getChatFrameEl();
+      const root = getFixedRootEl();
+      const target = frame || root;
+      if (!target) return;
+
+      target.style.opacity = "0";
+      target.style.pointerEvents = "none";
+      target.style.transform = "translateY(100px)";
+      target.style.transition = "none";
+    };
+
+    // Applica più volte finché il DOM esiste
+    const h1 = setInterval(() => {
+      hideStyles();
+      if (getChatFrameEl()) clearInterval(h1);
+    }, 30);
+
+    // Chiudi rapidamente (prima che venga mostrato qualsiasi messaggio)
+    setTimeout(() => {
+      embeddedservice_bootstrap?.close?.();
+
+      // Ripristina completamente lo stato visivo
+      setTimeout(() => {
+        const frame = getChatFrameEl();
+        const root = getFixedRootEl();
+        const target = frame || root;
+        if (!target) return;
+
+        target.style.opacity = "";
+        target.style.pointerEvents = "";
+        target.style.transform = "";
+        target.style.transition = "";
+
+        invisibleBootstrapDone = true;
+      }, 50);
+    }, 80);
+
+  } catch (e) {
+    console.warn("Invisible bootstrap skipped", e);
+  }
+}
+
+
   /* ===== POSIZIONI ===== */
   function lockLauncherStyle() {
     const launcher = getLauncherEl();
@@ -182,8 +236,7 @@ function lockFixedRootStyle() {
     // Inset coerente, così copriamo sia bottom/right che layout moderni
     s.setProperty("inset", `auto ${right} ${bottom} auto`, "important");
     s.setProperty("z-index", "2147483645", "important");
-    // Evita transform/translate applicati dal loader
-    s.setProperty("transform", "none", "important");
+
   }
 
   // Applica ad entrambi: chiunque sia “il vero fixed” risulterà corretto
@@ -322,7 +375,7 @@ function applyFirstOpenVisualFix() {
     }, 600); // <<< aggiunto secondo retry per apertura iniziale
 
     startStatePolling();
-
+    setTimeout(invisibleBootstrapOpenClose, 400);
     if (firstTimer) clearTimeout(firstTimer);
     firstTimer = setTimeout(() => {
     if (!isOpenState()) showNudge("¡Habla conmigo!");
@@ -330,6 +383,7 @@ function applyFirstOpenVisualFix() {
   });
 
   window.addEventListener("onEmbeddedMessagingButtonClicked", () => {
+  invisibleBootstrapDone = true;
     setTimeout(evaluateAndApplyOpenState, 300);
   });
 
@@ -462,7 +516,6 @@ window.addEventListener("onEmbeddedMessagingWindowOpened", () => {
   }
 }
 </style>
- 
   <!-- Load Salesforce Embedded Messaging Bootstrap -->
   <script
     type="text/javascript"
