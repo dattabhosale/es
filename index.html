@@ -159,26 +159,52 @@ function initEmbeddedMessaging() {
     updateNudgePosition();
   }
 
-  function lockFixedRootStyle() {
-    if (window.innerWidth < DESKTOP_MIN_WIDTH) return;
-    const root = getFixedRootEl();
-    if (!root) return;
 
-    root.style.position = "fixed";
-    root.style.bottom = "40px"; // forza offset dal fondo
-    root.style.right = "30px";
-    root.style.left = "auto";
-    root.style.top = "auto";
-    root.style.inset = "auto 30px 40px auto";
-    root.style.zIndex = "2147483645";
+function lockFixedRootStyle() {
+  if (window.innerWidth < DESKTOP_MIN_WIDTH) return;
+
+  const frame = getChatFrameEl();   // iframe .embeddedMessagingFrame
+  const root  = getFixedRootEl();   // #embedded-messaging o il primo fixed ancestor
+
+  // Parametri di posizionamento
+  const bottom = "40px";
+  const right  = "30px";
+
+  // Helper per forzare con !important
+  function forceFixed(el) {
+    if (!el) return;
+    const s = el.style;
+    s.setProperty("position", "fixed", "important");
+    s.setProperty("bottom", bottom, "important");
+    s.setProperty("right",  right,  "important");
+    s.setProperty("left",   "auto", "important");
+    s.setProperty("top",    "auto", "important");
+    // Inset coerente, così copriamo sia bottom/right che layout moderni
+    s.setProperty("inset", `auto ${right} ${bottom} auto`, "important");
+    s.setProperty("z-index", "2147483645", "important");
+    // Evita transform/translate applicati dal loader
+    s.setProperty("transform", "none", "important");
   }
 
-  function observeFixedRoot() {
-    const root = getFixedRootEl();
-    if (!root) return;
-    const observer = new MutationObserver(() => lockFixedRootStyle());
-    observer.observe(root, { attributes: true, attributeFilter: ["style", "class"] });
+  // Applica ad entrambi: chiunque sia “il vero fixed” risulterà corretto
+  forceFixed(root);
+  forceFixed(frame);
+}
+
+
+
+function observeFixedRoot() {
+  const root  = getFixedRootEl();
+  const frame = getChatFrameEl();
+  const targets = [root, frame].filter(Boolean);
+  if (!targets.length) return;
+
+  const observer = new MutationObserver(() => lockFixedRootStyle());
+  for (const t of targets) {
+    observer.observe(t, { attributes: true, attributeFilter: ["style", "class"] });
   }
+}
+
 
   /* ===== NUDGE ===== */
   function showNudge(message) {
@@ -291,21 +317,17 @@ function initEmbeddedMessaging() {
   });
 
 
+
 window.addEventListener("onEmbeddedMessagingWindowOpened", () => {
   removeNudge();
   followupScheduled = false;
   lastIsOpen = true;
 
-  // Forza offset DOPO che Salesforce ha applicato i suoi stili
-  setTimeout(() => {
-    lockFixedRootStyle();
-  }, 0);
-
-  // Doppio colpo di sicurezza per la primissima apertura
-  setTimeout(() => {
-    lockFixedRootStyle();
-  }, 100);
+  // “Doppio colpo” per vincere qualsiasi race condition
+  setTimeout(lockFixedRootStyle, 0);
+  setTimeout(lockFixedRootStyle, 120);
 });
+
 
 
   window.addEventListener("onEmbeddedMessagingWindowMinimized", () => {
@@ -419,7 +441,6 @@ window.addEventListener("onEmbeddedMessagingWindowOpened", () => {
   }
 }
 </style>
-
  
   <!-- Load Salesforce Embedded Messaging Bootstrap -->
   <script
