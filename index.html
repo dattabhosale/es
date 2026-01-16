@@ -259,6 +259,23 @@ function observeFixedRoot() {
     return fr.height > 150 && fr.width > 200 && rr.height > 150;
   }
 
+let firstOpenFixApplied = false;
+
+function applyFirstOpenVisualFix() {
+  if (firstOpenFixApplied) return;
+
+  const frame = getChatFrameEl();
+  const root = getFixedRootEl();
+  const target = frame || root;
+  if (!target) return;
+
+  target.style.transform = "translateY(-40px)";
+  target.style.transition = "transform 0.15s ease-out";
+
+  firstOpenFixApplied = true;
+}
+
+
   function evaluateAndApplyOpenState() {
     const nowOpen = isOpenState();
 
@@ -318,14 +335,18 @@ function observeFixedRoot() {
 
 
 
+
 window.addEventListener("onEmbeddedMessagingWindowOpened", () => {
   removeNudge();
   followupScheduled = false;
   lastIsOpen = true;
 
-  // “Doppio colpo” per vincere qualsiasi race condition
-  setTimeout(lockFixedRootStyle, 0);
-  setTimeout(lockFixedRootStyle, 120);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      applyFirstOpenVisualFix();
+    });
+  });
 });
 
 
