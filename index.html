@@ -382,10 +382,27 @@ function applyFirstOpenVisualFix() {
     }, NUDGE_DELAY_MS);
   });
 
-  window.addEventListener("onEmbeddedMessagingButtonClicked", () => {
-  invisibleBootstrapDone = true;
-    setTimeout(evaluateAndApplyOpenState, 300);
-  });
+
+window.addEventListener("onEmbeddedMessagingButtonClicked", () => {
+  invisibleBootstrapDone = true;
+
+
+  document.getElementById("esw-ghost-hide")?.remove();
+
+
+  const frame = getChatFrameEl();
+  const root = getFixedRootEl();
+  const target = frame || root;
+  if (target) {
+    target.style.opacity = "";
+    target.style.pointerEvents = "";
+    target.style.transform = "";
+    target.style.transition = "";
+  }
+
+  setTimeout(evaluateAndApplyOpenState, 300);
+});
+
 
 
 
@@ -394,6 +411,17 @@ window.addEventListener("onEmbeddedMessagingWindowOpened", () => {
   removeNudge();
   followupScheduled = false;
   lastIsOpen = true;
+
+document.getElementById("esw-ghost-hide")?.remove();
+
+  const frame = getChatFrameEl();
+  const root = getFixedRootEl();
+  const target = frame || root;
+  if (target) {
+    target.style.opacity = "";
+    target.style.pointerEvents = "";
+    target.style.transition = "";
+  }
 
 
   requestAnimationFrame(() => {
