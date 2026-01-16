@@ -395,18 +395,12 @@ function initEmbeddedMessaging() {
   });
 
   window.addEventListener("onEmbeddedMessagingWindowMinimized", function () {
-    // Trattiamo come minimizzazione (anche se a volte non arriva)
-    chatOpened = false;
-    document.body.classList.remove("esw-open");
-    lastIsOpen = false;
+    chatOpened = false;
+    document.body.classList.remove("esw-open");
+    lastIsOpen = false;
 
-    setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, 50);
-
-    if (followupTimer) clearTimeout(followupTimer);
-    followupTimer = setTimeout(() => {
-      showNudge("¡Sigue hablándome!");
-    }, NUDGE_DELAY_MS);
-  });
+    setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, 50);
+  });
 
   window.addEventListener("onEmbeddedMessagingWindowClosed", function () {
     chatOpened = false;
@@ -415,7 +409,6 @@ function initEmbeddedMessaging() {
   });
 })();
 </script>
- 
  
 <!-- Custom Styles for Embedded Messaging Chat -->
 <style>
