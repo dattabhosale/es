@@ -79,9 +79,6 @@
     </div>
   </footer>
   <!-- Salesforce Embedded Messaging Script -->
-
-
-<!-- Salesforce Embedded Messaging Script + Custom Styles -->
 <script type="text/javascript">
 function initEmbeddedMessaging() {
   try {
@@ -312,14 +309,17 @@ function initEmbeddedMessaging() {
     if (launcher && nudge) {
       const rect = launcher.getBoundingClientRect();
     // bottom = distanza dal launcher + offset
-    let bottom = window.innerHeight - rect.top + 20;
+  if (nudgeBottom === null) {
 
-    // Limiti per non uscire dallo schermo
-    const maxBottom = window.innerHeight - 50; // massimo 50px sotto inizio viewport
-    const minBottom = 20; // almeno 20px dal fondo
-    bottom = Math.min(bottom, maxBottom);
-    bottom = Math.max(bottom, minBottom);
+    let bottom = window.innerHeight - rect.top + 20;
 
+    // Limiti per non uscire dallo schermo
+    const maxBottom = window.innerHeight - 50; // massimo 50px sotto inizio viewport
+    const minBottom = 20; // almeno 20px dal fondo
+    bottom = Math.min(bottom, maxBottom);
+    bottom = Math.max(bottom, minBottom);
+    nudgeBottom = bottom;
+  }
     nudge.style.bottom = bottom + "px";
     console.log("[NUDGE] updateNudgePosition → bottom calcolato:", bottom);
     }
@@ -585,6 +585,7 @@ function initEmbeddedMessaging() {
   }
 }
 </style>
+ 
   <!-- Load Salesforce Embedded Messaging Bootstrap -->
   <script
     type="text/javascript"
