@@ -79,7 +79,7 @@
     </div>
   </footer>
   <!-- Salesforce Embedded Messaging Script -->
-  
+ 
 <!-- Salesforce Embedded Messaging Script + Custom Styles -->
 <script type="text/javascript">
 function initEmbeddedMessaging() {
@@ -303,8 +303,9 @@ function initEmbeddedMessaging() {
     const launcher = getLauncherEl();
     if (launcher && nudge) {
       const rect = launcher.getBoundingClientRect();
-      const bottom = Math.max(0, window.innerHeight - rect.top + 20);
+      const bottom = Math.max(20, window.innerHeight - rect.top + 20);
       nudge.style.bottom = bottom + "px";
+     console.log("[NUDGE] updateNudgePosition → bottom calcolato:", bottom);
     }
   }
 
@@ -565,6 +566,7 @@ function initEmbeddedMessaging() {
   }
 }
 </style>
+ 
   <!-- Load Salesforce Embedded Messaging Bootstrap -->
   <script
     type="text/javascript"
