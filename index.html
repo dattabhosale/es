@@ -79,7 +79,7 @@
     </div>
   </footer>
   <!-- Salesforce Embedded Messaging Script -->
-<script type="text/javascript">
+  <script type="text/javascript">
 function initEmbeddedMessaging() {
   try {
     embeddedservice_bootstrap.settings.language = "es";
@@ -117,6 +117,7 @@ function initEmbeddedMessaging() {
   let firstTimer = null;
   let followupTimer = null;
   let nudge = null;
+  let bottom = null;
   let nudgeBottom = null;
   let launcherObserver = null;
   let bodyObserver = null;
@@ -309,9 +310,10 @@ function initEmbeddedMessaging() {
     if (launcher && nudge) {
       const rect = launcher.getBoundingClientRect();
     // bottom = distanza dal launcher + offset
+  bottom = window.innerHeight - rect.top + 20;
   if (nudgeBottom === null) {
 
-    let bottom = window.innerHeight - rect.top + 20;
+
 
     // Limiti per non uscire dallo schermo
     const maxBottom = window.innerHeight - 50; // massimo 50px sotto inizio viewport
@@ -585,7 +587,6 @@ function initEmbeddedMessaging() {
   }
 }
 </style>
- 
   <!-- Load Salesforce Embedded Messaging Bootstrap -->
   <script
     type="text/javascript"
