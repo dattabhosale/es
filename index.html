@@ -79,7 +79,6 @@
     </div>
   </footer>
   <!-- Salesforce Embedded Messaging Script -->
-  
 <script type="text/javascript">
 function initEmbeddedMessaging() {
   try {
@@ -89,7 +88,7 @@ function initEmbeddedMessaging() {
       embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
         Country: "Spain",
         Language: "es",
-        CountryCode: "es"
+        CountryCode: "es",
       });
     });
 
@@ -108,180 +107,244 @@ function initEmbeddedMessaging() {
 
 (function () {
   const DESKTOP_MIN_WIDTH = 1025;
-  const FIRST_OPEN_OFFSET = 40;
-  const NUDGE_DELAY_MS = 30000;
+  const CHAT_OFFSET = 40;
 
-  let invisibleBootstrapDone = false;
-  let firstOpenVisualFixDone = false;
-  let nudge = null;
-
-  /* ========= UTILS ========= */
-  function getLauncherEl() {
-    return document.querySelector(".embeddedServiceLauncher, .embeddedServiceSidebarButton");
-  }
-
-  function getChatEl() {
+  /* =========================
+     UTILS
+     ========================= */
+  function getChatFrame() {
     return (
       document.querySelector(".embeddedMessagingFrame") ||
-      document.querySelector("#embedded-messaging")
+      document.querySelector('iframe[src*="embeddedmessaging"]')
     );
   }
 
-  function forceDesktopOffset() {
+  function applyDesktopOffset() {
     if (window.innerWidth < DESKTOP_MIN_WIDTH) return;
-    const el = getChatEl();
-    if (!el) return;
 
-    el.style.position = "fixed";
-    el.style.bottom = FIRST_OPEN_OFFSET + "px";
-    el.style.right = "30px";
-    el.style.left = "auto";
-    el.style.top = "auto";
-    el.style.zIndex = "2147483645";
+    const frame = getChatFrame();
+    if (!frame) return;
+
+    frame.style.position = "relative";
+    frame.style.bottom = CHAT_OFFSET + "px";
+
+    console.log("[CHAT] Offset desktop applicato:", CHAT_OFFSET);
   }
 
-  /* ========= INVISIBLE BOOTSTRAP ========= */
-  function invisibleBootstrap() {
-    if (invisibleBootstrapDone) return;
+  function resetMobile() {
+    const frame = getChatFrame();
+    if (!frame) return;
 
-    const style = document.createElement("style");
-    style.id = "esw-ghost-hide";
-    style.textContent = `
-      #embedded-messaging, .embeddedMessagingFrame {
-        opacity: 0 !important;
-        pointer-events: none !important;
-        transform: translateY(120px) !important;
-        transition: none !important;
-      }
-    `;
-    document.head.appendChild(style);
-
-    embeddedservice_bootstrap?.open?.();
-
-    setTimeout(() => {
-      invisibleBootstrapDone = true;
-    }, 800);
+    frame.style.bottom = "0px";
+    frame.style.position = "relative";
   }
 
-  /* ========= FIRST OPEN VISUAL FIX ========= */
-  function applyFirstOpenVisualFix() {
-    if (firstOpenVisualFixDone) return;
-    const el = getChatEl();
-    if (!el) return;
-
-    el.style.transform = `translateY(-${FIRST_OPEN_OFFSET}px)`;
-    el.style.transition = "transform 0.15s ease-out";
-    firstOpenVisualFixDone = true;
-  }
-
-  /* ========= NUDGE ========= */
-  function showNudge(message) {
-    if (nudge) return;
-
-    nudge = document.createElement("div");
-    nudge.className = "chat-nudge";
-    nudge.textContent = message;
-    nudge.onclick = () => embeddedservice_bootstrap?.open?.();
-    document.body.appendChild(nudge);
-  }
-
-  function removeNudge() {
-    nudge?.remove();
-    nudge = null;
-  }
-
-  /* ========= EVENTS ========= */
-  window.addEventListener("onEmbeddedMessagingReady", () => {
-    document.body.classList.add("chat-launcher-fixed");
-
-    const launcher = getLauncherEl();
-    if (launcher) {
-      launcher.style.position = "fixed";
-      launcher.style.bottom = "60px";
-      launcher.style.right = "30px";
-      launcher.style.zIndex = "2147483647";
-    }
-
-    forceDesktopOffset();
-    setTimeout(invisibleBootstrap, 400);
-
-    setTimeout(() => showNudge("¡Habla conmigo!"), NUDGE_DELAY_MS);
-  });
-
+  /* =========================
+     EVENTI SALESFORCE
+     ========================= */
   window.addEventListener("onEmbeddedMessagingWindowOpened", () => {
-    document.getElementById("esw-ghost-hide")?.remove();
-    removeNudge();
-    forceDesktopOffset();
+    console.log("[ESW] window opened");
 
-    requestAnimationFrame(() => {
-      requestAnimationFrame(applyFirstOpenVisualFix);
-    });
+    if (window.innerWidth >= DESKTOP_MIN_WIDTH) {
+      // doppia applicazione per sicurezza (prima apertura)
+      setTimeout(applyDesktopOffset, 0);
+      setTimeout(applyDesktopOffset, 300);
+    } else {
+      resetMobile();
+    }
   });
+
+  window.addEventListener("onEmbeddedMessagingWindowMinimized", () => {
+    console.log("[ESW] window minimized");
+
+    if (window.innerWidth >= DESKTOP_MIN_WIDTH) {
+      setTimeout(applyDesktopOffset, 0);
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth >= DESKTOP_MIN_WIDTH) {
+      applyDesktopOffset();
+    } else {
+      resetMobile();
+    }
+  });
+
 })();
 </script>
- 
+<script type="text/javascript">
+function initEmbeddedMessaging() {
+  try {
+    embeddedservice_bootstrap.settings.language = "es";
+
+    window.addEventListener("onEmbeddedMessagingReady", () => {
+      embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+        Country: "Spain",
+        Language: "es",
+        CountryCode: "es",
+      });
+    });
+
+    embeddedservice_bootstrap.settings.chatButtonPosition = "60px, 30px";
+
+    embeddedservice_bootstrap.init(
+      "00DMA000003XnGM",
+      "LPM_Leapmotor",
+      "https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231",
+      { scrt2URL: "https://leapmotor--dev01.sandbox.my.salesforce-scrt.com" }
+    );
+  } catch (err) {
+    console.error("Error loading Embedded Messaging:", err);
+  }
+}
+
+(function () {
+  const DESKTOP_MIN_WIDTH = 1025;
+  const CHAT_OFFSET = 40;
+
+  /* =========================
+     UTILS
+     ========================= */
+  function getChatFrame() {
+    return (
+      document.querySelector(".embeddedMessagingFrame") ||
+      document.querySelector('iframe[src*="embeddedmessaging"]')
+    );
+  }
+
+  function applyDesktopOffset() {
+    if (window.innerWidth < DESKTOP_MIN_WIDTH) return;
+
+    const frame = getChatFrame();
+    if (!frame) return;
+
+    frame.style.position = "relative";
+    frame.style.bottom = CHAT_OFFSET + "px";
+
+    console.log("[CHAT] Offset desktop applicato:", CHAT_OFFSET);
+  }
+
+  function resetMobile() {
+    const frame = getChatFrame();
+    if (!frame) return;
+
+    frame.style.bottom = "0px";
+    frame.style.position = "relative";
+  }
+
+  /* =========================
+     EVENTI SALESFORCE
+     ========================= */
+  window.addEventListener("onEmbeddedMessagingWindowOpened", () => {
+    console.log("[ESW] window opened");
+
+    if (window.innerWidth >= DESKTOP_MIN_WIDTH) {
+      // doppia applicazione per sicurezza (prima apertura)
+      setTimeout(applyDesktopOffset, 0);
+      setTimeout(applyDesktopOffset, 300);
+    } else {
+      resetMobile();
+    }
+  });
+
+  window.addEventListener("onEmbeddedMessagingWindowMinimized", () => {
+    console.log("[ESW] window minimized");
+
+    if (window.innerWidth >= DESKTOP_MIN_WIDTH) {
+      setTimeout(applyDesktopOffset, 0);
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (window.innerWidth >= DESKTOP_MIN_WIDTH) {
+      applyDesktopOffset();
+    } else {
+      resetMobile();
+    }
+  });
+
+})();
+</script>
 
 <style>
-/* ===== VARIABLES ===== */
+/* =========================================================
+   VARIABILI
+   ========================================================= */
 :root {
   --launcher-bottom: 60px;
   --launcher-right: 30px;
-  --chat-offset: 40px;
+  --chat-offset-desktop: 40px;
 }
-
-/* ===== DESKTOP CHAT ===== */
-@media (min-width: 1025px) {
-  .embeddedMessagingFrame {
-    border-radius: 16px !important;
-    overflow: hidden !important;
-  }
-
-  #embedded-messaging {
-    bottom: var(--chat-offset) !important;
-    right: var(--launcher-right) !important;
-  }
-}
-
-/* ===== LAUNCHER ===== */
-.chat-launcher-fixed .embeddedServiceLauncher,
-.chat-launcher-fixed .embeddedServiceSidebarButton {
+ 
+/* =========================================================
+   LAUNCHER (DESKTOP + MOBILE)
+   ========================================================= */
+.embeddedServiceLauncher,
+.embeddedServiceSidebarButton,
+button[class*="Launcher"],
+div[class*="Launcher"] {
   position: fixed !important;
   bottom: var(--launcher-bottom) !important;
   right: var(--launcher-right) !important;
   left: auto !important;
   top: auto !important;
+  transform: none !important;
   z-index: 2147483647 !important;
 }
-
-/* ===== NUDGE ===== */
-.chat-nudge {
-  position: fixed;
-  bottom: calc(var(--launcher-bottom) + 70px);
-  right: var(--launcher-right);
-  background: #fff;
-  color: #000;
-  padding: 10px 14px;
-  border-radius: 12px;
-  box-shadow: 0 6px 20px rgba(0,0,0,.15);
-  cursor: pointer;
-  z-index: 2147483646;
+ 
+/* =========================================================
+   DESKTOP (>=1025px)
+   ========================================================= */
+@media (min-width: 1025px) {
+ 
+  /* contenitore Salesforce */
+  #embedded-messaging {
+    right: 30px !important;
+    bottom: 0 !important; /* lasciato a 0 */
+  }
+ 
+  /* iframe chat (OFFSET REALE) */
+  .embeddedMessagingFrame {
+    border-radius: 16px !important;
+    overflow: hidden !important;
+    bottom: var(--chat-offset-desktop) !important;
+  }
+ 
+  .embeddedMessagingHeader {
+    border-top-left-radius: 16px !important;
+    border-top-right-radius: 16px !important;
+  }
+ 
+  .embeddedMessagingConversation {
+    border-bottom-left-radius: 16px !important;
+    border-bottom-right-radius: 16px !important;
+  }
 }
-
-/* ===== MOBILE ===== */
+ 
+/* =========================================================
+   MOBILE / TABLET (FULL SCREEN)
+   ========================================================= */
 @media (max-width: 1024px) {
-  .esw-open #embedded-messaging {
+ 
+  #embedded-messaging {
     position: fixed !important;
-    top: 60px !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
+    inset: 0 !important;
     width: 100% !important;
-    height: calc(100dvh - 60px) !important;
+    height: 100dvh !important;
+    border-radius: 0 !important;
+    z-index: 2147483646 !important;
+  }
+ 
+  .embeddedMessagingFrame {
+    bottom: 0 !important;
     border-radius: 0 !important;
   }
-
-  .chat-launcher-fixed .embeddedServiceLauncher,
-  .chat-launcher-fixed .embeddedServiceSidebarButton {
+ 
+  /* launcher mobile */
+  .embeddedServiceLauncher,
+  .embeddedServiceSidebarButton,
+  button[class*="Launcher"],
+  div[class*="Launcher"] {
     bottom: 20px !important;
     right: 20px !important;
   }
