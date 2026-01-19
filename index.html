@@ -255,6 +255,7 @@ function initEmbeddedMessaging() {
   }
 
   /* ====== Nudge ====== */
+
   function showNudge(message) {
   console.log("[NUDGE] showNudge chiamata con messaggio:", message);
   console.log("[NUDGE] nudge esistente?", !!nudge);
@@ -282,9 +283,14 @@ function initEmbeddedMessaging() {
       window.embeddedservice_bootstrap?.open?.();
       removeNudge();
     };
-  nudge.style.bottom = `calc(var(--chat-launcher-bottom) + var(--chat-nudge-offset))`;
-    document.body.appendChild(nudge);
 
+    document.body.appendChild(nudge);
+    if (nudgeBottom === null) {
+    const launcher = getLauncherEl();
+    const rect = launcher.getBoundingClientRect();
+    nudgeBottom = Math.max(0, window.innerHeight - rect.top + 20);
+  }
+  nudge.style.bottom = nudgeBottom + "px";
   console.log("[NUDGE] nudge aggiunto al DOM");
   }
 
@@ -543,16 +549,18 @@ function initEmbeddedMessaging() {
 @media (max-width: 1024px) {
   body.esw-open { overflow: hidden; }
 
+  /* Chat full screen sotto header */
+  .esw-open #embedded-messaging,
   .esw-open .embeddedMessagingFrame,
   .esw-open iframe[data-embedded-messaging-iframe] {
     position: fixed !important;
-    top: var(--site-header-height, var(--chat-header-height)) !important;
+    top: var(--site-header-height, var(--chat-header-height)) !important; /* header sempre visibile */
     left: 0 !important;
     right: 0 !important;
     width: 100% !important;
-    height: calc(100dvh - var(--site-header-height, var(--chat-header-height))) !important;
+    max-height: calc(100dvh - var(--site-header-height, var(--chat-header-height))) !important; /* mai sotto la tastiera */
+    border-radius: 16px !important; /* arrotondato come desktop */
     bottom: 0 !important;
-    border-radius: 0 !important;
     z-index: 2147483645 !important;
   }
 
@@ -567,6 +575,7 @@ function initEmbeddedMessaging() {
     transform: none !important;
   }
 
+  /* Nudge mobile */
   .chat-nudge {
     bottom: calc(20px + var(--chat-nudge-offset));
     right: 20px;
