@@ -282,9 +282,9 @@ function initEmbeddedMessaging() {
       window.embeddedservice_bootstrap?.open?.();
       removeNudge();
     };
-
+  nudge.style.bottom = `calc(var(--chat-launcher-bottom) + var(--chat-nudge-offset))`;
     document.body.appendChild(nudge);
-    updateNudgePosition();
+
   console.log("[NUDGE] nudge aggiunto al DOM");
   }
 
