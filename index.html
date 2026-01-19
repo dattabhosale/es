@@ -79,7 +79,7 @@
     </div>
   </footer>
   <!-- Salesforce Embedded Messaging Script -->
-
+  
 <!-- Salesforce Embedded Messaging Script + Custom Styles -->
 <script type="text/javascript">
 function initEmbeddedMessaging() {
@@ -256,7 +256,13 @@ function initEmbeddedMessaging() {
 
   /* ====== Nudge ====== */
   function showNudge(message) {
-    if (nudge) return;
+  console.log("[NUDGE] showNudge chiamata con messaggio:", message);
+  console.log("[NUDGE] nudge esistente?", !!nudge);
+
+  if (nudge) {
+    console.log("[NUDGE] ABORT → nudge già presente, non ne creo uno nuovo");
+    return;
+  }
     nudge = document.createElement("div");
     nudge.className = "chat-nudge";
     nudge.textContent = message;
@@ -265,25 +271,32 @@ function initEmbeddedMessaging() {
     closeBtn.className = "close-btn";
     closeBtn.textContent = "×";
     closeBtn.onclick = function (e) {
+  console.log("[NUDGE] chiuso manualmente");
       e.stopPropagation();
       removeNudge();
     };
     nudge.appendChild(closeBtn);
 
     nudge.onclick = function () {
+  console.log("[NUDGE] click → open chat");
       window.embeddedservice_bootstrap?.open?.();
       removeNudge();
     };
 
     document.body.appendChild(nudge);
     updateNudgePosition();
+  console.log("[NUDGE] nudge aggiunto al DOM");
   }
 
   function removeNudge() {
+
     if (nudge) {
+    console.log("[NUDGE] removeNudge → rimuovo nudge");
       nudge.remove();
       nudge = null;
-    }
+    } else {
+    console.log("[NUDGE] removeNudge chiamata ma nudge è NULL");
+  }
   }
 
   function updateNudgePosition() {
@@ -320,21 +333,33 @@ function initEmbeddedMessaging() {
 
     // Transizione open -> minimized
     if (lastIsOpen === true && !nowOpen) {
+  console.log("[STATE] OPEN → MINIMIZED");
       chatOpened = false;
       document.body.classList.remove("esw-open");
       // Schedula nudge di follow-up
-      if (followupTimer) clearTimeout(followupTimer);
+      if (followupTimer) {
+    console.log("[FOLLOWUP] clearTimeout precedente");
+    clearTimeout(followupTimer);
+  }
+  console.log("[FOLLOWUP] scheduling secondo nudge tra", NUDGE_DELAY_MS, "ms");
       followupTimer = setTimeout(() => {
+    console.log("[FOLLOWUP] TIMER SCADUTO → tento secondo nudge");
+    console.log("[FOLLOWUP] isOpenState() =", isOpenState());
+    console.log("[FOLLOWUP] nudge esistente =", !!nudge);
         showNudge("¡Sigue hablándome!");
       }, NUDGE_DELAY_MS);
     }
 
     // Transizione minimized -> open
     if (lastIsOpen === false && nowOpen) {
+   console.log("[STATE] MINIMIZED → OPEN");
       chatOpened = true;
       document.body.classList.add("esw-open");
       removeNudge();
-      if (followupTimer) clearTimeout(followupTimer);
+      if (followupTimer) {
+    console.log("[FOLLOWUP] chat riaperta → clearTimeout followup");
+    clearTimeout(followupTimer);
+    }
     }
 
     lastIsOpen = nowOpen;
@@ -391,14 +416,20 @@ function initEmbeddedMessaging() {
 
   window.addEventListener("onEmbeddedMessagingWindowMinimized", function () {
     // Trattiamo come minimizzazione (anche se a volte non arriva)
+  console.log("[ESW EVENT] window minimized");
     chatOpened = false;
     document.body.classList.remove("esw-open");
     lastIsOpen = false;
 
     setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, 50);
 
-    if (followupTimer) clearTimeout(followupTimer);
+    if (followupTimer) {
+    console.log("[FOLLOWUP] clearTimeout precedente (evento)");
+    clearTimeout(followupTimer);
+  }
+  console.log("[FOLLOWUP] scheduling secondo nudge (evento)");
     followupTimer = setTimeout(() => {
+  console.log("[FOLLOWUP] TIMER SCADUTO (evento) → secondo nudge");
       showNudge("¡Sigue hablándome!");
     }, NUDGE_DELAY_MS);
   });
@@ -534,7 +565,6 @@ function initEmbeddedMessaging() {
   }
 }
 </style>
- 
   <!-- Load Salesforce Embedded Messaging Bootstrap -->
   <script
     type="text/javascript"
