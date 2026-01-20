@@ -79,7 +79,7 @@
     </div>
   </footer>
   <!-- Salesforce Embedded Messaging Script -->
- <script type="text/javascript">
+  <script type="text/javascript">
 function initEmbeddedMessaging() {
   try {
     embeddedservice_bootstrap.settings.language = "es";
@@ -111,7 +111,7 @@ function initEmbeddedMessaging() {
   /* ====== Config ====== */
   const NUDGE_DELAY_MS = 30000; // per test veloce metti 5000, poi torna 30000
   const DESKTOP_MIN_WIDTH = 1025; // soglia desktop
-
+  const IS_MOBILE = window.innerWidth < 1025;
   /* ====== Stato ====== */
   let chatOpened = false;
   let firstTimer = null;
@@ -285,12 +285,14 @@ function initEmbeddedMessaging() {
     };
 
     document.body.appendChild(nudge);
-    if (nudgeBottom === null) {
-    const launcher = getLauncherEl();
-    const rect = launcher.getBoundingClientRect();
-    nudgeBottom = Math.max(0, window.innerHeight - rect.top + 20);
+  if (!IS_MOBILE) {
+    if (nudgeBottom === null) {
+      const launcher = getLauncherEl();
+      const rect = launcher.getBoundingClientRect();
+      nudgeBottom = Math.max(0, window.innerHeight - rect.top + 20);
+    }
+    nudge.style.bottom = nudgeBottom + "px";
   }
-  nudge.style.bottom = nudgeBottom + "px";
   console.log("[NUDGE] nudge aggiunto al DOM");
   }
 
@@ -306,6 +308,7 @@ function initEmbeddedMessaging() {
   }
 
   function updateNudgePosition() {
+  if (IS_MOBILE) return;
     const launcher = getLauncherEl();
     if (launcher && nudge) {
       const rect = launcher.getBoundingClientRect();
@@ -555,33 +558,12 @@ function initEmbeddedMessaging() {
 
 /* ======= MOBILE/TABLET: full screen sotto l’header del sito ======= */
 @media (max-width: 1024px) {
-  body.esw-open {
-    overflow: hidden;
-  }
-
   .esw-open #embedded-messaging,
   .esw-open .embeddedMessagingFrame,
   .esw-open iframe[data-embedded-messaging-iframe] {
-    position: fixed !important;
-
-
-    top: var(--site-header-height, 60px) !important;
-
-
-    bottom: env(safe-area-inset-bottom, 0px) !important;
-
-    left: 0 !important;
-    right: 0 !important;
-
-    height: auto !important;
-
-
-    max-height: calc(
-      100svh - var(--site-header-height, 60px)
-    ) !important;
-
+    top: var(--site-header-height) !important;
+    max-height: calc(100dvh - var(--site-header-height)) !important;
     border-radius: 16px !important;
-    z-index: 2147483645 !important;
   }
 }
 
