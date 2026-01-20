@@ -409,6 +409,10 @@ function initEmbeddedMessaging() {
     window.addEventListener("resize", () => {
       updateHeaderHeightVar();
       updateNudgePosition();
+    if (window.innerWidth < DESKTOP_MIN_WIDTH && isOpenState()) {
+      console.log("[RESIZE] mobile + chat open → skip relayout");
+      return;
+    }
       setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, 50);
     });
 
