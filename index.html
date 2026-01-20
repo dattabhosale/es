@@ -556,14 +556,24 @@ function initEmbeddedMessaging() {
 }
 .chat-nudge .close-btn:hover { color: #000; }
 
-/* ======= MOBILE/TABLET: full screen sotto l’header del sito ======= */
 @media (max-width: 1024px) {
   .esw-open #embedded-messaging,
   .esw-open .embeddedMessagingFrame,
   .esw-open iframe[data-embedded-messaging-iframe] {
-    top: var(--site-header-height) !important;
-    max-height: calc(100dvh - var(--site-header-height)) !important;
-    border-radius: 16px !important;
+    position: fixed !important;
+
+    /* ANCORA L’HEADER */
+    top: env(safe-area-inset-top, 0px) !important;
+    bottom: 0 !important;
+
+    /* VIEWPORT DINAMICA (TASTIERA SAFE) */
+    height: auto !important;
+    max-height: 100dvh !important;
+
+    width: 100% !important;
+
+    border-radius: 16px 16px 0 0 !important;
+    overflow: hidden !important;
   }
 }
 
