@@ -556,26 +556,14 @@ function initEmbeddedMessaging() {
 }
 .chat-nudge .close-btn:hover { color: #000; }
 
+/* ======= MOBILE/TABLET: full screen sotto l’header del sito ======= */
 @media (max-width: 1024px) {
-  body.esw-open {
-    overflow: hidden;
-  }
-
-  /* SOLO QUELLO CHE SERVE */
   .esw-open #embedded-messaging,
   .esw-open .embeddedMessagingFrame,
   .esw-open iframe[data-embedded-messaging-iframe] {
-    position: fixed !important;
-
-    /* HEADER SEMPRE VISIBILE */
-    top: var(--site-header-height, 60px) !important;
-
-    /* ❗ NON tocchiamo height / bottom */
-    left: 0 !important;
-    right: 0 !important;
-
-    border-radius: 16px 16px 0 0 !important;
-    overflow: hidden !important;
+    top: var(--site-header-height) !important;
+    max-height: calc(100dvh - var(--site-header-height)) !important;
+    border-radius: 16px !important;
   }
 }
 
