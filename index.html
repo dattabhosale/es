@@ -79,491 +79,695 @@
     </div>
   </footer>
   <!-- Salesforce Embedded Messaging Script -->
-  <script type="text/javascript">
-function initEmbeddedMessaging() {
-  try {
-    embeddedservice_bootstrap.settings.language = "es";
-
-    window.addEventListener("onEmbeddedMessagingReady", () => {
-      embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
-        Country: "Spain",
-        Language: "es",
-        CountryCode: "es",
-      });
-    });
-
-    // Fallback posizione launcher (Salesforce può ignorarla; la manteniamo)
-    embeddedservice_bootstrap.settings.chatButtonPosition = '60px, 30px';
-
-    embeddedservice_bootstrap.init(
-      "00DMA000003XnGM",
-      "LPM_Leapmotor",
-      "https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231",
-      { scrt2URL: "https://leapmotor--dev01.sandbox.my.salesforce-scrt.com" }
-    );
-  } catch (err) {
-    console.error("Error loading Embedded Messaging: ", err);
-  }
-}
-
-// ======================== CONTROLLO AVANZATO =========================
+ </script>
+<!-- ======================== ADVANCED CONTROL ======================== -->
+<script type='text/javascript'>
 (function () {
-  /* ====== Config ====== */
-  const NUDGE_DELAY_MS = 30000; // per test veloce metti 5000, poi torna 30000
-  const DESKTOP_MIN_WIDTH = 1025; // soglia desktop
-  const IS_MOBILE = window.innerWidth < 1025;
-  /* ====== Stato ====== */
-  let chatOpened = false;
-  let firstTimer = null;
-  let followupTimer = null;
-  let nudge = null;
-  let bottom = null;
-  let nudgeBottom = null;
-  let launcherObserver = null;
-  let bodyObserver = null;
-  let fixedRootObserver = null;
-  let statePoller = null;
-  let lastIsOpen = null;
+  'use strict';
 
-  /* ====== Utility DOM ESW ====== */
-  function getLauncherEl() {
-    return (
-      document.querySelector(".embeddedServiceLauncher") ||
-      document.querySelector(".embeddedServiceSidebarButton") ||
-      document.querySelector('[data-embedded-messaging-launcher]') ||
-      document.querySelector('#embedded-messaging .embeddedMessagingIcon') ||
-      document.querySelector('#embedded-messaging button') ||
-      document.querySelector('button[class*="Launcher"], div[class*="Launcher"]')
-    );
-  }
+  /* ====== Configuration ====== */
+  const CONFIG = {
+    NUDGE_DELAY_MS: 30000,
+    DESKTOP_MIN_WIDTH: 1025,
+    STATE_POLL_INTERVAL_MS: 1000,
+    MIN_CHAT_HEIGHT: 150,
+    MIN_CHAT_WIDTH: 200,
+    RETRY_DELAYS: [80, 220, 500]
+  };
 
-  function getChatFrameEl() {
-    return (
-      document.querySelector(".embeddedMessagingFrame") ||
-      document.querySelector('iframe[data-embedded-messaging-iframe]') ||
-      document.querySelector('iframe[src*="embeddedmessaging"]') ||
-      document.querySelector('iframe[id*="embeddedMessaging"]')
-    );
-  }
-
-  // **Chi decide davvero la posizione?** Il primo antenato con position: fixed dell’iframe.
-  function getFixedRootEl() {
-    const frame = getChatFrameEl();
-    if (!frame) return null;
-    let el = frame;
-    while (el && el !== document.body) {
-      const cs = getComputedStyle(el);
-      if (cs.position === "fixed") return el;
-      el = el.parentElement;
-    }
-    // fallback: contenitore noto
-    return document.querySelector("#embedded-messaging") || null;
-  }
-
-  /* ====== Header/Banner (mobile e safety) ====== */
-  function getHeaderEl() {
-    const fromAttr = document.body?.getAttribute?.("data-esw-header");
-    const candidates = (fromAttr ? fromAttr.split(",") : []).map(s => s.trim()).filter(Boolean);
-    const defaults = [
-      "header.site-header","header.navbar","header#header","#site-header",
-      "header.header","header",".topbar",".navbar",
-    ];
-    for (const sel of [...candidates, ...defaults]) {
-      const el = document.querySelector(sel);
-      if (el) return el;
-    }
-    return null;
-  }
-  function updateHeaderHeightVar() {
-    const h = getHeaderEl()?.offsetHeight || 60;
-    document.documentElement.style.setProperty("--site-header-height", h + "px");
-  }
-
-  /* ====== Lock stile: Launcher + Fixed Root ====== */
-  function lockLauncherStyle() {
-    const launcher = getLauncherEl();
-    if (!launcher) return;
-    const cs = getComputedStyle(document.documentElement);
-    const bottom = cs.getPropertyValue("--chat-launcher-bottom").trim() || "60px";
-    const right = cs.getPropertyValue("--chat-launcher-right").trim() || "30px";
-
-    launcher.style.position = "fixed";
-    launcher.style.bottom = bottom;
-    launcher.style.right = right;
-    launcher.style.left = "auto";
-    launcher.style.top = "auto";
-    launcher.style.transform = "none";
-    launcher.style.transition = "none";
-    launcher.style.zIndex = "2147483647";
-
-    updateNudgePosition();
-  }
-
-  // **Punto chiave**: solleva davvero il box chat di 40px, agendo sul root fixed.
-  function lockFixedRootStyle() {
-    const root = getFixedRootEl();
-    if (!root) return;
-
-    // Solo desktop: su mobile gestiamo il full screen
-    if (window.innerWidth >= DESKTOP_MIN_WIDTH) {
-      const gap = getComputedStyle(document.documentElement)
-        .getPropertyValue("--chat-frame-bottom-gap").trim() || "40px";
-      const rightGap = getComputedStyle(document.documentElement)
-        .getPropertyValue("--chat-frame-right-gap").trim() || "30px";
-
-      // Se qualche build imposta “inset: 0”, sovrascriviamo *tutte* le coordinate
-      root.style.position = "fixed";
-      root.style.top = "auto";
-      root.style.left = "auto";
-      root.style.right = rightGap;
-      root.style.bottom = gap;
-      root.style.inset = "auto " + rightGap + " " + gap + " auto"; // sicurezza
-      root.style.zIndex = "2147483645";
-    }
-  }
-
-  function observeDynamicElements() {
-    // Osserva re-styling del launcher
-    if (launcherObserver) { launcherObserver.disconnect(); launcherObserver = null; }
-    const launcher = getLauncherEl();
-    if (launcher) {
-      launcherObserver = new MutationObserver(() => lockLauncherStyle());
-      launcherObserver.observe(launcher, { attributes: true, attributeFilter: ["style", "class", "aria-expanded", "aria-pressed"] });
-
-      // Click → deduciamo stato finale (open/minimized) con un check differito
-      launcher.addEventListener("click", () => {
-        setTimeout(evaluateAndApplyOpenState, 350);
-      }, { capture: true });
-    }
-
-    // Osserva re-styling del root fixed (Salesforce talvolta lo ricrea o ne cambia gli stili)
-    if (fixedRootObserver) { fixedRootObserver.disconnect(); fixedRootObserver = null; }
-    const root = getFixedRootEl();
-    if (root) {
-      fixedRootObserver = new MutationObserver(() => lockFixedRootStyle());
-      fixedRootObserver.observe(root, { attributes: true, attributeFilter: ["style", "class"] });
-    }
-
-    // Se Salesforce ricrea nodi, rilock
-    if (bodyObserver) { bodyObserver.disconnect(); bodyObserver = null; }
-    bodyObserver = new MutationObserver(() => {
-      lockLauncherStyle();
-      lockFixedRootStyle();
-      observeDynamicElements(); // ri-attacca observers al nuovo DOM
-    });
-    bodyObserver.observe(document.body, { childList: true, subtree: true });
-  }
-
-  /* ====== Nudge ====== */
-
-  function showNudge(message) {
-  console.log("[NUDGE] showNudge chiamata con messaggio:", message);
-  console.log("[NUDGE] nudge esistente?", !!nudge);
-
-  if (nudge) {
-    console.log("[NUDGE] ABORT → nudge già presente, non ne creo uno nuovo");
-    return;
-  }
-    nudge = document.createElement("div");
-    nudge.className = "chat-nudge";
-    nudge.textContent = message;
-
-    const closeBtn = document.createElement("span");
-    closeBtn.className = "close-btn";
-    closeBtn.textContent = "×";
-    closeBtn.onclick = function (e) {
-  console.log("[NUDGE] chiuso manualmente");
-      e.stopPropagation();
-      removeNudge();
-    };
-    nudge.appendChild(closeBtn);
-
-    nudge.onclick = function () {
-  console.log("[NUDGE] click → open chat");
-      window.embeddedservice_bootstrap?.open?.();
-      removeNudge();
-    };
-
-    document.body.appendChild(nudge);
-  if (!IS_MOBILE) {
-    if (nudgeBottom === null) {
-      const launcher = getLauncherEl();
-      const rect = launcher.getBoundingClientRect();
-      nudgeBottom = Math.max(0, window.innerHeight - rect.top + 20);
+  const MESSAGES = {
+    es: {
+      first: '¡Habla conmigo!',
+      followup: '¡Sigue hablándome!'
+    },
+    it: {
+      first: 'Parlami!',
+      followup: 'Continua a parlarmi!'
+    },
+    fr: {
+      first: 'Parle-moi!',
+      followup: 'Continue de me parler!'
+    },
+    de: {
+      first: 'Sprich mit mir!',
+      followup: 'Sprich weiter mit mir!'
+    },
+    en: {
+      first: 'Talk to me!',
+      followup: 'Keep talking to me!'
     }
-    nudge.style.bottom = nudgeBottom + "px";
-  }
-  console.log("[NUDGE] nudge aggiunto al DOM");
-  }
+  };
 
-  function removeNudge() {
+  /* ====== State ====== */
+  const state = {
+    chatEverOpened: false,
+    chatCurrentlyOpen: false,
+    nudgeElement: null,
+    nudgeBottomPosition: null,
 
-    if (nudge) {
-    console.log("[NUDGE] removeNudge → rimuovo nudge");
-      nudge.remove();
-      nudge = null;
-    } else {
-    console.log("[NUDGE] removeNudge chiamata ma nudge è NULL");
-  }
-  }
+    timers: {
+      first: null,
+      followup: null
+    },
 
-  function updateNudgePosition() {
-  if (IS_MOBILE) return;
-    const launcher = getLauncherEl();
-    if (launcher && nudge) {
-      const rect = launcher.getBoundingClientRect();
-    // bottom = distanza dal launcher + offset
-
-  if (nudgeBottom === null) {
-    bottom = window.innerHeight - rect.top + 20;
-
-
-    // Limiti per non uscire dallo schermo
-    const maxBottom = window.innerHeight - 50; // massimo 50px sotto inizio viewport
-    const minBottom = 20; // almeno 20px dal fondo
-    bottom = Math.min(bottom, maxBottom);
-    bottom = Math.max(bottom, minBottom);
-    nudgeBottom = bottom;
-  }
-    nudge.style.bottom = bottom + "px";
-    console.log("[NUDGE] updateNudgePosition → bottom calcolato:", bottom);
-    }
-  }
-
-  /* ====== Rilevazione stato open/minimized robusta ====== */
-  function isOpenState() {
-    const frame = getChatFrameEl();
-    const root = getFixedRootEl();
-
-    if (!frame || !root) return false;
-
-    const fs = getComputedStyle(frame);
-    const fr = frame.getBoundingClientRect();
-    const rs = getComputedStyle(root);
-    const rr = root.getBoundingClientRect();
-
-    // Se il frame è sostanzialmente visibile e di altezza “conversazionale”
-    const frameVisible = (fs.display !== "none" && fs.visibility !== "hidden" && fr.height > 150 && fr.width > 200);
-    // Se il root non è ridotto al solo launcher: altezza > 150
-    const rootLarge = (rr.height > 150);
-
-    return frameVisible && rootLarge;
-  }
-
-  function evaluateAndApplyOpenState() {
-    const nowOpen = isOpenState();
-
-    // Transizione open -> minimized
-    if (lastIsOpen === true && !nowOpen) {
-  console.log("[STATE] OPEN → MINIMIZED");
-      chatOpened = false;
-      document.body.classList.remove("esw-open");
-      // Schedula nudge di follow-up
-      if (followupTimer) {
-    console.log("[FOLLOWUP] clearTimeout precedente");
-    clearTimeout(followupTimer);
-  }
-  console.log("[FOLLOWUP] scheduling secondo nudge tra", NUDGE_DELAY_MS, "ms");
-      followupTimer = setTimeout(() => {
-    console.log("[FOLLOWUP] TIMER SCADUTO → tento secondo nudge");
-    console.log("[FOLLOWUP] isOpenState() =", isOpenState());
-    console.log("[FOLLOWUP] nudge esistente =", !!nudge);
-        showNudge("¡Sigue hablándome!");
-      }, NUDGE_DELAY_MS);
-    }
-
-    // Transizione minimized -> open
-    if (lastIsOpen === false && nowOpen) {
-   console.log("[STATE] MINIMIZED → OPEN");
-      chatOpened = true;
-      document.body.classList.add("esw-open");
-      removeNudge();
-      if (followupTimer) {
-    console.log("[FOLLOWUP] chat riaperta → clearTimeout followup");
-    clearTimeout(followupTimer);
+    observers: {
+      launcher: null,
+      body: null,
+      fixedRoot: null,
+      statePoller: null
     }
-    }
+  };
 
-    lastIsOpen = nowOpen;
-  }
+  /* ====== Utility Functions ====== */
+  const isMobile = () => window.innerWidth < CONFIG.DESKTOP_MIN_WIDTH;
 
-  function startStatePolling() {
-    if (statePoller) clearInterval(statePoller);
-    // inizializza stato
-    lastIsOpen = isOpenState();
-    statePoller = setInterval(evaluateAndApplyOpenState, 700);
-  }
+  function getCountryCode() {
+    return getCountryCodeFromPath();
+  }
 
-  /* ====== Eventi ESW (usati ma NON unici) ====== */
-  window.addEventListener("onEmbeddedMessagingReady", function () {
-    document.body.classList.add("chat-launcher-fixed");
+  function getLocalizedMessages() {
+    const code = getCountryCode();
+    return MESSAGES[code] || MESSAGES.en;
+  }
 
-    updateHeaderHeightVar();
+  function clearTimer(timerName) {
+    if (state.timers[timerName]) {
+      console.log(`[TIMER] Clearing ${timerName} timer`);
+      clearTimeout(state.timers[timerName]);
+      state.timers[timerName] = null;
+    }
+  }
 
-    // Blocchi iniziali + retry differiti per battere animazioni/override
-    lockLauncherStyle();
-    lockFixedRootStyle();
-    setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, 80);
-    setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, 220);
+  function clearAllTimers() {
+    clearTimer('first');
+    clearTimer('followup');
+  }
 
-    observeDynamicElements();
-    startStatePolling();
+  function disconnectObserver(observerName) {
+    if (state.observers[observerName]) {
+      state.observers[observerName].disconnect();
+      state.observers[observerName] = null;
+    }
+  }
 
-    window.addEventListener("resize", () => {
-      updateHeaderHeightVar();
-      updateNudgePosition();
-    if (window.innerWidth < DESKTOP_MIN_WIDTH && isOpenState()) {
-      console.log("[RESIZE] mobile + chat open → skip relayout");
+  /* ====== DOM Element Getters ====== */
+  function getLauncherEl() {
+    return (
+      document.querySelector('.embeddedServiceLauncher') ||
+      document.querySelector('.embeddedServiceSidebarButton') ||
+      document.querySelector('[data-embedded-messaging-launcher]') ||
+      document.querySelector('#embedded-messaging .embeddedMessagingIcon') ||
+      document.querySelector('#embedded-messaging button') ||
+      document.querySelector('button[class*="Launcher"], div[class*="Launcher"]')
+    );
+  }
+
+  function getChatFrameEl() {
+    return (
+      document.querySelector('.embeddedMessagingFrame') ||
+      document.querySelector('iframe[data-embedded-messaging-iframe]') ||
+      document.querySelector('iframe[src*="embeddedmessaging"]') ||
+      document.querySelector('iframe[id*="embeddedMessaging"]')
+    );
+  }
+
+  function getFixedRootEl() {
+    const frame = getChatFrameEl();
+    if (!frame) return null;
+
+    let el = frame;
+    while (el && el !== document.body) {
+      const cs = getComputedStyle(el);
+      if (cs.position === 'fixed') return el;
+      el = el.parentElement;
+    }
+
+    return document.querySelector('#embedded-messaging') || null;
+  }
+
+  function getHeaderEl() {
+    const fromAttr = document.body?.getAttribute?.('data-esw-header');
+    const candidates = (fromAttr ? fromAttr.split(',') : [])
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const defaults = [
+      'header.site-header', 'header.navbar', 'header#header', '#site-header',
+      'header.header', 'header', '.topbar', '.navbar'
+    ];
+
+    for (const sel of [...candidates, ...defaults]) {
+      const el = document.querySelector(sel);
+      if (el) return el;
+    }
+
+    return null;
+  }
+
+  /* ====== Header Height Management ====== */
+  function updateHeaderHeightVar() {
+    const h = getHeaderEl()?.offsetHeight || 60;
+    document.documentElement.style.setProperty('--site-header-height', h + 'px');
+  }
+
+  /* === MOBILE: full-screen dinamico, anche con tastiera aperta === */
+  function getHeaderHeightPx() {
+    const hVar = getComputedStyle(document.documentElement).getPropertyValue('--site-header-height') || '60px';
+    return parseInt(hVar, 10) || 60;
+  }
+
+  /* Calcola e impone l'altezza disponibile sotto l'header,
+     usando visualViewport quando la tastiera è aperta */
+  function applyMobileFullscreenLayout() {
+    if (typeof isMobile !== 'function' || typeof isOpenState !== 'function') return;
+    if (!isMobile() || !isOpenState()) return;
+
+    const headerH = getHeaderHeightPx();
+    const root = (typeof getFixedRootEl === 'function' ? getFixedRootEl() : document.querySelector('#embedded-messaging'));
+    const frame = (typeof getChatFrameEl === 'function' ? getChatFrameEl() : document.querySelector('.embeddedMessagingFrame, iframe[data-embedded-messaging-iframe]'));
+
+    const vh = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
+    const targetHeight = Math.max(0, vh - headerH);
+
+    if (root) {
+    root.style.position = 'fixed';
+    root.style.top = headerH + 'px';
+    root.style.left = '0';
+    root.style.right = '0';
+    root.style.bottom = '0';
+    root.style.width = '100vw';
+    root.style.height = targetHeight + 'px';
+    root.style.maxHeight = targetHeight + 'px';
+    root.style.inset = headerH + 'px 0 0 0';
+    root.style.zIndex = '2147483647';
+    root.style.borderRadius = '0';
+    root.style.overflow = 'hidden';
+    }
+    if (frame) {
+    frame.style.position = 'fixed';
+    frame.style.top = headerH + 'px';
+    frame.style.left = '0';
+    frame.style.right = '0';
+    frame.style.bottom = '0';
+    frame.style.width = '100vw';
+    frame.style.height = targetHeight + 'px';
+    frame.style.maxHeight = targetHeight + 'px';
+    frame.style.zIndex = '2147483647';
+    frame.style.borderRadius = '0';
+    frame.style.overflow = 'hidden';
+    }
+  }
+
+  /* Listener che reagisce a tastiera/viewport changes */
+  function attachMobileViewportListeners() {
+    if (attachMobileViewportListeners._attached) return;
+    attachMobileViewportListeners._attached = true;
+
+    if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+      updateHeaderHeightVar();
+      applyMobileFullscreenLayout();
+    });
+    }
+    window.addEventListener('resize', () => {
+    updateHeaderHeightVar();
+    applyMobileFullscreenLayout();
+    });
+    window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+      updateHeaderHeightVar();
+      applyMobileFullscreenLayout();
+    }, 100);
+    });
+  }
+
+  /* ====== Style Locking ====== */
+  function lockLauncherStyle() {
+    const launcher = getLauncherEl();
+    if (!launcher) return;
+
+    const cs = getComputedStyle(document.documentElement);
+    const bottom = cs.getPropertyValue('--chat-launcher-bottom').trim() || '60px';
+    const right = cs.getPropertyValue('--chat-launcher-right').trim() || '30px';
+
+    launcher.style.position = 'fixed';
+    launcher.style.bottom = bottom;
+    launcher.style.right = right;
+    launcher.style.left = 'auto';
+    launcher.style.top = 'auto';
+    launcher.style.transform = 'none';
+    launcher.style.transition = 'none';
+    launcher.style.zIndex = '2147483647';
+
+    updateNudgePosition();
+  }
+
+  function lockFixedRootStyle() {
+    const root = getFixedRootEl();
+    if (!root) return;
+
+    if (!isMobile()) {
+      const cs = getComputedStyle(document.documentElement);
+      const gap = cs.getPropertyValue('--chat-frame-bottom-gap').trim() || '40px';
+      const rightGap = cs.getPropertyValue('--chat-frame-right-gap').trim() || '30px';
+
+      root.style.position = 'fixed';
+      root.style.top = 'auto';
+      root.style.left = 'auto';
+      root.style.right = rightGap;
+      root.style.bottom = gap;
+      root.style.inset = 'auto ' + rightGap + ' ' + gap + ' auto';
+      root.style.zIndex = '2147483645';
+    }
+  }
+
+  function applyStylesWithRetry() {
+    lockLauncherStyle();
+    lockFixedRootStyle();
+
+    CONFIG.RETRY_DELAYS.forEach(delay => {
+      setTimeout(() => {
+        lockLauncherStyle();
+        lockFixedRootStyle();
+      }, delay);
+    });
+  }
+
+  /* ====== Observer Setup ====== */
+  function observeDynamicElements() {
+    // Launcher observer
+    disconnectObserver('launcher');
+    const launcher = getLauncherEl();
+    if (launcher) {
+      state.observers.launcher = new MutationObserver(() => lockLauncherStyle());
+      state.observers.launcher.observe(launcher, {
+        attributes: true,
+        attributeFilter: ['style', 'class', 'aria-expanded', 'aria-pressed']
+      });
+
+      launcher.addEventListener('click', () => {
+        setTimeout(evaluateAndApplyOpenState, 350);
+      }, { capture: true, once: false });
+    }
+
+    // Fixed root observer
+    disconnectObserver('fixedRoot');
+    const root = getFixedRootEl();
+    if (root) {
+      state.observers.fixedRoot = new MutationObserver(() => lockFixedRootStyle());
+      state.observers.fixedRoot.observe(root, {
+        attributes: true,
+        attributeFilter: ['style', 'class']
+      });
+    }
+
+    // Body observer (only set up once)
+    if (!state.observers.body) {
+      state.observers.body = new MutationObserver(() => {
+        lockLauncherStyle();
+        lockFixedRootStyle();
+      });
+      state.observers.body.observe(document.body, {
+        childList: true,
+        subtree: true
+      });
+    }
+  }
+
+  /* ====== Nudge Management ====== */
+  function showNudge(message) {
+    console.log('[NUDGE] Attempting to show nudge:', message);
+
+    if (state.nudgeElement) {
+      console.log('[NUDGE] Nudge already visible, skipping');
       return;
     }
-      setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, 50);
-    });
 
-    // Nudge iniziale se non aperta entro NUDGE_DELAY_MS
-    if (firstTimer) clearTimeout(firstTimer);
-    firstTimer = setTimeout(() => {
-      if (!isOpenState()) showNudge("¡Habla conmigo!");
-    }, NUDGE_DELAY_MS);
-  });
+    state.nudgeElement = document.createElement('div');
+    state.nudgeElement.className = 'chat-nudge';
+    state.nudgeElement.textContent = message;
 
-  window.addEventListener("onEmbeddedMessagingButtonClicked", function () {
-    // Il click può aprire o minimizzare. Usiamo un check differito.
-    setTimeout(evaluateAndApplyOpenState, 250);
-  });
+    const closeBtn = document.createElement('span');
+    closeBtn.className = 'close-btn';
+    closeBtn.textContent = '×';
+    closeBtn.onclick = function (e) {
+      console.log('[NUDGE] Closed manually');
+      e.stopPropagation();
+      removeNudge();
+    };
+    state.nudgeElement.appendChild(closeBtn);
 
-  window.addEventListener("onEmbeddedMessagingWindowOpened", function () {
-    chatOpened = true;
-    document.body.classList.add("esw-open");
-    removeNudge();
-    lastIsOpen = true;
+    state.nudgeElement.onclick = function () {
+      console.log('[NUDGE] Clicked - opening chat');
+      window.embeddedservice_bootstrap?.open?.();
+      removeNudge();
+    };
 
-    setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, 50);
-  });
+    document.body.appendChild(state.nudgeElement);
 
-  window.addEventListener("onEmbeddedMessagingWindowMinimized", function () {
-    // Trattiamo come minimizzazione (anche se a volte non arriva)
-  console.log("[ESW EVENT] window minimized");
-    chatOpened = false;
-    document.body.classList.remove("esw-open");
-    lastIsOpen = false;
+    if (!isMobile()) {
+      if (state.nudgeBottomPosition === null) {
+        const launcher = getLauncherEl();
+        if (launcher) {
+          const rect = launcher.getBoundingClientRect();
+          const bottom = Math.max(0, window.innerHeight - rect.top + 20);
+          const maxBottom = window.innerHeight - 50;
+          const minBottom = 20;
+          state.nudgeBottomPosition = Math.min(Math.max(bottom, minBottom), maxBottom);
+        }
+      }
+      state.nudgeElement.style.bottom = state.nudgeBottomPosition + 'px';
+    }
 
-    setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, 50);
+    console.log('[NUDGE] Nudge displayed');
+  }
 
-    if (followupTimer) {
-    console.log("[FOLLOWUP] clearTimeout precedente (evento)");
-    clearTimeout(followupTimer);
-  }
-  console.log("[FOLLOWUP] scheduling secondo nudge (evento)");
-    followupTimer = setTimeout(() => {
-  console.log("[FOLLOWUP] TIMER SCADUTO (evento) → secondo nudge");
-      showNudge("¡Sigue hablándome!");
-    }, NUDGE_DELAY_MS);
-  });
+  function removeNudge() {
+    if (state.nudgeElement) {
+      console.log('[NUDGE] Removing nudge');
+      state.nudgeElement.remove();
+      state.nudgeElement = null;
+    }
+  }
 
-  window.addEventListener("onEmbeddedMessagingWindowClosed", function () {
-    chatOpened = false;
-    document.body.classList.remove("esw-open");
-    setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, 50);
-  });
+  function updateNudgePosition() {
+    if (isMobile() || !state.nudgeElement) return;
+
+    const launcher = getLauncherEl();
+    if (launcher) {
+      if (state.nudgeBottomPosition === null) {
+        const rect = launcher.getBoundingClientRect();
+        const bottom = Math.max(0, window.innerHeight - rect.top + 20);
+        const maxBottom = window.innerHeight - 50;
+        const minBottom = 20;
+        state.nudgeBottomPosition = Math.min(Math.max(bottom, minBottom), maxBottom);
+      }
+      state.nudgeElement.style.bottom = state.nudgeBottomPosition + 'px';
+    }
+  }
+
+  /* ====== State Detection ====== */
+  function isOpenState() {
+    const frame = getChatFrameEl();
+    const root = getFixedRootEl();
+
+    if (!frame || !root) return false;
+
+    const fs = getComputedStyle(frame);
+    const fr = frame.getBoundingClientRect();
+    const rs = getComputedStyle(root);
+    const rr = root.getBoundingClientRect();
+
+    const frameVisible = (
+      fs.display !== 'none' &&
+      fs.visibility !== 'hidden' &&
+      fr.height > CONFIG.MIN_CHAT_HEIGHT &&
+      fr.width > CONFIG.MIN_CHAT_WIDTH
+    );
+
+    const rootLarge = (rr.height > CONFIG.MIN_CHAT_HEIGHT);
+
+    return frameVisible && rootLarge;
+  }
+
+  function evaluateAndApplyOpenState() {
+    const nowOpen = isOpenState();
+    const wasOpen = state.chatCurrentlyOpen;
+
+    // No state change
+    if (nowOpen === wasOpen) return;
+
+    // Transition: open → minimized
+    if (wasOpen && !nowOpen) {
+      console.log('[STATE] Chat minimized');
+      state.chatCurrentlyOpen = false;
+      document.body.classList.remove('esw-open');
+
+      // Only show follow-up nudge if chat was previously opened
+      if (state.chatEverOpened) {
+        clearTimer('followup');
+        const messages = getLocalizedMessages();
+        console.log('[FOLLOWUP] Scheduling follow-up nudge');
+        state.timers.followup = setTimeout(() => {
+          console.log('[FOLLOWUP] Showing follow-up nudge');
+          if (!isOpenState()) {
+            showNudge(messages.followup);
+          }
+        }, CONFIG.NUDGE_DELAY_MS);
+      }
+    }
+
+    // Transition: minimized → open
+    if (!wasOpen && nowOpen) {
+      console.log('[STATE] Chat opened');
+      state.chatCurrentlyOpen = true;
+      state.chatEverOpened = true;
+      document.body.classList.add('esw-open');
+      removeNudge();
+      clearAllTimers();
+    }
+  }
+
+  function startStatePolling() {
+    if (state.observers.statePoller) {
+      clearInterval(state.observers.statePoller);
+    }
+
+    state.chatCurrentlyOpen = isOpenState();
+    state.observers.statePoller = setInterval(
+      evaluateAndApplyOpenState,
+      CONFIG.STATE_POLL_INTERVAL_MS
+    );
+  }
+
+  /* ====== Event Handlers ====== */
+  function handleResize() {
+    updateHeaderHeightVar();
+    updateNudgePosition();
+
+    if (isMobile() && isOpenState()) {
+      console.log('[RESIZE] Mobile + chat open, skipping relayout');
+      return;
+    }
+
+    // MOBILE: ricalcola layout full-screen
+    applyMobileFullscreenLayout();
+
+    setTimeout(() => {
+      lockLauncherStyle();
+      lockFixedRootStyle();
+    }, 50);
+  }
+
+  /* ====== Salesforce Events ====== */
+  window.addEventListener('onEmbeddedMessagingReady', function () {
+    console.log('[ESW] Embedded Messaging Ready');
+    document.body.classList.add('chat-launcher-fixed');
+
+    updateHeaderHeightVar();
+    applyStylesWithRetry();
+    observeDynamicElements();
+    startStatePolling();
+
+// MOBILE: predispone i listener viewport (non impatta desktop)
+attachMobileViewportListeners();
+
+    window.addEventListener('resize', handleResize);
+
+    // Schedule first nudge only if chat never opened
+    clearTimer('first');
+    const messages = getLocalizedMessages();
+    state.timers.first = setTimeout(() => {
+      console.log('[NUDGE] First timer expired');
+      if (!state.chatEverOpened && !isOpenState()) {
+        showNudge(messages.first);
+      }
+    }, CONFIG.NUDGE_DELAY_MS);
+  });
+
+  window.addEventListener('onEmbeddedMessagingButtonClicked', function () {
+    console.log('[ESW] Button clicked');
+    setTimeout(evaluateAndApplyOpenState, 250);
+  });
+
+  window.addEventListener('onEmbeddedMessagingWindowOpened', function () {
+    console.log('[ESW] Window opened event');
+    state.chatCurrentlyOpen = true;
+    state.chatEverOpened = true;
+    document.body.classList.add('esw-open');
+    removeNudge();
+    clearAllTimers();
+
+    // MOBILE: forza full-screen sopra tutto, anche con tastiera
+    attachMobileViewportListeners();
+    setTimeout(() => {
+      updateHeaderHeightVar();
+      applyMobileFullscreenLayout();
+    }, 50);
+
+    setTimeout(applyStylesWithRetry, 50);
+  });
+
+  window.addEventListener('onEmbeddedMessagingWindowMinimized', function () {
+    console.log('[ESW] Window minimized event');
+    state.chatCurrentlyOpen = false;
+    document.body.classList.remove('esw-open');
+
+    setTimeout(applyStylesWithRetry, 50);
+
+    if (state.chatEverOpened) {
+      clearTimer('followup');
+      const messages = getLocalizedMessages();
+      console.log('[FOLLOWUP] Scheduling follow-up nudge (event)');
+      state.timers.followup = setTimeout(() => {
+        console.log('[FOLLOWUP] Showing follow-up nudge (event)');
+        if (!isOpenState()) {
+          showNudge(messages.followup);
+        }
+      }, CONFIG.NUDGE_DELAY_MS);
+    }
+  });
+
+  window.addEventListener('onEmbeddedMessagingWindowClosed', function () {
+    console.log('[ESW] Window closed event');
+    state.chatCurrentlyOpen = false;
+    document.body.classList.remove('esw-open');
+    setTimeout(applyStylesWithRetry, 50);
+  });
 })();
 </script>
-
-<!-- Custom Styles for Embedded Messaging Chat -->
+<!-- ======================== CUSTOM STYLES ======================== -->
 <style>
 :root {
-  /* Launcher (bottone) */
-  --chat-launcher-bottom: 60px;
-  --chat-launcher-right: 30px;
+  /* Launcher (button) */
+  --chat-launcher-bottom: 60px;
+  --chat-launcher-right: 30px;
 
-  /* Nudge */
-  --chat-nudge-offset: 70px;
+  /* Nudge */
+  --chat-nudge-offset: 70px;
 
-  /* Header mobile */
-  --chat-header-height: 60px;   /* fallback */
-  --site-header-height: 60px;   /* calcolata via JS */
+  /* Header mobile */
+  --chat-header-height: 60px;
+  --site-header-height: 60px;
 
-  /* Desktop: solleva il box chat dal fondo */
-  --chat-frame-bottom-gap: 40px;  /* <<< richiesta */
-  --chat-frame-right-gap: 30px;   /* allineato al launcher */
+  /* Desktop: lift chat box from bottom */
+  --chat-frame-bottom-gap: 40px;
+  --chat-frame-right-gap: 30px;
 }
-
 /* ======= DESKTOP ======= */
-/* Lasciamo i bordi arrotondati al frame; il posizionamento lo fa il “fixed root” via JS */
 @media (min-width: 1025px) {
-  .embeddedMessagingFrame {
-    border-radius: 16px !important;
-    overflow: hidden !important;
-    z-index: 2147483645 !important;
-  }
-  .embeddedMessagingHeader {
-    border-top-left-radius: 16px !important;
-    border-top-right-radius: 16px !important;
-  }
-  .embeddedMessagingConversation {
-    border-bottom-left-radius: 16px !important;
-    border-bottom-right-radius: 16px !important;
-  }
-}
+  .embeddedMessagingFrame {
+    border-radius: 16px !important;
+    overflow: hidden !important;
+    z-index: 2147483645 !important;
+  }
 
-/* ======= LAUNCHER BLOCCATO ======= */
+  .embeddedMessagingHeader {
+    border-top-left-radius: 16px !important;
+    border-top-right-radius: 16px !important;
+  }
+
+  .embeddedMessagingConversation {
+    border-bottom-left-radius: 16px !important;
+    border-bottom-right-radius: 16px !important;
+  }
+}
+/* ======= LAUNCHER FIXED ======= */
 .chat-launcher-fixed .embeddedServiceLauncher,
 .chat-launcher-fixed .embeddedServiceSidebarButton,
 .chat-launcher-fixed #embedded-messaging .embeddedMessagingIcon,
 .chat-launcher-fixed button[class*="Launcher"],
 .chat-launcher-fixed div[class*="Launcher"] {
-  position: fixed !important;
-  bottom: var(--chat-launcher-bottom) !important;
-  right: var(--chat-launcher-right) !important;
-  left: auto !important;
-  top: auto !important;
-  transform: none !important;
-  z-index: 2147483647 !important;
+  position: fixed !important;
+  bottom: var(--chat-launcher-bottom) !important;
+  right: var(--chat-launcher-right) !important;
+  left: auto !important;
+  top: auto !important;
+  transform: none !important;
+  z-index: 2147483647 !important;
 }
-
 /* ======= NUDGE ======= */
 .chat-nudge {
-  position: fixed;
-  bottom: calc(var(--chat-launcher-bottom) + var(--chat-nudge-offset));
-  right: var(--chat-launcher-right);
-  background: #ffffff;
-  color: #000;
-  padding: 10px 32px 10px 12px;
-  border-radius: 12px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-  font-size: 14px;
-  font-weight: 500;
-  z-index: 2147483646;
-  cursor: pointer;
-  animation: bounce 5s ease-out;
+  position: fixed;
+  bottom: calc(var(--chat-launcher-bottom) + var(--chat-nudge-offset));
+  right: var(--chat-launcher-right);
+  background: #ffffff;
+  color: #000;
+  padding: 10px 32px 10px 12px;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  font-size: 14px;
+  font-weight: 500;
+  z-index: 2147483646;
+  cursor: pointer;
+  animation: bounce 5s ease-out;
 }
 @keyframes bounce {
-  0% { transform: translateY(0); }
-  20% { transform: translateY(-6px); }
-  40% { transform: translateY(0); }
-  60% { transform: translateY(-3px); }
-  80% { transform: translateY(0); }
-  100% { transform: translateY(0); }
+  0% { transform: translateY(0); }
+  20% { transform: translateY(-6px); }
+  40% { transform: translateY(0); }
+  60% { transform: translateY(-3px); }
+  80% { transform: translateY(0); }
+  100% { transform: translateY(0); }
 }
 .chat-nudge .close-btn {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  font-weight: bold;
-  font-size: 14px;
-  color: #666;
-  cursor: pointer;
-  margin-left: 8px;
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-weight: bold;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+  margin-left: 8px;
 }
-.chat-nudge .close-btn:hover { color: #000; }
+.chat-nudge .close-btn:hover {
+  color: #000;
+}
 
-/* ======= MOBILE/TABLET: full screen sotto l’header del sito ======= */
+/* ======= MOBILE FULLSCREEN (sopra qualsiasi banner, no bordi arrotondati) ======= */
 @media (max-width: 1024px) {
+  body.esw-open {
+    overflow: hidden;
+    height: 100dvh; /* stabilizza lo scroll del body sotto la chat */
+  }
+
+  /* Contenitore root e iFrame devono occupare TUTTO lo schermo (largo e alto) 
+     sotto l'header del sito, stare in primo piano e senza radius */
   .esw-open #embedded-messaging,
   .esw-open .embeddedMessagingFrame,
   .esw-open iframe[data-embedded-messaging-iframe] {
-    top: var(--site-header-height) !important;
-    max-height: calc(100dvh - var(--site-header-height)) !important;
-    border-radius: 16px !important;
+    position: fixed !important;
+    top: var(--site-header-height, 60px) !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: calc(100dvh - var(--site-header-height, 60px)) !important;
+    max-height: calc(100dvh - var(--site-header-height, 60px)) !important;
+    border-radius: 0 !important;
+    overflow: hidden !important;
+    z-index: 2147483647 !important; /* sopra qualsiasi banner */
+    inset: var(--site-header-height, 60px) 0 0 0 !important; /* forza full-bleed */
+  }
+
+  /* Mantieni il launcher cliccabile sopra la chat se necessario */
+  .chat-launcher-fixed .embeddedServiceLauncher,
+  .chat-launcher-fixed .embeddedServiceSidebarButton,
+  .chat-launcher-fixed #embedded-messaging .embeddedMessagingIcon,
+  .chat-launcher-fixed button[class*="Launcher"],
+  .chat-launcher-fixed div[class*="Launcher"] {
+    bottom: 20px !important;
+    right: 20px !important;
+    transform: none !important;
+    z-index: 2147483648 !important; /* un gradino sopra la chat */
+  }
+
+  /* Nudge: opzionale (puoi anche nasconderlo su mobile se vuoi) */
+  .chat-nudge {
+    bottom: calc(20px + var(--chat-nudge-offset));
+    right: 20px;
+    font-size: 13px;
+    z-index: 2147483649; /* sopra la chat e sopra il launcher */
   }
 }
 
