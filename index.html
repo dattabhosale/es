@@ -81,6 +81,31 @@
   <!-- Salesforce Embedded Messaging Script -->
 <!-- ======================== ADVANCED CONTROL ======================== -->
 <script type='text/javascript'>
+  function initEmbeddedMessaging() {
+  try {
+    embeddedservice_bootstrap.settings.language = "es";
+
+    window.addEventListener("onEmbeddedMessagingReady", () => {
+      embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+        Country: "Spain",
+        Language: "es",
+        CountryCode: "es",
+      });
+    });
+
+    // Fallback posizione launcher (Salesforce può ignorarla; la manteniamo)
+    embeddedservice_bootstrap.settings.chatButtonPosition = '60px, 30px';
+
+    embeddedservice_bootstrap.init(
+      "00DMA000003XnGM",
+      "LPM_Leapmotor",
+      "https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231",
+      { scrt2URL: "https://leapmotor--dev01.sandbox.my.salesforce-scrt.com" }
+    );
+  } catch (err) {
+    console.error("Error loading Embedded Messaging: ", err);
+  }
+}
 (function () {
   'use strict';
 
