@@ -106,6 +106,7 @@
     console.error("Error loading Embedded Messaging: ", err);
   }
 }
+<!-- ======================== ADVANCED CONTROL ======================== -->
 (function () {
   'use strict';
 
@@ -164,6 +165,16 @@
 
   /* ====== Utility Functions ====== */
   const isMobile = () => window.innerWidth < CONFIG.DESKTOP_MIN_WIDTH;
+
+  /* --- Mobile: adatta altezza dinamicamente con tastiera --- */
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', () => {
+    document.documentElement.style.setProperty(
+      '--vvh',
+      window.visualViewport.height + 'px'
+    );
+    });
+  }
 
   function getCountryCode() {
     return getCountryCodeFromPath();
@@ -717,7 +728,7 @@ attachMobileViewportListeners();
   right: var(--chat-launcher-right);
   background: #ffffff;
   color: #000;
-  padding: 10px 32px 10px 12px;
+  padding: 10px 20px 10px 12px;
   border-radius: 12px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
   font-size: 14px;
@@ -748,50 +759,55 @@ attachMobileViewportListeners();
   color: #000;
 }
 
-/* ======= MOBILE FULLSCREEN (sopra qualsiasi banner, no bordi arrotondati) ======= */
+/* === MOBILE FULLSCREEN CORRETTO (SOPRA BANNER, SENZA RADIUS, CON TASTIERA) === */
 @media (max-width: 1024px) {
+
   body.esw-open {
-    overflow: hidden;
-    height: 100dvh; /* stabilizza lo scroll del body sotto la chat */
+    overflow: hidden !important;
+    height: 100dvh !important; /* stabilizza lo scroll del body */
   }
 
-  /* Contenitore root e iFrame devono occupare TUTTO lo schermo (largo e alto) 
-     sotto l'header del sito, stare in primo piano e senza radius */
-  .esw-open #embedded-messaging,
-  .esw-open .embeddedMessagingFrame,
-  .esw-open iframe[data-embedded-messaging-iframe] {
+  /* ⬇️ LIVELLO ROOT DEL WIDGET (IL VERO CONTENITORE) */
+  #embedded-messaging.esw-open,
+  body.esw-open #embedded-messaging {
     position: fixed !important;
     top: var(--site-header-height, 60px) !important;
     left: 0 !important;
     right: 0 !important;
     bottom: 0 !important;
+
+    width: 100vw !important;
+    height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px)) !important;
+  max-height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px)) !important;
+
+
+    overflow: hidden !important;
+    border-radius: 0 !important;
+    z-index: 2147483639 !important; /* sotto launcher, ma sopra TUTTO il resto */
+  }
+
+  /* ⬇️ IFRAME DELLA CHAT */
+  #embedded-messaging.esw-open iframe,
+  body.esw-open .embeddedMessagingFrame,
+  body.esw-open iframe[data-embedded-messaging-iframe] {
+    position: fixed !important;
+    top: var(--site-header-height, 60px) !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+
     width: 100vw !important;
     height: calc(100dvh - var(--site-header-height, 60px)) !important;
     max-height: calc(100dvh - var(--site-header-height, 60px)) !important;
+
     border-radius: 0 !important;
-    overflow: hidden !important;
-    z-index: 2147483647 !important; /* sopra qualsiasi banner */
-    inset: var(--site-header-height, 60px) 0 0 0 !important; /* forza full-bleed */
+    z-index: 2147483640 !important; /* sopra root, sotto launcher */
   }
 
-  /* Mantieni il launcher cliccabile sopra la chat se necessario */
+  /* Mantieni il launcher cliccabile sopra tutto */
   .chat-launcher-fixed .embeddedServiceLauncher,
-  .chat-launcher-fixed .embeddedServiceSidebarButton,
-  .chat-launcher-fixed #embedded-messaging .embeddedMessagingIcon,
-  .chat-launcher-fixed button[class*="Launcher"],
-  .chat-launcher-fixed div[class*="Launcher"] {
-    bottom: 20px !important;
-    right: 20px !important;
-    transform: none !important;
-    z-index: 2147483648 !important; /* un gradino sopra la chat */
-  }
-
-  /* Nudge: opzionale (puoi anche nasconderlo su mobile se vuoi) */
-  .chat-nudge {
-    bottom: calc(20px + var(--chat-nudge-offset));
-    right: 20px;
-    font-size: 13px;
-    z-index: 2147483649; /* sopra la chat e sopra il launcher */
+  .chat-launcher-fixed .embeddedServiceSidebarButton {
+    z-index: 2147483647 !important;
   }
 }
 
