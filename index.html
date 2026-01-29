@@ -158,85 +158,6 @@ function initEmbeddedMessaging() {
 </script>
 <!-- ======================== ADVANCED CONTROL ======================== -->
 <script type='text/javascript'>
-/**
-* Salesforce Embedded Messaging - Improved Implementation
-* Fixes: Dynamic country settings, race conditions, performance optimizations
-*/
-// ======================== CONFIGURATION =========================
-const ESW_CONFIG = {
-  ORG_ID: '00DMA000003XnGM',
-  DEPLOYMENT_NAME: 'LPM_Leapmotor',
-  SITE_URL: 'https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231',
-  SCRT2_URL: 'https://leapmotor--dev01.sandbox.my.salesforce-scrt.com',
-
-  COUNTRY_MAPPING: {
-    'it': { name: 'Italy', language: 'it', code: 'it' },
-    'es': { name: 'Spain', language: 'es', code: 'es' },
-    'fr': { name: 'France', language: 'fr', code: 'fr' },
-    'de': { name: 'Germany', language: 'de', code: 'de' },
-    'uk': { name: 'United Kingdom', language: 'en_US', code: 'uk' },
-    'us': { name: 'United States', language: 'en_US', code: 'us' },
-    'en': { name: 'United States', language: 'en_US', code: 'en' }
-  },
-
-  DEFAULT_COUNTRY: 'en'
-};
-/**
-* Extract country code from URL pathname
-* @returns {string} Country code (defaults to 'en')
-*/
-function getCountryCodeFromPath() {
-  const pathParts = window.location.pathname
-    .split('/')
-    .filter(function(part) { return part.length > 0; });
-
-  return pathParts.length > 0 ? pathParts[0].toLowerCase() : ESW_CONFIG.DEFAULT_COUNTRY;
-}
-/**
-* Get country information based on country code
-* @param {string} countryCode - Two-letter country code
-* @returns {Object} Country information object
-*/
-function getCountryInfo(countryCode) {
-  return ESW_CONFIG.COUNTRY_MAPPING[countryCode] || ESW_CONFIG.COUNTRY_MAPPING[ESW_CONFIG.DEFAULT_COUNTRY];
-}
-/**
-* Initialize Embedded Messaging with dynamic country settings
-*/
-function initEmbeddedMessaging() {
-  try {
-    const countryCode = getCountryCodeFromPath();
-    const countryInfo = getCountryInfo(countryCode);
-
-    // Configure embedded service settings
-    embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
-    embeddedservice_bootstrap.settings.language = countryInfo.language;
-
-    // Set up pre-chat fields with dynamic country info
-    window.addEventListener("onEmbeddedMessagingReady", function() {
-      embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
-        Country: countryInfo.name,
-        Language: countryInfo.language,
-        CountryCode: countryInfo.code
-      });
-    });
-
-    // Initialize the embedded service
-    embeddedservice_bootstrap.init(
-      ESW_CONFIG.ORG_ID,
-      ESW_CONFIG.DEPLOYMENT_NAME,
-      ESW_CONFIG.SITE_URL,
-      {
-        scrt2URL: ESW_CONFIG.SCRT2_URL
-      }
-    );
-  } catch (err) {
-    console.error('[ESW] Error loading Embedded Messaging:', err);
-  }
-}
-</script>
-<!-- ======================== ADVANCED CONTROL ======================== -->
-<script type='text/javascript'>
 <!-- ======================== ADVANCED CONTROL ======================== -->
 (function () {
   'use strict';
@@ -1007,5 +928,6 @@ function initEmbeddedMessaging() {
     src="https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231/assets/js/bootstrap.min.js"
     onload="initEmbeddedMessaging()"
   ></script>
+ 
 </body>
 </html>
