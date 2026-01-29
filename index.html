@@ -166,16 +166,6 @@
   /* ====== Utility Functions ====== */
   const isMobile = () => window.innerWidth < CONFIG.DESKTOP_MIN_WIDTH;
 
-  /* --- Mobile: adatta altezza dinamicamente con tastiera --- */
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', () => {
-    document.documentElement.style.setProperty(
-      '--vvh',
-      window.visualViewport.height + 'px'
-    );
-    });
-  }
-
   function getCountryCode() {
     return getCountryCodeFromPath();
   }
@@ -263,77 +253,6 @@
   function updateHeaderHeightVar() {
     const h = getHeaderEl()?.offsetHeight || 60;
     document.documentElement.style.setProperty('--site-header-height', h + 'px');
-  }
-
-  /* === MOBILE: full-screen dinamico, anche con tastiera aperta === */
-  function getHeaderHeightPx() {
-    const hVar = getComputedStyle(document.documentElement).getPropertyValue('--site-header-height') || '60px';
-    return parseInt(hVar, 10) || 60;
-  }
-
-  /* Calcola e impone l'altezza disponibile sotto l'header,
-     usando visualViewport quando la tastiera è aperta */
-  function applyMobileFullscreenLayout() {
-    if (typeof isMobile !== 'function' || typeof isOpenState !== 'function') return;
-    if (!isMobile() || !isOpenState()) return;
-
-    const headerH = getHeaderHeightPx();
-    const root = (typeof getFixedRootEl === 'function' ? getFixedRootEl() : document.querySelector('#embedded-messaging'));
-    const frame = (typeof getChatFrameEl === 'function' ? getChatFrameEl() : document.querySelector('.embeddedMessagingFrame, iframe[data-embedded-messaging-iframe]'));
-
-    const vh = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
-    const targetHeight = Math.max(0, vh - headerH);
-
-    if (root) {
-    root.style.position = 'fixed';
-    root.style.top = headerH + 'px';
-    root.style.left = '0';
-    root.style.right = '0';
-    root.style.bottom = '0';
-    root.style.width = '100vw';
-    root.style.height = targetHeight + 'px';
-    root.style.maxHeight = targetHeight + 'px';
-    root.style.inset = headerH + 'px 0 0 0';
-    root.style.zIndex = '2147483647';
-    root.style.borderRadius = '0';
-    root.style.overflow = 'hidden';
-    }
-    if (frame) {
-    frame.style.position = 'fixed';
-    frame.style.top = headerH + 'px';
-    frame.style.left = '0';
-    frame.style.right = '0';
-    frame.style.bottom = '0';
-    frame.style.width = '100vw';
-    frame.style.height = targetHeight + 'px';
-    frame.style.maxHeight = targetHeight + 'px';
-    frame.style.zIndex = '2147483647';
-    frame.style.borderRadius = '0';
-    frame.style.overflow = 'hidden';
-    }
-  }
-
-  /* Listener che reagisce a tastiera/viewport changes */
-  function attachMobileViewportListeners() {
-    if (attachMobileViewportListeners._attached) return;
-    attachMobileViewportListeners._attached = true;
-
-    if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', () => {
-      updateHeaderHeightVar();
-      applyMobileFullscreenLayout();
-    });
-    }
-    window.addEventListener('resize', () => {
-    updateHeaderHeightVar();
-    applyMobileFullscreenLayout();
-    });
-    window.addEventListener('orientationchange', () => {
-    setTimeout(() => {
-      updateHeaderHeightVar();
-      applyMobileFullscreenLayout();
-    }, 100);
-    });
   }
 
   /* ====== Style Locking ====== */
@@ -585,9 +504,6 @@
       return;
     }
 
-    // MOBILE: ricalcola layout full-screen
-    applyMobileFullscreenLayout();
-
     setTimeout(() => {
       lockLauncherStyle();
       lockFixedRootStyle();
@@ -603,9 +519,6 @@
     applyStylesWithRetry();
     observeDynamicElements();
     startStatePolling();
-
-// MOBILE: predispone i listener viewport (non impatta desktop)
-attachMobileViewportListeners();
 
     window.addEventListener('resize', handleResize);
 
@@ -632,13 +545,6 @@ attachMobileViewportListeners();
     document.body.classList.add('esw-open');
     removeNudge();
     clearAllTimers();
-
-    // MOBILE: forza full-screen sopra tutto, anche con tastiera
-    attachMobileViewportListeners();
-    setTimeout(() => {
-      updateHeaderHeightVar();
-      applyMobileFullscreenLayout();
-    }, 50);
 
     setTimeout(applyStylesWithRetry, 50);
   });
@@ -669,6 +575,39 @@ attachMobileViewportListeners();
     document.body.classList.remove('esw-open');
     setTimeout(applyStylesWithRetry, 50);
   });
+})();
+</script>
+<script>
+/* ====== Add-on NON intrusivo: variabili CSS per viewport & tastiera ====== */
+(function () {
+  const root = document.documentElement;
+
+  function updateViewportVars() {
+    const vv = window.visualViewport;
+    const ih = window.innerHeight;
+
+    // Altezza viewport utile per la chat (dinamica con UI mobile)
+    const appH = vv ? vv.height : ih;
+    root.style.setProperty('--app-viewport-h', appH + 'px');
+
+    // Altezza coperta dalla tastiera (se presente)
+    let kb = 0;
+    if (vv) {
+      // Parte di viewport "rubata" dalla tastiera (iOS considera anche offsetTop)
+      const covered = ih - vv.height - (vv.offsetTop || 0);
+      kb = Math.max(0, Math.round(covered));
+    }
+    root.style.setProperty('--kbBottom', kb + 'px');
+  }
+
+  updateViewportVars();
+
+  // Copriamo i casi iOS/Android
+  window.addEventListener('resize', updateViewportVars, { passive: true });
+  if (window.visualViewport) {
+    visualViewport.addEventListener('resize', updateViewportVars, { passive: true });
+    visualViewport.addEventListener('scroll', updateViewportVars, { passive: true });
+  }
 })();
 </script>
 <!-- ======================== CUSTOM STYLES ======================== -->
@@ -759,55 +698,50 @@ attachMobileViewportListeners();
   color: #000;
 }
 
-/* === MOBILE FULLSCREEN CORRETTO (SOPRA BANNER, SENZA RADIUS, CON TASTIERA) === */
+/* ====== MOBILE FULLSCREEN + TOPMOST OVERRIDE ====== */
 @media (max-width: 1024px) {
-
+  /* Quando la chat è aperta, non riserviamo spazio al site header
+     e disabilitiamo lo scroll della pagina sotto */
   body.esw-open {
     overflow: hidden !important;
-    height: 100dvh !important; /* stabilizza lo scroll del body */
+    /* Forziamo 0 per evitare che il sito "tenga" l'header visibile sotto la chat */
+    --site-header-height: 0px !important;
   }
 
-  /* ⬇️ LIVELLO ROOT DEL WIDGET (IL VERO CONTENITORE) */
-  #embedded-messaging.esw-open,
-  body.esw-open #embedded-messaging {
-    position: fixed !important;
-    top: var(--site-header-height, 60px) !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
-
-    width: 100vw !important;
-    height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px)) !important;
-  max-height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px)) !important;
-
-
-    overflow: hidden !important;
-    border-radius: 0 !important;
-    z-index: 2147483639 !important; /* sotto launcher, ma sopra TUTTO il resto */
-  }
-
-  /* ⬇️ IFRAME DELLA CHAT */
-  #embedded-messaging.esw-open iframe,
+  /* Rendiamo la chat un vero overlay full-viewport */
+  body.esw-open #embedded-messaging,
   body.esw-open .embeddedMessagingFrame,
   body.esw-open iframe[data-embedded-messaging-iframe] {
     position: fixed !important;
-    top: var(--site-header-height, 60px) !important;
-    left: 0 !important;
-    right: 0 !important;
-    bottom: 0 !important;
+    /* top rispettando il notch; bottom lasciato dinamico per la tastiera */
+    inset: env(safe-area-inset-top, 0px) 0 calc(var(--kbBottom, 0px) + env(safe-area-inset-bottom, 0px)) 0 !important;
 
+    /* 100dvh quando disponibile, altrimenti variabile impostata via JS (fallback sotto) */
+    height: calc(var(--app-viewport-h, 100dvh) - env(safe-area-inset-top, 0px) - var(--kbBottom, 0px)) !important;
     width: 100vw !important;
-    height: calc(100dvh - var(--site-header-height, 60px)) !important;
-    max-height: calc(100dvh - var(--site-header-height, 60px)) !important;
+    max-width: 100vw !important;
+    border-radius: 0 !important; /* Se preferisci: 16px 16px 0 0 */
+    overflow: hidden !important;
 
-    border-radius: 0 !important;
-    z-index: 2147483640 !important; /* sopra root, sotto launcher */
+    /* Sempre davanti a qualsiasi banner / sticky / overlay */
+    z-index: 2147483647 !important;
   }
 
-  /* Mantieni il launcher cliccabile sopra tutto */
-  .chat-launcher-fixed .embeddedServiceLauncher,
-  .chat-launcher-fixed .embeddedServiceSidebarButton {
-    z-index: 2147483647 !important;
+  /* Evita stacking context indesiderati sull'host: se un genitore avesse transform, lo annulliamo qui */
+  body.esw-open #embedded-messaging {
+    transform: none !important;
+    filter: none !important;
+    perspective: none !important;
+    isolation: auto !important;
+  }
+
+  /* iOS 15/16 fallback quando 100dvh non è supportato */
+  @supports not (height: 100dvh) {
+    body.esw-open #embedded-messaging,
+    body.esw-open .embeddedMessagingFrame,
+    body.esw-open iframe[data-embedded-messaging-iframe] {
+      height: -webkit-fill-available !important;
+    }
   }
 }
 
