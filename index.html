@@ -158,6 +158,85 @@ function initEmbeddedMessaging() {
 </script>
 <!-- ======================== ADVANCED CONTROL ======================== -->
 <script type='text/javascript'>
+/**
+* Salesforce Embedded Messaging - Improved Implementation
+* Fixes: Dynamic country settings, race conditions, performance optimizations
+*/
+// ======================== CONFIGURATION =========================
+const ESW_CONFIG = {
+  ORG_ID: '00DMA000003XnGM',
+  DEPLOYMENT_NAME: 'LPM_Leapmotor',
+  SITE_URL: 'https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231',
+  SCRT2_URL: 'https://leapmotor--dev01.sandbox.my.salesforce-scrt.com',
+
+  COUNTRY_MAPPING: {
+    'it': { name: 'Italy', language: 'it', code: 'it' },
+    'es': { name: 'Spain', language: 'es', code: 'es' },
+    'fr': { name: 'France', language: 'fr', code: 'fr' },
+    'de': { name: 'Germany', language: 'de', code: 'de' },
+    'uk': { name: 'United Kingdom', language: 'en_US', code: 'uk' },
+    'us': { name: 'United States', language: 'en_US', code: 'us' },
+    'en': { name: 'United States', language: 'en_US', code: 'en' }
+  },
+
+  DEFAULT_COUNTRY: 'en'
+};
+/**
+* Extract country code from URL pathname
+* @returns {string} Country code (defaults to 'en')
+*/
+function getCountryCodeFromPath() {
+  const pathParts = window.location.pathname
+    .split('/')
+    .filter(function(part) { return part.length > 0; });
+
+  return pathParts.length > 0 ? pathParts[0].toLowerCase() : ESW_CONFIG.DEFAULT_COUNTRY;
+}
+/**
+* Get country information based on country code
+* @param {string} countryCode - Two-letter country code
+* @returns {Object} Country information object
+*/
+function getCountryInfo(countryCode) {
+  return ESW_CONFIG.COUNTRY_MAPPING[countryCode] || ESW_CONFIG.COUNTRY_MAPPING[ESW_CONFIG.DEFAULT_COUNTRY];
+}
+/**
+* Initialize Embedded Messaging with dynamic country settings
+*/
+function initEmbeddedMessaging() {
+  try {
+    const countryCode = getCountryCodeFromPath();
+    const countryInfo = getCountryInfo(countryCode);
+
+    // Configure embedded service settings
+    embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
+    embeddedservice_bootstrap.settings.language = countryInfo.language;
+
+    // Set up pre-chat fields with dynamic country info
+    window.addEventListener("onEmbeddedMessagingReady", function() {
+      embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+        Country: countryInfo.name,
+        Language: countryInfo.language,
+        CountryCode: countryInfo.code
+      });
+    });
+
+    // Initialize the embedded service
+    embeddedservice_bootstrap.init(
+      ESW_CONFIG.ORG_ID,
+      ESW_CONFIG.DEPLOYMENT_NAME,
+      ESW_CONFIG.SITE_URL,
+      {
+        scrt2URL: ESW_CONFIG.SCRT2_URL
+      }
+    );
+  } catch (err) {
+    console.error('[ESW] Error loading Embedded Messaging:', err);
+  }
+}
+</script>
+<!-- ======================== ADVANCED CONTROL ======================== -->
+<script type='text/javascript'>
 <!-- ======================== ADVANCED CONTROL ======================== -->
 (function () {
   'use strict';
@@ -683,6 +762,102 @@ function initEmbeddedMessaging() {
   // Extra: quando un input riceve focus, Safari può cambiare vv dopo qualche ms
   document.addEventListener('focusin', () => setTimeout(updateViewportVars, 80), { passive: true });
 })();
+
+
+
+/* ====== CLOSE KEYBOARD AFTER SEND (non intrusive) ====== */
+(function () {
+  const IFRAME_SELECTORS = [
+    '.embeddedMessagingFrame',
+    'iframe[data-embedded-messaging-iframe]',
+    'iframe[src*="embeddedmessaging"]',
+    'iframe[id*="embeddedMessaging"]'
+  ];
+
+  // Prova a ottenere il documento dell'iframe (se same-origin)
+  function getChatDoc() {
+    const frame = document.querySelector(IFRAME_SELECTORS.join(', '));
+    if (!frame) return null;
+
+    try {
+      return frame.contentDocument || frame.contentWindow?.document || null;
+    } catch (e) {
+      // Cross-origin: non accessibile
+      return null;
+    }
+  }
+
+  // Trova l'input della chat (Salesforce in genere usa textarea)
+  function getChatInput(doc) {
+    if (!doc) return null;
+    return doc.querySelector('textarea, input[type="text"], input:not([type])');
+  }
+
+  // Chiude tastiera = blur sull'input attivo
+  function blurChatInputSoon() {
+    // Un piccolo delay aiuta dopo l'azione "send" (che può aggiornare DOM)
+    setTimeout(() => {
+      const doc = getChatDoc();
+      const input = getChatInput(doc);
+      if (input) input.blur();
+    }, 50);
+  }
+
+  // Aggancia listener dentro l'iframe (retry perché ESW può renderizzare dopo)
+  function attachInsideFrameListeners() {
+    const doc = getChatDoc();
+    if (!doc) return false;
+
+    // Evita doppio attach
+    if (doc.documentElement.dataset.kbCloseBound === '1') return true;
+    doc.documentElement.dataset.kbCloseBound = '1';
+
+    // 1) Tap sul bottone invio: spesso è un button con icona (non affidabile il selector)
+    //    Quindi intercettiamo click su qualsiasi button dentro la barra composer.
+    doc.addEventListener('click', (e) => {
+      const btn = e.target && (e.target.closest ? e.target.closest('button') : null);
+      if (!btn) return;
+
+      // Heuristics: se l'utente ha cliccato un bottone nella zona composer/footer, bluriamo.
+      // (Molto più robusto di inseguire classi che cambiano)
+      const composerLike =
+        btn.closest('[class*="composer"], [class*="footer"], [class*="input"], form') ||
+        btn.closest('footer') ||
+        btn.closest('form');
+
+      if (composerLike) {
+        blurChatInputSoon();
+      }
+    }, true);
+
+    // 2) Invio con Enter (se la chat lo usa)
+    doc.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        // Se Shift+Enter per andare a capo, non chiudiamo tastiera
+        if (e.shiftKey) return;
+        blurChatInputSoon();
+      }
+    }, true);
+
+    return true;
+  }
+
+  // Retry: aspetta che iframe e DOM interno siano pronti
+  let tries = 0;
+  const maxTries = 120; // ~12s se interval 100ms
+  const t = setInterval(() => {
+    tries++;
+    if (attachInsideFrameListeners() || tries >= maxTries) {
+      clearInterval(t);
+    }
+  }, 100);
+
+  // Se la chat viene ricreata dinamicamente, riprova quando cambia il DOM esterno
+  const mo = new MutationObserver(() => attachInsideFrameListeners());
+  mo.observe(document.body, { childList: true, subtree: true });
+})();
+
+
 </script>
 <!-- ======================== CUSTOM STYLES ======================== -->
 <style>
