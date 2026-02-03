@@ -78,7 +78,7 @@
       </nav>
     </div>
   </footer>
- <script type='text/javascript'>
+<script type='text/javascript'>
 /**
 * Salesforce Embedded Messaging - Improved Implementation
 * Fixes: Dynamic country settings, race conditions, performance optimizations
@@ -194,6 +194,22 @@ function initEmbeddedMessaging() {
     en: {
       first: 'Talk to me!',
       followup: 'Keep talking to me!'
+    },
+     uk: {
+      first: 'Talk to me!',
+      followup: 'Keep talking to me!'
+    },
+     us: {
+      first: 'Talk to me!',
+      followup: 'Keep talking to me!'
+    },
+     be-fr: {
+      first: 'Parle-moi!',
+      followup: 'Continue de me parler!'
+    },
+     be-nl: {
+      first: 'Praat met me!',
+      followup: 'Praat verder met me!'
     }
   };
 
@@ -414,11 +430,14 @@ function initEmbeddedMessaging() {
 
   targets.forEach(el => {
     el.style.position = 'fixed';
-    el.style.inset = `${headerH}px 0 0 0`;
+    el.style.top = headerH + 'px';
+    el.style.left = '0';
+    el.style.right = '0';
+    el.style.bottom = '0';
     el.style.width = 'auto';
     el.style.maxWidth = 'none';
-    el.style.height = `calc(100dvh - ${headerH}px)`;
-    el.style.maxHeight = `calc(100dvh - ${headerH}px)`;
+    el.style.height = `calc(100vh - ${headerH}px)`; // ⚠️ vh, NON dvh
+    el.style.maxHeight = `calc(100vh - ${headerH}px)`;
     el.style.margin = '0';
   });
 }
@@ -650,10 +669,9 @@ function initEmbeddedMessaging() {
     clearAllTimers();
 
     setTimeout(applyStylesWithRetry, 50);
-    forceMobileFullscreen();
     forceConversationFullWidth();
 
-    setTimeout(forceMobileFullscreen, 100);
+
     setTimeout(forceConversationFullWidth, 150);
     setTimeout(forceConversationFullWidth, 300);
   });
@@ -790,7 +808,6 @@ function initEmbeddedMessaging() {
     max-width: none !important;
     height: calc(100dvh - var(--site-header-height, 60px)) !important;
     margin: 0 !important;
-    inset: auto 0 0 0 !important;
     z-index: 2147483646 !important;
   }
 
