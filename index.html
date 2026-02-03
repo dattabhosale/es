@@ -280,11 +280,7 @@ function initEmbeddedMessaging() {
 
     nudgeBottomPosition: null,
 
- 
-
     timers: { first: null, followup: null },
-
- 
 
     observers: { launcher: null, body: null, fixedRoot: null, statePoller: null }
 
@@ -410,10 +406,6 @@ function initEmbeddedMessaging() {
 
   function getHeaderEl() {
 
-    // SOLO header del sito (banner ignorato come richiesto)
-
-    // Puoi blindarlo con: <body data-esw-header="header.site-header">
-
     const fromAttr = document.body?.getAttribute?.('data-esw-header');
 
     const candidates = (fromAttr ? fromAttr.split(',') : [])
@@ -448,8 +440,6 @@ function initEmbeddedMessaging() {
 
  
 
-  /* ====== CSS Vars: header height ====== */
-
   function updateHeaderHeightVar() {
 
     const header = getHeaderEl();
@@ -466,7 +456,7 @@ function initEmbeddedMessaging() {
 
  
 
-  /* >>> MODIFICA #1 (JS): updateVisualViewportVars + initMobileViewportTracking STABILIZZATI <<< */
+  /* ====== iOS viewport vars (stabilized) ====== */
 
   let __vvRAF = 0;
 
@@ -478,11 +468,13 @@ function initEmbeddedMessaging() {
 
  
 
+  /* ✅ FIX: ignoriamo offsetTop per evitare lo “shift” intermedio di iOS */
+
   function __applyViewportVars(vvh, off) {
 
     document.documentElement.style.setProperty('--vvh', vvh + 'px');
 
-    document.documentElement.style.setProperty('--vv-offset-top', off + 'px');
+    document.documentElement.style.setProperty('--vv-offset-top', '0px'); // <<< CHIAVE ANTI-SFARFALLIO
 
   }
 
@@ -498,8 +490,6 @@ function initEmbeddedMessaging() {
 
  
 
-    // evita reflow inutili
-
     if (vvh === __lastVVH && off === __lastOff) return;
 
  
@@ -509,8 +499,6 @@ function initEmbeddedMessaging() {
     __lastOff = off;
 
  
-
-    // max 1 update per frame
 
     if (__vvRAF) cancelAnimationFrame(__vvRAF);
 
@@ -523,8 +511,6 @@ function initEmbeddedMessaging() {
     });
 
  
-
-    // stabilizzazione: riapplica dopo che iOS “finisce” il jump
 
     if (__vvTimer) clearTimeout(__vvTimer);
 
@@ -594,8 +580,6 @@ function initEmbeddedMessaging() {
 
  
 
-    // classe anti-flicker durante apertura tastiera
-
     document.addEventListener('focusin', () => {
 
       if (!isMobile()) return;
@@ -625,8 +609,6 @@ function initEmbeddedMessaging() {
     });
 
   }
-
-  /* >>> FINE MODIFICA #1 <<< */
 
  
 
@@ -1202,25 +1184,15 @@ function initEmbeddedMessaging() {
 
   --chat-launcher-right: 30px;
 
- 
-
   --chat-nudge-offset: 70px;
-
- 
 
   --chat-header-height: 60px;
 
- 
-
   --site-header-height: 60px;
-
- 
 
   --vvh: 100dvh;
 
   --vv-offset-top: 0px;
-
- 
 
   --chat-frame-bottom-gap: 40px;
 
@@ -1244,8 +1216,6 @@ function initEmbeddedMessaging() {
 
   }
 
- 
-
   .embeddedMessagingHeader {
 
     border-top-left-radius: 16px !important;
@@ -1253,8 +1223,6 @@ function initEmbeddedMessaging() {
     border-top-right-radius: 16px !important;
 
   }
-
- 
 
   .embeddedMessagingConversation {
 
@@ -1330,8 +1298,6 @@ function initEmbeddedMessaging() {
 
 }
 
- 
-
 @keyframes bounce {
 
   0% { transform: translateY(0); }
@@ -1347,8 +1313,6 @@ function initEmbeddedMessaging() {
   100% { transform: translateY(0); }
 
 }
-
- 
 
 .chat-nudge .close-btn {
 
@@ -1370,13 +1334,7 @@ function initEmbeddedMessaging() {
 
 }
 
- 
-
-.chat-nudge .close-btn:hover {
-
-  color: #000;
-
-}
+.chat-nudge .close-btn:hover { color: #000; }
 
  
 
@@ -1410,13 +1368,15 @@ function initEmbeddedMessaging() {
 
  
 
-    top: calc(var(--site-header-height, 60px) + var(--vv-offset-top, 0px)) !important;
+    /* ✅ FIX: niente offsetTop (evita il salto intermedio) */
+
+    top: var(--site-header-height, 60px) !important;
 
  
 
-    height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
+    height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px)) !important;
 
-    max-height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
+    max-height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px)) !important;
 
  
 
@@ -1444,13 +1404,15 @@ function initEmbeddedMessaging() {
 
  
 
-    top: calc(var(--site-header-height, 60px) + var(--vv-offset-top, 0px)) !important;
+    /* ✅ FIX: niente offsetTop */
+
+    top: var(--site-header-height, 60px) !important;
 
  
 
-    height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
+    height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px)) !important;
 
-    max-height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
+    max-height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px)) !important;
 
  
 
@@ -1462,7 +1424,7 @@ function initEmbeddedMessaging() {
 
  
 
-    border-radius: 0 0 0 0 !important;
+    border-radius: 0 !important;
 
     z-index: 2147483646 !important;
 
@@ -1552,15 +1514,9 @@ function initEmbeddedMessaging() {
 
  
 
-  body.esw-open {
-
-    overflow-x: hidden !important;
-
-  }
+  body.esw-open { overflow-x: hidden !important; }
 
  
-
-  /* >>> MODIFICA #2 (CSS): anti-flicker durante apertura tastiera <<< */
 
   .ios-kbd .esw-open #embedded-messaging,
 
@@ -1573,8 +1529,6 @@ function initEmbeddedMessaging() {
     animation: none !important;
 
   }
-
-  /* >>> FINE MODIFICA #2 <<< */
 
 }
 
