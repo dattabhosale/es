@@ -406,6 +406,10 @@ function initEmbeddedMessaging() {
 
   function getHeaderEl() {
 
+    // SOLO header del sito (banner ignorato come richiesto)
+
+    // Puoi blindarlo con: <body data-esw-header="header.site-header">
+
     const fromAttr = document.body?.getAttribute?.('data-esw-header');
 
     const candidates = (fromAttr ? fromAttr.split(',') : [])
@@ -440,6 +444,8 @@ function initEmbeddedMessaging() {
 
  
 
+  /* ====== CSS Vars: header height ====== */
+
   function updateHeaderHeightVar() {
 
     const header = getHeaderEl();
@@ -456,47 +462,57 @@ function initEmbeddedMessaging() {
 
  
 
-  /* ====== iOS viewport vars (stabilized) ====== */
+  /* >>> FIX iOS 18: anti-flicker infinito durante digitazione (LOCK + HYSTERESIS) <<< */
 
   let __vvRAF = 0;
 
-  let __vvTimer = 0;
+  let __baselineH = null;      // altezza “normale” senza tastiera
 
-  let __lastVVH = null;
+  let __keyboardOpen = false;  // stato tastiera
 
-  let __lastOff = null;
+  let __lockedH = null;        // altezza bloccata quando tastiera aperta
+
+  let __lastApplied = null;
 
  
 
-  /* ✅ FIX: ignoriamo offsetTop per evitare lo “shift” intermedio di iOS */
+  function __roundH(px) {
 
-  function __applyViewportVars(vvh, off) {
-
-    document.documentElement.style.setProperty('--vvh', vvh + 'px');
-
-    document.documentElement.style.setProperty('--vv-offset-top', '0px'); // <<< CHIAVE ANTI-SFARFALLIO
+    return Math.round(px / 4) * 4; // riduce jitter 1–3px (iOS 18)
 
   }
 
  
 
-  function updateVisualViewportVars() {
+  function __getVVH() {
 
     const vv = window.visualViewport;
 
-    const vvh = Math.round(vv ? vv.height : window.innerHeight);
+    const h = vv ? vv.height : window.innerHeight;
 
-    const off = Math.round(vv ? vv.offsetTop : 0);
+    return __roundH(h);
 
- 
-
-    if (vvh === __lastVVH && off === __lastOff) return;
+  }
 
  
 
-    __lastVVH = vvh;
+  function __applyViewportVars(vvh) {
 
-    __lastOff = off;
+    document.documentElement.style.setProperty('--vvh', vvh + 'px');
+
+    // offsetTop su iOS 18 è fonte di salti → lo ignoriamo
+
+    document.documentElement.style.setProperty('--vv-offset-top', '0px');
+
+  }
+
+ 
+
+  function __applyOnce(vvh) {
+
+    if (__lastApplied === vvh) return;
+
+    __lastApplied = vvh;
 
  
 
@@ -504,37 +520,113 @@ function initEmbeddedMessaging() {
 
     __vvRAF = requestAnimationFrame(() => {
 
-      __applyViewportVars(__lastVVH, __lastOff);
+      __applyViewportVars(vvh);
 
       __vvRAF = 0;
 
     });
 
- 
-
-    if (__vvTimer) clearTimeout(__vvTimer);
-
-    __vvTimer = setTimeout(() => {
-
-      const vv2 = window.visualViewport;
-
-      const vvh2 = Math.round(vv2 ? vv2.height : window.innerHeight);
-
-      const off2 = Math.round(vv2 ? vv2.offsetTop : 0);
+  }
 
  
 
-      if (vvh2 !== __lastVVH || off2 !== __lastOff) {
+  function updateVisualViewportVars() {
 
-        __lastVVH = vvh2;
+    const h = __getVVH();
 
-        __lastOff = off2;
+ 
+
+    if (__baselineH === null) {
+
+      __baselineH = h;
+
+      __applyOnce(h);
+
+      return;
+
+    }
+
+ 
+
+    // soglie tarate per iPhone 15 / iOS 18.x
+
+    const OPEN_THRESHOLD = 160;  // se scende di >160px => tastiera aperta
+
+    const CLOSE_THRESHOLD = 90;  // se torna entro 90px dalla baseline => tastiera chiusa
+
+    const MIN_DELTA_APPLY = 16;  // ignora variazioni piccole
+
+ 
+
+    // tastiera si apre
+
+    if (!__keyboardOpen && (__baselineH - h) > OPEN_THRESHOLD) {
+
+      __keyboardOpen = true;
+
+      __lockedH = h;
+
+      __applyOnce(__lockedH);
+
+      return;
+
+    }
+
+ 
+
+    // tastiera aperta: LOCK (niente flicker mentre digiti)
+
+    if (__keyboardOpen) {
+
+      // aggiorna solo se scende davvero (completamento animazione / toolbar)
+
+      if (h < (__lockedH - MIN_DELTA_APPLY)) {
+
+        __lockedH = h;
+
+        __applyOnce(__lockedH);
+
+        return;
 
       }
 
-      __applyViewportVars(__lastVVH, __lastOff);
+ 
 
-    }, 110);
+      // chiudi solo se torna vicino alla baseline (tastiera giù)
+
+      if (h >= (__baselineH - CLOSE_THRESHOLD)) {
+
+        __keyboardOpen = false;
+
+        __lockedH = null;
+
+        __baselineH = h; // aggiorna baseline per address bar/orientamento
+
+        __applyOnce(h);
+
+        return;
+
+      }
+
+ 
+
+      // ancora aperta → ignora oscillazioni
+
+      return;
+
+    }
+
+ 
+
+    // tastiera chiusa: aggiorna baseline solo se cambia abbastanza
+
+    if (Math.abs(h - __baselineH) > MIN_DELTA_APPLY) {
+
+      __baselineH = h;
+
+      __applyOnce(h);
+
+    }
 
   }
 
@@ -560,11 +652,11 @@ function initEmbeddedMessaging() {
 
  
 
+    // IMPORTANTISSIMO: solo resize (NO scroll)
+
     if (window.visualViewport) {
 
       window.visualViewport.addEventListener('resize', updateVisualViewportVars);
-
-      window.visualViewport.addEventListener('scroll', updateVisualViewportVars);
 
     }
 
@@ -580,35 +672,15 @@ function initEmbeddedMessaging() {
 
  
 
-    document.addEventListener('focusin', () => {
+    // assestamento iOS 18
 
-      if (!isMobile()) return;
+    setTimeout(updateVisualViewportVars, 80);
 
-      document.documentElement.classList.add('ios-kbd');
-
-      setTimeout(updateVisualViewportVars, 30);
-
-      setTimeout(updateVisualViewportVars, 180);
-
-    });
-
- 
-
-    document.addEventListener('focusout', () => {
-
-      if (!isMobile()) return;
-
-      setTimeout(() => {
-
-        document.documentElement.classList.remove('ios-kbd');
-
-        updateVisualViewportVars();
-
-      }, 120);
-
-    });
+    setTimeout(updateVisualViewportVars, 260);
 
   }
+
+  /* >>> FINE FIX iOS 18 <<< */
 
  
 
@@ -1184,15 +1256,25 @@ function initEmbeddedMessaging() {
 
   --chat-launcher-right: 30px;
 
+ 
+
   --chat-nudge-offset: 70px;
+
+ 
 
   --chat-header-height: 60px;
 
+ 
+
   --site-header-height: 60px;
+
+ 
 
   --vvh: 100dvh;
 
   --vv-offset-top: 0px;
+
+ 
 
   --chat-frame-bottom-gap: 40px;
 
@@ -1216,6 +1298,8 @@ function initEmbeddedMessaging() {
 
   }
 
+ 
+
   .embeddedMessagingHeader {
 
     border-top-left-radius: 16px !important;
@@ -1223,6 +1307,8 @@ function initEmbeddedMessaging() {
     border-top-right-radius: 16px !important;
 
   }
+
+ 
 
   .embeddedMessagingConversation {
 
@@ -1298,6 +1384,8 @@ function initEmbeddedMessaging() {
 
 }
 
+ 
+
 @keyframes bounce {
 
   0% { transform: translateY(0); }
@@ -1313,6 +1401,8 @@ function initEmbeddedMessaging() {
   100% { transform: translateY(0); }
 
 }
+
+ 
 
 .chat-nudge .close-btn {
 
@@ -1334,7 +1424,13 @@ function initEmbeddedMessaging() {
 
 }
 
-.chat-nudge .close-btn:hover { color: #000; }
+ 
+
+.chat-nudge .close-btn:hover {
+
+  color: #000;
+
+}
 
  
 
@@ -1368,15 +1464,13 @@ function initEmbeddedMessaging() {
 
  
 
-    /* ✅ FIX: niente offsetTop (evita il salto intermedio) */
-
-    top: var(--site-header-height, 60px) !important;
+    top: calc(var(--site-header-height, 60px) + var(--vv-offset-top, 0px)) !important;
 
  
 
-    height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px)) !important;
+    height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
 
-    max-height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px)) !important;
+    max-height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
 
  
 
@@ -1404,15 +1498,13 @@ function initEmbeddedMessaging() {
 
  
 
-    /* ✅ FIX: niente offsetTop */
-
-    top: var(--site-header-height, 60px) !important;
+    top: calc(var(--site-header-height, 60px) + var(--vv-offset-top, 0px)) !important;
 
  
 
-    height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px)) !important;
+    height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
 
-    max-height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px)) !important;
+    max-height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
 
  
 
@@ -1424,7 +1516,7 @@ function initEmbeddedMessaging() {
 
  
 
-    border-radius: 0 !important;
+    border-radius: 0 0 0 0 !important;
 
     z-index: 2147483646 !important;
 
@@ -1514,9 +1606,15 @@ function initEmbeddedMessaging() {
 
  
 
-  body.esw-open { overflow-x: hidden !important; }
+  body.esw-open {
+
+    overflow-x: hidden !important;
+
+  }
 
  
+
+  /* lasciato com'è: non fa danni anche se non usiamo più ios-kbd */
 
   .ios-kbd .esw-open #embedded-messaging,
 
