@@ -97,8 +97,9 @@ const ESW_CONFIG = {
     'de': { name: 'Germany', language: 'de', code: 'de' },
     'uk': { name: 'United Kingdom', language: 'en_US', code: 'uk' },
     'us': { name: 'United States', language: 'en_US', code: 'us' },
-    'be-nl': { name: 'Belgium', language: 'nl', code: 'be' },
-    'be-fr': { name: 'Belgium', language: 'fr', code: 'be' },
+    'be-fr': { name: 'Belgium_FR', language: 'fr', code: 'be' },
+    'be-nl': { name: 'Belgium_NL', language: 'nl_NL', code: 'be' },
+    'us': { name: 'United States', language: 'en_US', code: 'us' },
     'en': { name: 'United States', language: 'en_US', code: 'en' }
   },
 
@@ -632,8 +633,8 @@ function initEmbeddedMessaging() {
   });
 
   window.addEventListener('resize', function () {
-  // NON forzare layout durante resize da tastiera
-  });
+  // resize = tastiera → NON toccare layout
+});
 
   window.addEventListener('onEmbeddedMessagingButtonClicked', function () {
     console.log('[ESW] Button clicked');
@@ -899,7 +900,18 @@ function initEmbeddedMessaging() {
   }
 }
 
+/* 🔒 KILL overflow orizzontale mobile (Safari fix) */
+@media (max-width: 1024px) {
+  html, body {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
 
+  body.esw-open {
+    overflow-x: hidden !important;
+  }
+}
 </style>
 <!-- ======================== LOAD SCRIPT ======================== -->
 <script type='text/javascript' src='https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231/assets/js/bootstrap.min.js' onload='initEmbeddedMessaging()'></script>
