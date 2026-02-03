@@ -448,7 +448,7 @@ function initEmbeddedMessaging() {
 
  
 
-  /* ====== CSS Vars: header height + iOS keyboard viewport ====== */
+  /* ====== CSS Vars: header height ====== */
 
   function updateHeaderHeightVar() {
 
@@ -466,19 +466,89 @@ function initEmbeddedMessaging() {
 
  
 
+  /* >>> MODIFICA #1 (JS): updateVisualViewportVars + initMobileViewportTracking STABILIZZATI <<< */
+
+  let __vvRAF = 0;
+
+  let __vvTimer = 0;
+
+  let __lastVVH = null;
+
+  let __lastOff = null;
+
+ 
+
+  function __applyViewportVars(vvh, off) {
+
+    document.documentElement.style.setProperty('--vvh', vvh + 'px');
+
+    document.documentElement.style.setProperty('--vv-offset-top', off + 'px');
+
+  }
+
+ 
+
   function updateVisualViewportVars() {
 
     const vv = window.visualViewport;
 
-    const visibleH = vv ? vv.height : window.innerHeight;
+    const vvh = Math.round(vv ? vv.height : window.innerHeight);
 
-    const offsetTop = vv ? vv.offsetTop : 0;
+    const off = Math.round(vv ? vv.offsetTop : 0);
 
  
 
-    document.documentElement.style.setProperty('--vvh', visibleH + 'px');
+    // evita reflow inutili
 
-    document.documentElement.style.setProperty('--vv-offset-top', offsetTop + 'px');
+    if (vvh === __lastVVH && off === __lastOff) return;
+
+ 
+
+    __lastVVH = vvh;
+
+    __lastOff = off;
+
+ 
+
+    // max 1 update per frame
+
+    if (__vvRAF) cancelAnimationFrame(__vvRAF);
+
+    __vvRAF = requestAnimationFrame(() => {
+
+      __applyViewportVars(__lastVVH, __lastOff);
+
+      __vvRAF = 0;
+
+    });
+
+ 
+
+    // stabilizzazione: riapplica dopo che iOS “finisce” il jump
+
+    if (__vvTimer) clearTimeout(__vvTimer);
+
+    __vvTimer = setTimeout(() => {
+
+      const vv2 = window.visualViewport;
+
+      const vvh2 = Math.round(vv2 ? vv2.height : window.innerHeight);
+
+      const off2 = Math.round(vv2 ? vv2.offsetTop : 0);
+
+ 
+
+      if (vvh2 !== __lastVVH || off2 !== __lastOff) {
+
+        __lastVVH = vvh2;
+
+        __lastOff = off2;
+
+      }
+
+      __applyViewportVars(__lastVVH, __lastOff);
+
+    }, 110);
 
   }
 
@@ -524,11 +594,39 @@ function initEmbeddedMessaging() {
 
  
 
-    document.addEventListener('focusin', () => setTimeout(updateVisualViewportVars, 50));
+    // classe anti-flicker durante apertura tastiera
 
-    document.addEventListener('focusout', () => setTimeout(updateVisualViewportVars, 50));
+    document.addEventListener('focusin', () => {
+
+      if (!isMobile()) return;
+
+      document.documentElement.classList.add('ios-kbd');
+
+      setTimeout(updateVisualViewportVars, 30);
+
+      setTimeout(updateVisualViewportVars, 180);
+
+    });
+
+ 
+
+    document.addEventListener('focusout', () => {
+
+      if (!isMobile()) return;
+
+      setTimeout(() => {
+
+        document.documentElement.classList.remove('ios-kbd');
+
+        updateVisualViewportVars();
+
+      }, 120);
+
+    });
 
   }
+
+  /* >>> FINE MODIFICA #1 <<< */
 
  
 
@@ -958,10 +1056,6 @@ function initEmbeddedMessaging() {
 
  
 
-    // Su mobile + chat open, evita di “ripiazzare” layout (tastiera iOS genera resize)
-
-    // La riduzione altezza avviene via CSS vars --vvh / --vv-offset-top
-
     if (isMobile() && isOpenState()) return;
 
  
@@ -995,8 +1089,6 @@ function initEmbeddedMessaging() {
     startStatePolling();
 
  
-
-    // NEW: iOS keyboard-safe vars
 
     initMobileViewportTracking();
 
@@ -1045,8 +1137,6 @@ function initEmbeddedMessaging() {
     setTimeout(applyStylesWithRetry, 50);
 
  
-
-    // Refresh viewport vars after open (iOS can delay)
 
     setTimeout(updateVisualViewportVars, 50);
 
@@ -1108,41 +1198,29 @@ function initEmbeddedMessaging() {
 
 :root {
 
-  /* Launcher (button) */
-
   --chat-launcher-bottom: 60px;
 
   --chat-launcher-right: 30px;
 
  
 
-  /* Nudge */
-
   --chat-nudge-offset: 70px;
 
  
-
-  /* Chat header (internal) */
 
   --chat-header-height: 60px;
 
  
 
-  /* Header sito (JS lo aggiorna) */
-
   --site-header-height: 60px;
 
  
-
-  /* iOS keyboard-safe viewport */
 
   --vvh: 100dvh;
 
   --vv-offset-top: 0px;
 
  
-
-  /* Desktop: lift chat box from bottom */
 
   --chat-frame-bottom-gap: 40px;
 
@@ -1234,7 +1312,7 @@ function initEmbeddedMessaging() {
 
   color: #000;
 
-  padding: 10px 32px 10px 12px;
+  padding: 10px 20px 10px 12px;
 
   border-radius: 12px;
 
@@ -1308,8 +1386,6 @@ function initEmbeddedMessaging() {
 
  
 
-  /* Lock scroll pagina quando chat aperta, senza body fixed (più stabile iOS) */
-
   body.esw-open {
 
     position: relative !important;
@@ -1323,8 +1399,6 @@ function initEmbeddedMessaging() {
   }
 
  
-
-  /* Root Salesforce: sotto SOLO header del sito (banner può essere coperto) */
 
   .esw-open #embedded-messaging {
 
@@ -1358,8 +1432,6 @@ function initEmbeddedMessaging() {
 
  
 
-  /* Iframe */
-
   .esw-open iframe[data-embedded-messaging-iframe],
 
   .esw-open .embeddedMessagingFrame {
@@ -1390,15 +1462,13 @@ function initEmbeddedMessaging() {
 
  
 
-    border-radius: 16px 16px 0 0 !important;
+    border-radius: 0 0 0 0 !important;
 
     z-index: 2147483646 !important;
 
   }
 
  
-
-  /* ✅ FULL-WIDTH interno (risolve box stretto/spostato a dx) */
 
   .esw-open .embeddedMessagingWindow,
 
@@ -1426,8 +1496,6 @@ function initEmbeddedMessaging() {
 
  
 
-  /* Header verde chat sempre visibile */
-
   .esw-open .embeddedMessagingHeader {
 
     position: sticky !important;
@@ -1439,8 +1507,6 @@ function initEmbeddedMessaging() {
   }
 
  
-
-  /* Layout a colonna per far restare l'input in basso */
 
   .esw-open .embeddedMessagingConversation {
 
@@ -1474,8 +1540,6 @@ function initEmbeddedMessaging() {
 
  
 
-  /* Fix overflow orizzontale iOS */
-
   html, body {
 
     width: 100% !important;
@@ -1493,6 +1557,24 @@ function initEmbeddedMessaging() {
     overflow-x: hidden !important;
 
   }
+
+ 
+
+  /* >>> MODIFICA #2 (CSS): anti-flicker durante apertura tastiera <<< */
+
+  .ios-kbd .esw-open #embedded-messaging,
+
+  .ios-kbd .esw-open iframe[data-embedded-messaging-iframe],
+
+  .ios-kbd .esw-open .embeddedMessagingFrame {
+
+    transition: none !important;
+
+    animation: none !important;
+
+  }
+
+  /* >>> FINE MODIFICA #2 <<< */
 
 }
 
