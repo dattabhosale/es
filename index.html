@@ -462,15 +462,15 @@ function initEmbeddedMessaging() {
 
  
 
-  /* >>> FIX iOS 18: anti-flicker infinito durante digitazione (LOCK + HYSTERESIS) <<< */
+  /* ====== iOS 18: anti-flicker infinito durante digitazione (LOCK + HYSTERESIS) ====== */
 
   let __vvRAF = 0;
 
-  let __baselineH = null;      // altezza “normale” senza tastiera
+  let __baselineH = null;
 
-  let __keyboardOpen = false;  // stato tastiera
+  let __keyboardOpen = false;
 
-  let __lockedH = null;        // altezza bloccata quando tastiera aperta
+  let __lockedH = null;
 
   let __lastApplied = null;
 
@@ -478,7 +478,7 @@ function initEmbeddedMessaging() {
 
   function __roundH(px) {
 
-    return Math.round(px / 4) * 4; // riduce jitter 1–3px (iOS 18)
+    return Math.round(px / 4) * 4;
 
   }
 
@@ -500,7 +500,7 @@ function initEmbeddedMessaging() {
 
     document.documentElement.style.setProperty('--vvh', vvh + 'px');
 
-    // offsetTop su iOS 18 è fonte di salti → lo ignoriamo
+    // offsetTop iOS 18 crea salti → ignorato
 
     document.documentElement.style.setProperty('--vv-offset-top', '0px');
 
@@ -548,17 +548,13 @@ function initEmbeddedMessaging() {
 
  
 
-    // soglie tarate per iPhone 15 / iOS 18.x
+    const OPEN_THRESHOLD = 160;
 
-    const OPEN_THRESHOLD = 160;  // se scende di >160px => tastiera aperta
+    const CLOSE_THRESHOLD = 90;
 
-    const CLOSE_THRESHOLD = 90;  // se torna entro 90px dalla baseline => tastiera chiusa
-
-    const MIN_DELTA_APPLY = 16;  // ignora variazioni piccole
+    const MIN_DELTA_APPLY = 16;
 
  
-
-    // tastiera si apre
 
     if (!__keyboardOpen && (__baselineH - h) > OPEN_THRESHOLD) {
 
@@ -574,11 +570,7 @@ function initEmbeddedMessaging() {
 
  
 
-    // tastiera aperta: LOCK (niente flicker mentre digiti)
-
     if (__keyboardOpen) {
-
-      // aggiorna solo se scende davvero (completamento animazione / toolbar)
 
       if (h < (__lockedH - MIN_DELTA_APPLY)) {
 
@@ -592,15 +584,13 @@ function initEmbeddedMessaging() {
 
  
 
-      // chiudi solo se torna vicino alla baseline (tastiera giù)
-
       if (h >= (__baselineH - CLOSE_THRESHOLD)) {
 
         __keyboardOpen = false;
 
         __lockedH = null;
 
-        __baselineH = h; // aggiorna baseline per address bar/orientamento
+        __baselineH = h;
 
         __applyOnce(h);
 
@@ -610,15 +600,11 @@ function initEmbeddedMessaging() {
 
  
 
-      // ancora aperta → ignora oscillazioni
-
       return;
 
     }
 
  
-
-    // tastiera chiusa: aggiorna baseline solo se cambia abbastanza
 
     if (Math.abs(h - __baselineH) > MIN_DELTA_APPLY) {
 
@@ -672,15 +658,83 @@ function initEmbeddedMessaging() {
 
  
 
-    // assestamento iOS 18
-
     setTimeout(updateVisualViewportVars, 80);
 
     setTimeout(updateVisualViewportVars, 260);
 
   }
 
-  /* >>> FINE FIX iOS 18 <<< */
+ 
+
+  /* ====== Scroll Lock iOS (1+2) ====== */
+
+  let __pageScrollY = 0;
+
+  let __lockArmed = false;
+
+  let __lockFailsafeTimer = 0;
+
+ 
+
+  function lockPageScroll(source) {
+
+    if (!isMobile()) return;
+
+    if (document.body.classList.contains('page-scroll-locked')) return;
+
+ 
+
+    __pageScrollY = window.scrollY || window.pageYOffset || 0;
+
+    document.body.classList.add('page-scroll-locked');
+
+    document.body.style.top = `-${__pageScrollY}px`;
+
+ 
+
+    __lockArmed = true;
+
+ 
+
+    // failsafe: se non si apre davvero la chat entro poco, sblocca
+
+    clearTimeout(__lockFailsafeTimer);
+
+    __lockFailsafeTimer = setTimeout(() => {
+
+      if (__lockArmed && !isOpenState()) {
+
+        unlockPageScroll('failsafe');
+
+      }
+
+    }, 1200);
+
+  }
+
+ 
+
+  function unlockPageScroll(source) {
+
+    if (!document.body.classList.contains('page-scroll-locked')) return;
+
+ 
+
+    __lockArmed = false;
+
+    clearTimeout(__lockFailsafeTimer);
+
+ 
+
+    document.body.classList.remove('page-scroll-locked');
+
+    const y = __pageScrollY;
+
+    document.body.style.top = '';
+
+    window.scrollTo(0, y);
+
+  }
 
  
 
@@ -810,7 +864,11 @@ function initEmbeddedMessaging() {
 
  
 
+      // (2) lock subito al click sul launcher (prima che iOS scrolli)
+
       launcher.addEventListener('click', () => {
+
+        lockPageScroll('launcher-click');   // ✅ (1) + (2) PART 1
 
         setTimeout(evaluateAndApplyOpenState, 350);
 
@@ -899,6 +957,10 @@ function initEmbeddedMessaging() {
  
 
     state.nudgeElement.onclick = function () {
+
+      // se apertura da nudge su mobile, lock prima dell’open
+
+      lockPageScroll('nudge-click');
 
       window.embeddedservice_bootstrap?.open?.();
 
@@ -1044,6 +1106,8 @@ function initEmbeddedMessaging() {
 
       document.body.classList.remove('esw-open');
 
+      unlockPageScroll('state-minimized'); // ✅ sicurezza se evento non arriva
+
  
 
       if (state.chatEverOpened) {
@@ -1071,6 +1135,8 @@ function initEmbeddedMessaging() {
       state.chatEverOpened = true;
 
       document.body.classList.add('esw-open');
+
+      lockPageScroll('state-open'); // ✅ (2) PART 2: ridondanza
 
       removeNudge();
 
@@ -1166,7 +1232,11 @@ function initEmbeddedMessaging() {
 
  
 
+  // (1) lock anche sul ButtonClicked (in caso non intercettiamo il click del launcher)
+
   window.addEventListener('onEmbeddedMessagingButtonClicked', function () {
+
+    lockPageScroll('button-clicked'); // ✅ (1) + (2) PART 1 (fallback)
 
     setTimeout(evaluateAndApplyOpenState, 250);
 
@@ -1181,6 +1251,12 @@ function initEmbeddedMessaging() {
     state.chatEverOpened = true;
 
     document.body.classList.add('esw-open');
+
+ 
+
+    lockPageScroll('window-opened'); // ✅ (2) PART 2
+
+ 
 
     removeNudge();
 
@@ -1205,6 +1281,10 @@ function initEmbeddedMessaging() {
     state.chatCurrentlyOpen = false;
 
     document.body.classList.remove('esw-open');
+
+    unlockPageScroll('window-minimized'); // ✅ unlock
+
+ 
 
     setTimeout(applyStylesWithRetry, 50);
 
@@ -1233,6 +1313,8 @@ function initEmbeddedMessaging() {
     state.chatCurrentlyOpen = false;
 
     document.body.classList.remove('esw-open');
+
+    unlockPageScroll('window-closed'); // ✅ unlock
 
     setTimeout(applyStylesWithRetry, 50);
 
@@ -1366,7 +1448,7 @@ function initEmbeddedMessaging() {
 
   color: #000;
 
-  padding: 10px 20px 10px 12px;
+  padding: 10px 20px 10px 12px; /* (tuo) distanza ridotta tra msg e X */
 
   border-radius: 12px;
 
@@ -1454,6 +1536,24 @@ function initEmbeddedMessaging() {
 
  
 
+  /* >>> NEW: scroll lock per evitare che Safari iOS sposti la pagina <<< */
+
+  body.page-scroll-locked {
+
+    position: fixed !important;
+
+    left: 0 !important;
+
+    right: 0 !important;
+
+    width: 100% !important;
+
+    overflow: hidden !important;
+
+  }
+
+ 
+
   .esw-open #embedded-messaging {
 
     position: fixed !important;
@@ -1516,7 +1616,7 @@ function initEmbeddedMessaging() {
 
  
 
-    border-radius: 0 0 0 0 !important;
+    border-radius: 0 0 0 0 !important; /* (tuo) rettangolare */
 
     z-index: 2147483646 !important;
 
@@ -1614,7 +1714,7 @@ function initEmbeddedMessaging() {
 
  
 
-  /* lasciato com'è: non fa danni anche se non usiamo più ios-kbd */
+  /* lasciato com’è: non impatta se non usato */
 
   .ios-kbd .esw-open #embedded-messaging,
 
