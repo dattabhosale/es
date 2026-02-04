@@ -406,10 +406,6 @@ function initEmbeddedMessaging() {
 
   function getHeaderEl() {
 
-    // SOLO header del sito (banner ignorato come richiesto)
-
-    // Puoi blindarlo con: <body data-esw-header="header.site-header">
-
     const fromAttr = document.body?.getAttribute?.('data-esw-header');
 
     const candidates = (fromAttr ? fromAttr.split(',') : [])
@@ -476,13 +472,7 @@ function initEmbeddedMessaging() {
 
  
 
-  function __roundH(px) {
-
-    return Math.round(px / 4) * 4;
-
-  }
-
- 
+  function __roundH(px) { return Math.round(px / 4) * 4; }
 
   function __getVVH() {
 
@@ -494,27 +484,19 @@ function initEmbeddedMessaging() {
 
   }
 
- 
-
   function __applyViewportVars(vvh) {
 
     document.documentElement.style.setProperty('--vvh', vvh + 'px');
 
-    // offsetTop iOS 18 crea salti → ignorato
-
     document.documentElement.style.setProperty('--vv-offset-top', '0px');
 
   }
-
- 
 
   function __applyOnce(vvh) {
 
     if (__lastApplied === vvh) return;
 
     __lastApplied = vvh;
-
- 
 
     if (__vvRAF) cancelAnimationFrame(__vvRAF);
 
@@ -598,8 +580,6 @@ function initEmbeddedMessaging() {
 
       }
 
- 
-
       return;
 
     }
@@ -638,8 +618,6 @@ function initEmbeddedMessaging() {
 
  
 
-    // IMPORTANTISSIMO: solo resize (NO scroll)
-
     if (window.visualViewport) {
 
       window.visualViewport.addEventListener('resize', updateVisualViewportVars);
@@ -666,17 +644,11 @@ function initEmbeddedMessaging() {
 
  
 
-  /* ====== Scroll Lock iOS (1+2) ====== */
+  /* ====== FIX: blocca lo scroll pagina finché la chat è OPEN (modal lock) ====== */
 
   let __pageScrollY = 0;
 
-  let __lockArmed = false;
-
-  let __lockFailsafeTimer = 0;
-
- 
-
-  function lockPageScroll(source) {
+  function lockPageScrollPersistent() {
 
     if (!isMobile()) return;
 
@@ -690,41 +662,11 @@ function initEmbeddedMessaging() {
 
     document.body.style.top = `-${__pageScrollY}px`;
 
- 
-
-    __lockArmed = true;
-
- 
-
-    // failsafe: se non si apre davvero la chat entro poco, sblocca
-
-    clearTimeout(__lockFailsafeTimer);
-
-    __lockFailsafeTimer = setTimeout(() => {
-
-      if (__lockArmed && !isOpenState()) {
-
-        unlockPageScroll('failsafe');
-
-      }
-
-    }, 1200);
-
   }
 
- 
-
-  function unlockPageScroll(source) {
+  function unlockPageScrollPersistent() {
 
     if (!document.body.classList.contains('page-scroll-locked')) return;
-
- 
-
-    __lockArmed = false;
-
-    clearTimeout(__lockFailsafeTimer);
-
- 
 
     document.body.classList.remove('page-scroll-locked');
 
@@ -735,6 +677,12 @@ function initEmbeddedMessaging() {
     window.scrollTo(0, y);
 
   }
+
+ 
+
+  // evita riposizionamenti automatici del browser (best-effort)
+
+  try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch(e) {}
 
  
 
@@ -824,8 +772,6 @@ function initEmbeddedMessaging() {
 
     lockFixedRootStyle();
 
- 
-
     CONFIG.RETRY_DELAYS.forEach(delay => {
 
       setTimeout(() => {
@@ -864,11 +810,11 @@ function initEmbeddedMessaging() {
 
  
 
-      // (2) lock subito al click sul launcher (prima che iOS scrolli)
+      // 1+2: lock immediato al click (per evitare auto-scroll)
 
       launcher.addEventListener('click', () => {
 
-        lockPageScroll('launcher-click');   // ✅ (1) + (2) PART 1
+        lockPageScrollPersistent();
 
         setTimeout(evaluateAndApplyOpenState, 350);
 
@@ -958,9 +904,7 @@ function initEmbeddedMessaging() {
 
     state.nudgeElement.onclick = function () {
 
-      // se apertura da nudge su mobile, lock prima dell’open
-
-      lockPageScroll('nudge-click');
+      lockPageScrollPersistent();
 
       window.embeddedservice_bootstrap?.open?.();
 
@@ -1106,7 +1050,7 @@ function initEmbeddedMessaging() {
 
       document.body.classList.remove('esw-open');
 
-      unlockPageScroll('state-minimized'); // ✅ sicurezza se evento non arriva
+      unlockPageScrollPersistent();
 
  
 
@@ -1136,7 +1080,7 @@ function initEmbeddedMessaging() {
 
       document.body.classList.add('esw-open');
 
-      lockPageScroll('state-open'); // ✅ (2) PART 2: ridondanza
+      lockPageScrollPersistent();   // ✅ fondamentale: lock mentre la chat è open
 
       removeNudge();
 
@@ -1208,8 +1152,6 @@ function initEmbeddedMessaging() {
 
     startStatePolling();
 
- 
-
     initMobileViewportTracking();
 
  
@@ -1232,11 +1174,11 @@ function initEmbeddedMessaging() {
 
  
 
-  // (1) lock anche sul ButtonClicked (in caso non intercettiamo il click del launcher)
-
   window.addEventListener('onEmbeddedMessagingButtonClicked', function () {
 
-    lockPageScroll('button-clicked'); // ✅ (1) + (2) PART 1 (fallback)
+    // fallback: lock anche qui
+
+    lockPageScrollPersistent();
 
     setTimeout(evaluateAndApplyOpenState, 250);
 
@@ -1254,7 +1196,7 @@ function initEmbeddedMessaging() {
 
  
 
-    lockPageScroll('window-opened'); // ✅ (2) PART 2
+    lockPageScrollPersistent();
 
  
 
@@ -1265,8 +1207,6 @@ function initEmbeddedMessaging() {
  
 
     setTimeout(applyStylesWithRetry, 50);
-
- 
 
     setTimeout(updateVisualViewportVars, 50);
 
@@ -1282,7 +1222,7 @@ function initEmbeddedMessaging() {
 
     document.body.classList.remove('esw-open');
 
-    unlockPageScroll('window-minimized'); // ✅ unlock
+    unlockPageScrollPersistent();
 
  
 
@@ -1314,7 +1254,7 @@ function initEmbeddedMessaging() {
 
     document.body.classList.remove('esw-open');
 
-    unlockPageScroll('window-closed'); // ✅ unlock
+    unlockPageScrollPersistent();
 
     setTimeout(applyStylesWithRetry, 50);
 
@@ -1338,25 +1278,15 @@ function initEmbeddedMessaging() {
 
   --chat-launcher-right: 30px;
 
- 
-
   --chat-nudge-offset: 70px;
-
- 
 
   --chat-header-height: 60px;
 
- 
-
   --site-header-height: 60px;
-
- 
 
   --vvh: 100dvh;
 
   --vv-offset-top: 0px;
-
- 
 
   --chat-frame-bottom-gap: 40px;
 
@@ -1380,8 +1310,6 @@ function initEmbeddedMessaging() {
 
   }
 
- 
-
   .embeddedMessagingHeader {
 
     border-top-left-radius: 16px !important;
@@ -1389,8 +1317,6 @@ function initEmbeddedMessaging() {
     border-top-right-radius: 16px !important;
 
   }
-
- 
 
   .embeddedMessagingConversation {
 
@@ -1448,7 +1374,7 @@ function initEmbeddedMessaging() {
 
   color: #000;
 
-  padding: 10px 20px 10px 12px; /* (tuo) distanza ridotta tra msg e X */
+  padding: 10px 20px 10px 12px; /* ridotto */
 
   border-radius: 12px;
 
@@ -1466,8 +1392,6 @@ function initEmbeddedMessaging() {
 
 }
 
- 
-
 @keyframes bounce {
 
   0% { transform: translateY(0); }
@@ -1483,8 +1407,6 @@ function initEmbeddedMessaging() {
   100% { transform: translateY(0); }
 
 }
-
- 
 
 .chat-nudge .close-btn {
 
@@ -1506,25 +1428,19 @@ function initEmbeddedMessaging() {
 
 }
 
- 
-
-.chat-nudge .close-btn:hover {
-
-  color: #000;
-
-}
+.chat-nudge .close-btn:hover { color: #000; }
 
  
 
-/* ======= MOBILE (FIX) — iPhone Safari keyboard-safe under fixed header ======= */
+/* ======= MOBILE ======= */
 
 @media (max-width: 1024px) {
 
  
 
-  body.esw-open {
+  /* NB: puoi lasciare overflow hidden, ma NON imponiamo position qui */
 
-    position: relative !important;
+  body.esw-open {
 
     overflow: hidden !important;
 
@@ -1536,7 +1452,7 @@ function initEmbeddedMessaging() {
 
  
 
-  /* >>> NEW: scroll lock per evitare che Safari iOS sposti la pagina <<< */
+  /* ✅ LOCK PERSISTENTE mentre chat open: impedisce lo scroll auto di Safari su input/iframe */
 
   body.page-scroll-locked {
 
@@ -1549,6 +1465,8 @@ function initEmbeddedMessaging() {
     width: 100% !important;
 
     overflow: hidden !important;
+
+    overscroll-behavior: none !important;
 
   }
 
@@ -1565,8 +1483,6 @@ function initEmbeddedMessaging() {
  
 
     top: calc(var(--site-header-height, 60px) + var(--vv-offset-top, 0px)) !important;
-
- 
 
     height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
 
@@ -1600,8 +1516,6 @@ function initEmbeddedMessaging() {
 
     top: calc(var(--site-header-height, 60px) + var(--vv-offset-top, 0px)) !important;
 
- 
-
     height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
 
     max-height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
@@ -1616,7 +1530,7 @@ function initEmbeddedMessaging() {
 
  
 
-    border-radius: 0 0 0 0 !important; /* (tuo) rettangolare */
+    border-radius: 0 !important; /* rettangolare */
 
     z-index: 2147483646 !important;
 
@@ -1682,6 +1596,8 @@ function initEmbeddedMessaging() {
 
     -webkit-overflow-scrolling: touch;
 
+    overflow-anchor: none !important; /* riduce jump durante resize */
+
   }
 
  
@@ -1704,29 +1620,7 @@ function initEmbeddedMessaging() {
 
   }
 
- 
-
-  body.esw-open {
-
-    overflow-x: hidden !important;
-
-  }
-
- 
-
-  /* lasciato com’è: non impatta se non usato */
-
-  .ios-kbd .esw-open #embedded-messaging,
-
-  .ios-kbd .esw-open iframe[data-embedded-messaging-iframe],
-
-  .ios-kbd .esw-open .embeddedMessagingFrame {
-
-    transition: none !important;
-
-    animation: none !important;
-
-  }
+  body.esw-open { overflow-x: hidden !important; }
 
 }
 
