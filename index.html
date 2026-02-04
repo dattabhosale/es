@@ -458,7 +458,11 @@ function initEmbeddedMessaging() {
 
  
 
-  /* ====== iOS 18: anti-flicker infinito durante digitazione (LOCK + HYSTERESIS) ====== */
+  /* ============================================================
+
+     FIX iOS 18: ANTI-OSCILLAZIONI (LOCK + HYSTERESIS) - TUO OK
+
+     ============================================================ */
 
   let __vvRAF = 0;
 
@@ -488,7 +492,7 @@ function initEmbeddedMessaging() {
 
     document.documentElement.style.setProperty('--vvh', vvh + 'px');
 
-    document.documentElement.style.setProperty('--vv-offset-top', '0px');
+    document.documentElement.style.setProperty('--vv-offset-top', '0px'); // offsetTop ignorato
 
   }
 
@@ -511,6 +515,202 @@ function initEmbeddedMessaging() {
   }
 
  
+
+  /* ============================================================
+
+     NEW: SCROLL GUARD iOS 18 (blocca auto-scroll verso l'alto)
+
+     ============================================================ */
+
+  let __pageScrollY = 0;              // scroll pre-chat (per ripristino)
+
+  let __guardAnchorWindowY = 0;       // con body fixed deve restare 0
+
+  let __guardRAF = 0;
+
+  let __guardUntil = 0;
+
+  let __guardScrollApplying = false;
+
+ 
+
+  function lockPageScrollPersistent() {
+
+    if (!isMobile()) return;
+
+    if (document.body.classList.contains('page-scroll-locked')) return;
+
+ 
+
+    __pageScrollY = window.scrollY || window.pageYOffset || 0;
+
+    document.body.classList.add('page-scroll-locked');
+
+    document.body.style.top = `-${__pageScrollY}px`;
+
+ 
+
+    // con body fixed la window scroll dovrebbe restare a 0
+
+    __guardAnchorWindowY = 0;
+
+    try { window.scrollTo(0, 0); } catch(e) {}
+
+  }
+
+ 
+
+  function unlockPageScrollPersistent() {
+
+    if (!document.body.classList.contains('page-scroll-locked')) return;
+
+ 
+
+    stopScrollGuard();
+
+    document.body.classList.remove('page-scroll-locked');
+
+    const y = __pageScrollY;
+
+    document.body.style.top = '';
+
+    window.scrollTo(0, y);
+
+  }
+
+ 
+
+  function startScrollGuard(ms = 1600) {
+
+    if (!isMobile()) return;
+
+    if (!document.body.classList.contains('esw-open')) return;
+
+ 
+
+    // se non è ancora locked, lockalo (per sicurezza)
+
+    lockPageScrollPersistent();
+
+ 
+
+    __guardUntil = Date.now() + ms;
+
+ 
+
+    if (__guardRAF) cancelAnimationFrame(__guardRAF);
+
+ 
+
+    const tick = () => {
+
+      if (!document.body.classList.contains('esw-open')) {
+
+        __guardRAF = 0;
+
+        return;
+
+      }
+
+ 
+
+      // Safari può provare a scrollare window anche con body fixed: riportiamo a 0
+
+      const y = window.scrollY || window.pageYOffset || 0;
+
+      if (y !== __guardAnchorWindowY) {
+
+        __guardScrollApplying = true;
+
+        window.scrollTo(0, __guardAnchorWindowY);
+
+        document.documentElement.scrollTop = __guardAnchorWindowY;
+
+        document.body.scrollTop = __guardAnchorWindowY;
+
+        // ribadisce il top bloccato (se Safari prova a modificarlo indirettamente)
+
+        document.body.style.top = `-${__pageScrollY}px`;
+
+        __guardScrollApplying = false;
+
+      }
+
+ 
+
+      if (Date.now() < __guardUntil) {
+
+        __guardRAF = requestAnimationFrame(tick);
+
+      } else {
+
+        __guardRAF = 0;
+
+      }
+
+    };
+
+ 
+
+    __guardRAF = requestAnimationFrame(tick);
+
+  }
+
+ 
+
+  function stopScrollGuard() {
+
+    if (__guardRAF) cancelAnimationFrame(__guardRAF);
+
+    __guardRAF = 0;
+
+    __guardUntil = 0;
+
+  }
+
+ 
+
+  // Se iOS prova comunque a scrollare, neutralizza subito (mentre chat open)
+
+  window.addEventListener('scroll', () => {
+
+    if (!isMobile()) return;
+
+    if (!document.body.classList.contains('esw-open')) return;
+
+    if (__guardScrollApplying) return;
+
+ 
+
+    const y = window.scrollY || window.pageYOffset || 0;
+
+    if (y !== __guardAnchorWindowY) {
+
+      __guardScrollApplying = true;
+
+      window.scrollTo(0, __guardAnchorWindowY);
+
+      document.documentElement.scrollTop = __guardAnchorWindowY;
+
+      document.body.scrollTop = __guardAnchorWindowY;
+
+      document.body.style.top = `-${__pageScrollY}px`;
+
+      __guardScrollApplying = false;
+
+    }
+
+  }, { passive: true });
+
+ 
+
+  // best-effort: evita scroll restoration del browser
+
+  try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch(e) {}
+
+ 
+
+  /* ====== updateVisualViewportVars: aggiungo startScrollGuard quando la tastiera si apre ====== */
 
   function updateVisualViewportVars() {
 
@@ -538,9 +738,19 @@ function initEmbeddedMessaging() {
 
  
 
+    // tastiera si apre
+
     if (!__keyboardOpen && (__baselineH - h) > OPEN_THRESHOLD) {
 
       __keyboardOpen = true;
+
+ 
+
+      // ✅ NEW: quando la tastiera apre, iOS tenta auto-scroll → guardia
+
+      startScrollGuard(1800);
+
+ 
 
       __lockedH = h;
 
@@ -551,6 +761,8 @@ function initEmbeddedMessaging() {
     }
 
  
+
+    // tastiera aperta: LOCK
 
     if (__keyboardOpen) {
 
@@ -575,6 +787,12 @@ function initEmbeddedMessaging() {
         __baselineH = h;
 
         __applyOnce(h);
+
+ 
+
+        // possiamo fermare la guardia dopo poco (ma la pagina resta locked finché chat open)
+
+        startScrollGuard(600);
 
         return;
 
@@ -641,48 +859,6 @@ function initEmbeddedMessaging() {
     setTimeout(updateVisualViewportVars, 260);
 
   }
-
- 
-
-  /* ====== FIX: blocca lo scroll pagina finché la chat è OPEN (modal lock) ====== */
-
-  let __pageScrollY = 0;
-
-  function lockPageScrollPersistent() {
-
-    if (!isMobile()) return;
-
-    if (document.body.classList.contains('page-scroll-locked')) return;
-
- 
-
-    __pageScrollY = window.scrollY || window.pageYOffset || 0;
-
-    document.body.classList.add('page-scroll-locked');
-
-    document.body.style.top = `-${__pageScrollY}px`;
-
-  }
-
-  function unlockPageScrollPersistent() {
-
-    if (!document.body.classList.contains('page-scroll-locked')) return;
-
-    document.body.classList.remove('page-scroll-locked');
-
-    const y = __pageScrollY;
-
-    document.body.style.top = '';
-
-    window.scrollTo(0, y);
-
-  }
-
- 
-
-  // evita riposizionamenti automatici del browser (best-effort)
-
-  try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch(e) {}
 
  
 
@@ -772,6 +948,8 @@ function initEmbeddedMessaging() {
 
     lockFixedRootStyle();
 
+ 
+
     CONFIG.RETRY_DELAYS.forEach(delay => {
 
       setTimeout(() => {
@@ -810,11 +988,13 @@ function initEmbeddedMessaging() {
 
  
 
-      // 1+2: lock immediato al click (per evitare auto-scroll)
+      // 1+2: lock + guard subito al click
 
       launcher.addEventListener('click', () => {
 
         lockPageScrollPersistent();
+
+        startScrollGuard(1600);
 
         setTimeout(evaluateAndApplyOpenState, 350);
 
@@ -905,6 +1085,8 @@ function initEmbeddedMessaging() {
     state.nudgeElement.onclick = function () {
 
       lockPageScrollPersistent();
+
+      startScrollGuard(1600);
 
       window.embeddedservice_bootstrap?.open?.();
 
@@ -1080,7 +1262,13 @@ function initEmbeddedMessaging() {
 
       document.body.classList.add('esw-open');
 
-      lockPageScrollPersistent();   // ✅ fondamentale: lock mentre la chat è open
+ 
+
+      lockPageScrollPersistent();
+
+      startScrollGuard(1600);
+
+ 
 
       removeNudge();
 
@@ -1152,6 +1340,8 @@ function initEmbeddedMessaging() {
 
     startStatePolling();
 
+ 
+
     initMobileViewportTracking();
 
  
@@ -1176,9 +1366,9 @@ function initEmbeddedMessaging() {
 
   window.addEventListener('onEmbeddedMessagingButtonClicked', function () {
 
-    // fallback: lock anche qui
-
     lockPageScrollPersistent();
+
+    startScrollGuard(1600);
 
     setTimeout(evaluateAndApplyOpenState, 250);
 
@@ -1198,6 +1388,8 @@ function initEmbeddedMessaging() {
 
     lockPageScrollPersistent();
 
+    startScrollGuard(1600);
+
  
 
     removeNudge();
@@ -1207,6 +1399,8 @@ function initEmbeddedMessaging() {
  
 
     setTimeout(applyStylesWithRetry, 50);
+
+ 
 
     setTimeout(updateVisualViewportVars, 50);
 
@@ -1374,7 +1568,7 @@ function initEmbeddedMessaging() {
 
   color: #000;
 
-  padding: 10px 20px 10px 12px; /* ridotto */
+  padding: 10px 20px 10px 12px;
 
   border-radius: 12px;
 
@@ -1432,15 +1626,15 @@ function initEmbeddedMessaging() {
 
  
 
-/* ======= MOBILE ======= */
+/* ======= MOBILE (FIX) — iPhone Safari keyboard-safe under fixed header ======= */
 
 @media (max-width: 1024px) {
 
  
 
-  /* NB: puoi lasciare overflow hidden, ma NON imponiamo position qui */
-
   body.esw-open {
+
+    position: relative !important;
 
     overflow: hidden !important;
 
@@ -1452,7 +1646,7 @@ function initEmbeddedMessaging() {
 
  
 
-  /* ✅ LOCK PERSISTENTE mentre chat open: impedisce lo scroll auto di Safari su input/iframe */
+  /* NEW: lock pagina (modal) */
 
   body.page-scroll-locked {
 
@@ -1467,6 +1661,8 @@ function initEmbeddedMessaging() {
     overflow: hidden !important;
 
     overscroll-behavior: none !important;
+
+    touch-action: none !important;
 
   }
 
@@ -1483,6 +1679,8 @@ function initEmbeddedMessaging() {
  
 
     top: calc(var(--site-header-height, 60px) + var(--vv-offset-top, 0px)) !important;
+
+ 
 
     height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
 
@@ -1515,6 +1713,8 @@ function initEmbeddedMessaging() {
  
 
     top: calc(var(--site-header-height, 60px) + var(--vv-offset-top, 0px)) !important;
+
+ 
 
     height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
 
@@ -1596,7 +1796,7 @@ function initEmbeddedMessaging() {
 
     -webkit-overflow-scrolling: touch;
 
-    overflow-anchor: none !important; /* riduce jump durante resize */
+    overflow-anchor: none !important;
 
   }
 
@@ -1620,7 +1820,13 @@ function initEmbeddedMessaging() {
 
   }
 
-  body.esw-open { overflow-x: hidden !important; }
+ 
+
+  body.esw-open {
+
+    overflow-x: hidden !important;
+
+  }
 
 }
 
