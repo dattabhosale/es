@@ -1235,7 +1235,7 @@ function initEmbeddedMessaging() {
       unlockPageScrollPersistent();
 
  
-
+/*
       if (state.chatEverOpened) {
 
         clearTimer('followup');
@@ -1251,7 +1251,7 @@ function initEmbeddedMessaging() {
       }
 
     }
-
+*/
  
 
     if (!wasOpen && nowOpen) {
@@ -1380,7 +1380,7 @@ function initEmbeddedMessaging() {
 
     state.chatCurrentlyOpen = true;
 
-    state.chatEverOpened = true;
+    //state.chatEverOpened = true;
 
     document.body.classList.add('esw-open');
 
@@ -1410,7 +1410,7 @@ function initEmbeddedMessaging() {
 
  
 
-  window.addEventListener('onEmbeddedMessagingWindowMinimized', function () {
+  /*window.addEventListener('onEmbeddedMessagingWindowMinimized', function () {
 
     state.chatCurrentlyOpen = false;
 
@@ -1439,7 +1439,7 @@ function initEmbeddedMessaging() {
     }
 
   });
-
+*/
  
 
   window.addEventListener('onEmbeddedMessagingWindowClosed', function () {
