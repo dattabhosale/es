@@ -93,6 +93,17 @@
       </div>
     </footer>
 
+    <!-- Hide default Salesforce chat FAB — we use the "Talk to Leappy" button instead -->
+    <style>
+      #embedded-messaging {
+        visibility: hidden !important;
+        height: 0 !important;
+        width: 0 !important;
+        overflow: hidden !important;
+        position: absolute !important;
+      }
+    </style>
+
     <!-- Salesforce Embedded Messaging Script -->
     <script type="text/javascript">
       const ESW_CONFIG = {
@@ -111,6 +122,10 @@
         DEFAULT_COUNTRY: "en",
       };
 
+      // Track whether the Salesforce messaging is ready
+      let eswReady = false;
+      let pendingLaunch = false;
+
       function getCountryCodeFromPath() {
         return ESW_CONFIG.DEFAULT_COUNTRY;
       }
@@ -128,11 +143,17 @@
           embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
           embeddedservice_bootstrap.settings.language = countryInfo.language;
           window.addEventListener("onEmbeddedMessagingReady", function () {
+            eswReady = true;
             embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
               Country: countryInfo.name,
               Language: countryInfo.language,
               CountryCode: countryInfo.code,
             });
+            // If user clicked "Talk to Leappy" before the chat was ready, launch now
+            if (pendingLaunch) {
+              pendingLaunch = false;
+              launchChat();
+            }
           });
           embeddedservice_bootstrap.init(
             ESW_CONFIG.ORG_ID,
@@ -145,24 +166,40 @@
         }
       }
 
-      // Programmatically open chat
+      // Launch chat by finding the Salesforce launcher button or using the API
+      function launchChat() {
+        try {
+          // Try the standard MIAW launcher button first
+          const launcher =
+            document.querySelector("#embedded-messaging button") ||
+            document.querySelector("[data-embedded-messaging-launcher]") ||
+            document.querySelector('button[class*="embeddedMessaging"]');
+          if (launcher) {
+            launcher.click();
+          } else if (
+            typeof embeddedservice_bootstrap !== "undefined" &&
+            embeddedservice_bootstrap.utilAPI
+          ) {
+            embeddedservice_bootstrap.utilAPI.launchChat();
+          } else {
+            console.warn("[ESW] Chat not ready yet — queuing launch.");
+            pendingLaunch = true;
+          }
+        } catch (e) {
+          console.error("[ESW] Failed to launch chat:", e);
+        }
+      }
+
+      // "Talk to Leappy" button click handler
       document
         .getElementById("talk-to-leappy")
         .addEventListener("click", function () {
-          try {
-            // Attempt to click the Salesforce launcher button
-            const launcher =
-              document.querySelector(".embeddedServiceLauncher") ||
-              document.querySelector("[data-embedded-messaging-launcher]") ||
-              document.querySelector(".embeddedMessagingIcon");
-            if (launcher) {
-              launcher.click();
-            } else {
-              // If not ready, try bootstrap API directly if available (though click is safer for DOM state)
-              embeddedservice_bootstrap.utilLaunchChat();
-            }
-          } catch (e) {
-            console.error("Failed to launch chat:", e);
+          if (eswReady) {
+            launchChat();
+          } else {
+            // Chat not ready yet — queue the launch for when it becomes ready
+            pendingLaunch = true;
+            console.log("[ESW] Chat not ready yet. Will open when ready...");
           }
         });
     </script>
