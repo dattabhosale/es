@@ -54,30 +54,60 @@
     </div>
 
     <main>
-      <section class="service-hero">
-        <div class="container">
-          <div class="hero-content">
-            <h1>LEAP SERVICE</h1>
-            <p>Expertise by your side</p>
+      <!-- ===== HERO with Robot + CTA ===== -->
+      <section class="service-hero-v2">
+        <div class="hero-particles" aria-hidden="true">
+          <span></span><span></span><span></span><span></span><span></span><span></span>
+        </div>
+        <div class="container hero-v2-inner">
+          <div class="hero-v2-text">
+            <span class="hero-badge">⚡ Premium Service</span>
+            <h1>LEAP <span class="text-green">SERVICE</span></h1>
+            <p class="hero-sub">Expertise by your side — wherever you are, whenever you need us.</p>
+            <div class="hero-cta-row">
+              <button class="btn btn-leappy btn-leappy-hero" id="talk-to-leappy">
+                <span class="btn-pulse"></span>
+                💬&ensp;Talk to Leappy
+              </button>
+              <span class="hero-cta-hint">Get connected instantly</span>
+            </div>
           </div>
+          <div class="hero-v2-robot">
+            <div class="robot-glow"></div>
+            <div class="robot-speech-bubble">Need assistance? 👋</div>
+            <img src="assets/robot-mascot.png" alt="Leappy Robot Mascot" id="leappy-mascot" />
+          </div>
+        </div>
+        <div class="hero-wave">
+          <svg viewBox="0 0 1440 120" preserveAspectRatio="none"><path d="M0,80 C360,140 1080,0 1440,80 L1440,120 L0,120 Z" fill="#fff"/></svg>
         </div>
       </section>
 
-      <section class="service-cta">
-        <div class="container cta-inner">
-          <div class="cta-text">
-            <h2>Need assistance?</h2>
-            <p>Let me get you in touch with your local repairer.</p>
-            <button class="btn btn-leappy" id="talk-to-leappy">
-              Talk to leappy
-            </button>
-          </div>
-          <div class="cta-image">
-            <img
-              src="assets/robot-mascot.png"
-              alt="Leappy Robot Mascot"
-              id="leappy-mascot"
-            />
+      <!-- ===== Service Features ===== -->
+      <section class="service-features">
+        <div class="container">
+          <h2 class="section-title">What we offer</h2>
+          <div class="features-grid">
+            <div class="feature-card">
+              <div class="feature-icon">🔧</div>
+              <h3>Expert Repairs</h3>
+              <p>Certified technicians trained on every model with genuine parts and diagnostics.</p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">🛡️</div>
+              <h3>Warranty Support</h3>
+              <p>Full warranty coverage and transparent service history for your peace of mind.</p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">📍</div>
+              <h3>Local Network</h3>
+              <p>Find your nearest authorised repairer across Europe — always close to you.</p>
+            </div>
+            <div class="feature-card">
+              <div class="feature-icon">⚡</div>
+              <h3>EV Specialisation</h3>
+              <p>Battery health checks, software updates, and charging optimisation included.</p>
+            </div>
           </div>
         </div>
       </section>
