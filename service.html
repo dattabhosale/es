@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width,initial-scale=1,maximun-scale=1.0"
+    />
+    <title>Service - LeapReplica</title>
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="container header-inner">
+        <a href="index.html" class="brand">LeapReplica</a>
+        <nav class="site-nav" id="site-nav">
+          <a href="index.html">Home</a>
+          <a href="service.html" class="active">Service</a>
+          <a href="products.html">Products</a>
+          <a href="about.html">About</a>
+          <a href="contact.html">Contact</a>
+        </nav>
+        <button
+          class="nav-toggle"
+          id="nav-toggle"
+          aria-label="Toggle navigation"
+        >
+          ☰
+        </button>
+      </div>
+    </header>
+
+    <div class="announcement-bar" id="announcement-bar">
+      <div class="container bar-inner">
+        <span
+          >T03 & C10 have arrived in the showrooms, find us on our website of
+          your country</span
+        >
+        <button
+          class="close-bar"
+          onclick="
+            document.getElementById('announcement-bar').style.display = 'none'
+          "
+        >
+          &times;
+        </button>
+      </div>
+    </div>
+
+    <main>
+      <section class="service-hero">
+        <div class="container">
+          <div class="hero-content">
+            <h1>LEAP SERVICE</h1>
+            <p>Expertise by your side</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="service-cta">
+        <div class="container cta-inner">
+          <div class="cta-text">
+            <h2>Need assistance?</h2>
+            <p>Let me get you in touch with your local repairer.</p>
+            <button class="btn btn-leappy" id="talk-to-leappy">
+              Talk to leappy
+            </button>
+          </div>
+          <div class="cta-image">
+            <img
+              src="assets/robot-mascot.png"
+              alt="Leappy Robot Mascot"
+              id="leappy-mascot"
+            />
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="container">
+        <div>© 2025 LeapReplica</div>
+        <nav class="foot-nav">
+          <a href="privacy.html">Privacy</a>
+          <a href="contact.html">Contact</a>
+        </nav>
+      </div>
+    </footer>
+
+    <!-- Salesforce Embedded Messaging Script -->
+    <script type="text/javascript">
+      const ESW_CONFIG = {
+        ORG_ID: "00DMA000003XnGM",
+        DEPLOYMENT_NAME: "LPM_Leapmotor",
+        SITE_URL:
+          "https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231",
+        SCRT2_URL: "https://leapmotor--dev01.sandbox.my.salesforce-scrt.com",
+        COUNTRY_MAPPING: {
+          it: { name: "Italy", language: "it", code: "it" },
+          es: { name: "Spain", language: "es", code: "es" },
+          fr: { name: "France", language: "fr", code: "fr" },
+          de: { name: "Germany", language: "de", code: "de" },
+          en: { name: "United States", language: "en_US", code: "en" },
+        },
+        DEFAULT_COUNTRY: "en",
+      };
+
+      function getCountryCodeFromPath() {
+        return ESW_CONFIG.DEFAULT_COUNTRY;
+      }
+
+      function getCountryInfo(countryCode) {
+        return (
+          ESW_CONFIG.COUNTRY_MAPPING[countryCode] ||
+          ESW_CONFIG.COUNTRY_MAPPING[ESW_CONFIG.DEFAULT_COUNTRY]
+        );
+      }
+
+      function initEmbeddedMessaging() {
+        try {
+          const countryInfo = getCountryInfo(getCountryCodeFromPath());
+          embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
+          embeddedservice_bootstrap.settings.language = countryInfo.language;
+          window.addEventListener("onEmbeddedMessagingReady", function () {
+            embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+              Country: countryInfo.name,
+              Language: countryInfo.language,
+              CountryCode: countryInfo.code,
+            });
+          });
+          embeddedservice_bootstrap.init(
+            ESW_CONFIG.ORG_ID,
+            ESW_CONFIG.DEPLOYMENT_NAME,
+            ESW_CONFIG.SITE_URL,
+            { scrt2URL: ESW_CONFIG.SCRT2_URL },
+          );
+        } catch (err) {
+          console.error("[ESW] Error loading Embedded Messaging:", err);
+        }
+      }
+
+      // Programmatically open chat
+      document
+        .getElementById("talk-to-leappy")
+        .addEventListener("click", function () {
+          try {
+            // Attempt to click the Salesforce launcher button
+            const launcher =
+              document.querySelector(".embeddedServiceLauncher") ||
+              document.querySelector("[data-embedded-messaging-launcher]") ||
+              document.querySelector(".embeddedMessagingIcon");
+            if (launcher) {
+              launcher.click();
+            } else {
+              // If not ready, try bootstrap API directly if available (though click is safer for DOM state)
+              embeddedservice_bootstrap.utilLaunchChat();
+            }
+          } catch (e) {
+            console.error("Failed to launch chat:", e);
+          }
+        });
+    </script>
+    <script
+      type="text/javascript"
+      src="https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231/assets/js/bootstrap.min.js"
+      onload="initEmbeddedMessaging()"
+    ></script>
+  </body>
+</html>
