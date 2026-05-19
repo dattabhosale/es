@@ -93,13 +93,13 @@
 
 const ESW_CONFIG = {
 
-  ORG_ID: '00DMA000003XnGM',
+  ORG_ID: '00DUA000003t2Uy',
 
-  DEPLOYMENT_NAME: 'LPM_Leapmotor',
+  DEPLOYMENT_NAME: 'Leapmotor_Test',
 
-  SITE_URL: 'https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231',
+  SITE_URL: 'https://leapmotor--uat.sandbox.my.site.com/ESWLeapmotorTest1765461060847',
 
-  SCRT2_URL: 'https://leapmotor--dev01.sandbox.my.salesforce-scrt.com',
+  SCRT2_URL: 'https://leapmotor--uat.sandbox.my.salesforce-scrt.com',
 
  
 
@@ -117,11 +117,15 @@ const ESW_CONFIG = {
 
     'us': { name: 'United States', language: 'en_US', code: 'us' },
 
+    'pt': { name: 'Portugal', language: 'pt_PT', code: 'pt' },
+    
+    'at': { name: 'Austria', language: 'de', code: 'at' },
+
     'be-fr': { name: 'Belgium_FR', language: 'fr', code: 'be' },
 
     'be-nl': { name: 'Belgium_NL', language: 'nl_NL', code: 'be' },
 
-    'en': { name: 'United States', language: 'en_US', code: 'en' }
+    'en': { name: 'United Kingdom', language: 'en_US', code: 'uk' }
 
   },
 
@@ -180,17 +184,12 @@ function initEmbeddedMessaging() {
     let scrt2Url = ESW_CONFIG.SCRT2_URL;
 
     if(countryInfo.code === 'uk'){
-      console.log('In if block - applying UK specific config');
       
       // Update variables for UK
-      deploymentName = 'LPM_Leapmotor_UK';
-      siteUrl = 'https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotorUK1776851508682';
-      scrt2Url = 'https://leapmotor--dev01.sandbox.my.salesforce-scrt.com';
+      deploymentName = 'Github_Test_1';
+      siteUrl = 'https://leapmotor--uat.sandbox.my.site.com/ESWGithubTest1772119881058';
+      scrt2Url = 'https://leapmotor--uat.sandbox.my.salesforce-scrt.com';
 
-      // Check for legacy embedded_svc object before setting to prevent ReferenceError
-      if(typeof embedded_svc !== 'undefined') {
-        embedded_svc.settings.smallCompanyLogoImgURL = "https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231/sfsites/c/resource/1765382650000/LeapmotorChat"
-      }
     }
 
     window.addEventListener("onEmbeddedMessagingReady", function() {
@@ -1855,14 +1854,8 @@ function initEmbeddedMessaging() {
 
 <!-- ======================== LOAD SCRIPT ======================== -->
 
-<script
-
-  type="text/javascript"
-
-  src="https://leapmotor--dev01.sandbox.my.site.com/ESWLPMLeapmotor1760706603231/assets/js/bootstrap.min.js"
-
-  onload="initEmbeddedMessaging()">
-
+</script>
+<script type='text/javascript' src='https://leapmotor--uat.sandbox.my.site.com/ESWLeapmotorTest1765461060847/assets/js/bootstrap.min.js' onload='initEmbeddedMessaging()'>
 </script>
 
 </body>
