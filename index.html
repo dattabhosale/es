@@ -126,28 +126,7 @@ const ESW_CONFIG = {
   DEFAULT_COUNTRY: 'uk'
 };
 
-const BUTTOMLABEL = {
-    es: { first: 'Chat with me!'},
-    it: { first: 'Chat with me!' },
-    fr: { first: 'Chat with me!' },
-    de: { first: 'Chat with me!' },
-    at: { first: 'Chat with me!' },
-    lu: { first: 'Chat with me!' },
-    nl: { first: 'Chat with me!'},
-    pl: { first: 'Chat with me!'},
-    pt: { first: 'Chat with me!'},
-    en: { first: 'Chat with me!' },
-    uk: { first: 'Chat with me!' },
-    us: { first: 'Chat with me!' },
-    'be-fr': { first: 'Chat with me!' },
-    'be-nl': { first: 'Chat with me!' }
-};
 
-const langKey = BUTTOMLABEL[currentLang] ? currentLang : 'en';
-
-const textToDisplay = BUTTOMLABEL[langKey].first;
-
-document.documentElement.style.setProperty('--custom-button-text', `"${textToDisplay}"`);
 
 /* ======================== HELPERS ========================= */
 function getCountryCodeFromPath() {
@@ -295,6 +274,29 @@ function initEmbeddedMessaging() {
     observers: { launcher: null, body: null, fixedRoot: null, statePoller: null }
   };
 
+  const BUTTOMLABEL = {
+    es: { first: 'Chat with me!'},
+    it: { first: 'Chat with me!' },
+    fr: { first: 'Chat with me!' },
+    de: { first: 'Chat with me!' },
+    at: { first: 'Chat with me!' },
+    lu: { first: 'Chat with me!' },
+    nl: { first: 'Chat with me!'},
+    pl: { first: 'Chat with me!'},
+    pt: { first: 'Chat with me!'},
+    en: { first: 'Chat with me!' },
+    uk: { first: 'Chat with me!' },
+    us: { first: 'Chat with me!' },
+    'be-fr': { first: 'Chat with me!' },
+    'be-nl': { first: 'Chat with me!' }
+};
+
+const langKey = BUTTOMLABEL[countryCode] ? countryCode : 'en';
+
+const textToDisplay = BUTTOMLABEL[langKey].first;
+
+document.documentElement.style.setProperty('--custom-button-text', `"${textToDisplay}"`);
+  
   /* ====== Utility ====== */
   const isMobile = () => window.innerWidth < CONFIG.DESKTOP_MIN_WIDTH;
   function getCountryCode() { return getCountryCodeFromPath(); }
