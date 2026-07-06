@@ -291,7 +291,8 @@ function initEmbeddedMessaging() {
     'be-nl': { first: 'Chat with me!' }
 };
 
-const langKey = BUTTOMLABEL[countryCode] ? countryCode : 'en';
+const countryCo = getCountryCodeFromPath();
+const langKey = BUTTOMLABEL[countryCo] ? countryCo : 'en';
 
 const textToDisplay = BUTTOMLABEL[langKey].first;
 
