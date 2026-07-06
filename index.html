@@ -126,6 +126,29 @@ const ESW_CONFIG = {
   DEFAULT_COUNTRY: 'uk'
 };
 
+const BUTTOMLABEL = {
+    es: { first: 'Chat with me!'},
+    it: { first: 'Chat with me!' },
+    fr: { first: 'Chat with me!' },
+    de: { first: 'Chat with me!' },
+    at: { first: 'Chat with me!' },
+    lu: { first: 'Chat with me!' },
+    nl: { first: 'Chat with me!'},
+    pl: { first: 'Chat with me!'},
+    pt: { first: 'Chat with me!'},
+    en: { first: 'Chat with me!' },
+    uk: { first: 'Chat with me!' },
+    us: { first: 'Chat with me!' },
+    'be-fr': { first: 'Chat with me!' },
+    'be-nl': { first: 'Chat with me!' }
+};
+
+const langKey = BUTTOMLABEL[currentLang] ? currentLang : 'en';
+
+const textToDisplay = BUTTOMLABEL[langKey].first;
+
+document.documentElement.style.setProperty('--custom-button-text', `"${textToDisplay}"`);
+
 /* ======================== HELPERS ========================= */
 function getCountryCodeFromPath() {
   const pathParts = window.location.pathname
@@ -964,6 +987,45 @@ function initEmbeddedMessaging() {
   body.esw-open {
     overflow-x: hidden !important;
   }
+}
+  .embeddedServiceHelpButton .helpButton .uiButton {
+    width: 220px !important;       /* Larghezza fissa per contenere icona + testo */
+    height: 60px !important;        /* Altezza ridotta rispetto ai tuoi 80px per farlo rettangolare */
+    border-radius: 12px !important; /* Angoli arrotondati (cambia a piacimento, es. 8px o 15px) */
+
+    /* Attiva il layout flessibile per allineare gli elementi */
+    display: flex !important;
+    flex-direction: row !important; 
+    align-items: center !important; 
+    justify-content: flex-start !important; 
+    padding-left: 15px !important;  
+}
+
+.embeddedServiceHelpButton .helpButton .uiButton .embeddedServiceIcon {
+    width: 30px !important;        
+    height: 30px !important;
+    margin-right: 12px !important; 
+}
+
+
+.embeddedServiceHelpButton .helpButton .uiButton .helpButtonLabel {
+    text-align: left !important;    
+    display: inline-block !important;
+    white-space: nowrap !important; 
+  padding: 0 !important;
+}
+
+
+.embeddedServiceHelpButton .helpButton .uiButton .helpButtonLabel .label {
+    display: none !important;
+}
+
+
+.embeddedServiceHelpButton .helpButton .uiButton .helpButtonLabel::after {
+    content: var(--custom-button-text) !important; /* Riferimento alla variabile JS */
+    font-size: 16px !important;                     
+    color: #ffffff !important;                     
+    font-weight: bold !important;                  
 }
 </style>
 
