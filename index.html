@@ -800,6 +800,14 @@ function initEmbeddedMessaging() {
   object-position: center !important;
   margin: 0 !important;
 }
+#embeddedMessagingIconChat {
+  display: block !important;
+  width: 130% !important;    /* ← più di 100% = zoom in */
+  height: 130% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  margin: 0 !important;
+}
 
 #embeddedMessagingFrame.isMinimized {
   display: none !important;
@@ -822,6 +830,7 @@ function initEmbeddedMessaging() {
     overscroll-behavior: none !important;
     touch-action: none !important;
   }
+  
   .esw-open #embedded-messaging {
     position: fixed !important;
     left: 0 !important;
