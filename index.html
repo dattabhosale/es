@@ -842,6 +842,96 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
     state.timers.first = setTimeout(() => {
       if (!state.chatEverOpened && !isOpenState()) showNudge(messages.first);
     }, CONFIG.NUDGE_DELAY_MS);
+    // ======= CUSTOM ROUND BUTTON =======
+  function applyCustomButtonStyle() {
+    const btn = document.querySelector('#embeddedMessagingConversationButton');
+    const img = document.querySelector('#embeddedMessagingIconChat');
+    const frame = document.querySelector('#embeddedMessagingFrame');
+    
+    if (!btn) return;
+
+    if (frame && frame.classList.contains('isMinimized')) {
+      frame.style.display = 'none';
+    }
+
+    btn.style.width = '70px';
+    btn.style.height = '70px';
+    btn.style.borderRadius = '50%';
+    btn.style.display = 'flex';
+    btn.style.alignItems = 'center';
+    btn.style.justifyContent = 'center';
+    btn.style.paddingLeft = '0px';
+    btn.style.gap = '0px';
+    btn.style.cursor = 'pointer';
+
+    if (img) {
+      img.style.display = 'block';
+      img.style.width = '110px';
+      img.style.height = '110px';
+      img.style.flexShrink = '0';
+      img.style.marginLeft = '0px';
+      img.style.marginTop = '35px';
+    }
+
+    const container = document.querySelector('#embeddedMessagingIconContainer');
+    if (container) {
+      container.style.display = 'flex';
+      container.style.alignItems = 'center';
+      container.style.justifyContent = 'center';
+      container.style.width = '100%';
+      container.style.height = '100%';
+    }
+
+    const existingLabel = btn.querySelector('#customChatLabel');
+    if (existingLabel) existingLabel.remove();
+
+    if (!btn.dataset.customClick) {
+      btn.dataset.customClick = 'true';
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        clearTimeout(autoOpenTimer); // cancella anche il timer se clicca manualmente
+        embeddedservice_bootstrap.utilAPI.launchChat()
+          .catch(err => console.error('[ESW] launchChat error:', err));
+      });
+    }
+  }
+
+  const chatFrame = document.querySelector('#embeddedMessagingFrame');
+  if (chatFrame) {
+    const btnObserver = new MutationObserver((mutations) => {
+      mutations.forEach(m => {
+        if (m.target.id === 'embeddedMessagingFrame') {
+          if (m.target.classList.contains('isMinimized')) {
+            m.target.style.display = 'none';
+            setTimeout(applyCustomButtonStyle, 50);
+          } else if (m.target.classList.contains('isMaximized')) {
+            m.target.style.display = '';
+          }
+        }
+      });
+    });
+
+    btnObserver.observe(chatFrame, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+  }
+
+  applyCustomButtonStyle();
+
+  // ======= AUTO OPEN CHAT AFTER 10 SECONDS =======
+  const autoOpenTimer = setTimeout(function() {
+    if (!state.chatEverOpened && !isOpenState()) {
+      embeddedservice_bootstrap.utilAPI.launchChat()
+        .catch(err => console.error('[ESW] Auto open error:', err));
+    }
+  }, 10000);
+
+  // Cancella timer se utente clicca il pulsante prima dei 10 secondi
+  window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
+    clearTimeout(autoOpenTimer);
+  }, { once: true });
+});
   });
 
   window.addEventListener('onEmbeddedMessagingButtonClicked', function () {
