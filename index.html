@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximun-scale=1.0" />
-  <title>LeapReplica - Electric Vehicles</title>
+  <title>LeapReplica - Electric Vehicles -UAT</title>
   <link rel="stylesheet" href="css/style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -82,161 +82,6 @@
 <!-- ======================== SALESFORCE EMBEDDED MESSAGING (FULL UPDATED) ======================== -->
 
 <script type="text/javascript">
-/**
- * Salesforce Embedded Messaging - Full Updated Implementation
- * - Dynamic country settings (path-based)
- * - Dynamic bootstrap loading (UK vs Default)
- * - Init-once guards (prevents duplicate listeners)
- * - Keeps your Advanced Control + iOS keyboard/scroll fixes
- */
-
-/* ======================== CONFIGURATION ========================= */
-const ESW_CONFIG = {
-  ORG_ID: '00DUA000003t2Uy',
-
-  // Default (non-UK) deployment
-  DEFAULT: {
-    DEPLOYMENT_NAME: 'Leapmotor_Test',
-    SITE_URL: 'https://leapmotor--uat.sandbox.my.site.com/ESWLeapmotorTest1765461060847',
-    SCRT2_URL: 'https://leapmotor--uat.sandbox.my.salesforce-scrt.com'
-  },
-
-  // UK deployment
-  UK: {
-    DEPLOYMENT_NAME: 'Leapmotor_Test',
-    SITE_URL: 'https://leapmotor--uat.sandbox.my.site.com/ESWLeapmotorTest1765461060847',
-    SCRT2_URL: 'https://leapmotor--uat.sandbox.my.salesforce-scrt.com'
-  },
-
-  COUNTRY_MAPPING: {
-    'it':    { name: 'Italy',        language: 'it',    code: 'it' },
-    'es':    { name: 'Spain',        language: 'es',    code: 'es' },
-    'fr':    { name: 'France',       language: 'fr',    code: 'fr' },
-    'de':    { name: 'Germany',      language: 'de',    code: 'de' },
-    'at':    { name: 'Austria',      language: 'de',    code: 'at' },
-    'lu':    { name: 'Luxembourg',   language: 'fr',    code: 'lu' },
-    'nl':    { name: 'Netherlands',  language: 'nl_NL', code: 'nl' },
-    'pl':    { name: 'Poland',       language: 'pl',    code: 'pl' },
-    'pt':    { name: 'Portugal',     language: 'pt_PT', code: 'pt' },
-    'uk':    { name: 'United Kingdom', language: 'en_US', code: 'uk' },
-    'be-fr': { name: 'Belgium_FR',   language: 'fr',    code: 'be' },
-    'be-nl': { name: 'Belgium_NL',   language: 'nl_NL', code: 'be' }
-  },
-
-  DEFAULT_COUNTRY: 'uk'
-};
-
-
-
-/* ======================== HELPERS ========================= */
-function getCountryCodeFromPath() {
-  const pathParts = window.location.pathname
-    .split('/')
-    .filter(function(part) { return part.length > 0; });
-  return pathParts.length > 0 ? pathParts[0].toLowerCase() : ESW_CONFIG.DEFAULT_COUNTRY;
-}
-
-function getCountryInfo(countryCode) {
-  return ESW_CONFIG.COUNTRY_MAPPING[countryCode] ||
-         ESW_CONFIG.COUNTRY_MAPPING[ESW_CONFIG.DEFAULT_COUNTRY];
-}
-
-/**
- * Get runtime ESW deployment based on country.
- * Currently only UK differs; everything else uses DEFAULT.
- */
-function getRuntimeDeployment(countryInfo) {
-  const isUK = (countryInfo && countryInfo.code === 'uk');
-  return isUK ? ESW_CONFIG.UK : ESW_CONFIG.DEFAULT;
-}
-
-/* ======================== INIT (GUARDED) ========================= */
-function initEmbeddedMessaging() {
-  try {
-    // Prevent duplicate init (SPA / re-injection)
-    if (window.__ESW_INIT_DONE__) return;
-    window.__ESW_INIT_DONE__ = true;
-
-    const countryCode = getCountryCodeFromPath();
-    const countryInfo = getCountryInfo(countryCode);
-    const runtime = getRuntimeDeployment(countryInfo);
-
-    // Safety check
-    if (!window.embeddedservice_bootstrap) {
-      console.error('[ESW] embeddedservice_bootstrap not available (bootstrap not loaded).');
-      return;
-    }
-
-    // Settings
-    embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
-    embeddedservice_bootstrap.settings.language = countryInfo.language;
-
-    // Hidden prechat fields
-    // (Make sure these exist/mapped in Messaging Settings + Deployment Pre-Chat hidden fields)
-    window.addEventListener("onEmbeddedMessagingReady", function onReadyOnce() {
-      state.timers.first = setTimeout(() => {
-    if (!state.chatEverOpened && !isOpenState()) showNudge(messages.first);
-}, CONFIG.NUDGE_DELAY_MS);
-      // Guard in case the event fires more than once
-      if (window.__ESW_READY_DONE__) return;
-      window.__ESW_READY_DONE__ = true;
-
-      embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
-        Country: countryInfo.name,
-        Language: countryInfo.language,
-        CountryCode: countryInfo.code
-      });
-    });
-
-    // Init
-    embeddedservice_bootstrap.init(
-      ESW_CONFIG.ORG_ID,
-      runtime.DEPLOYMENT_NAME,
-      runtime.SITE_URL,
-      { scrt2URL: runtime.SCRT2_URL }
-    );
-  } catch (err) {
-    console.error('[ESW] Error loading Embedded Messaging:', err);
-  }
-}
-
-/* ======================== DYNAMIC BOOTSTRAP LOADER =========================
-   Loads bootstrap.min.js from the SAME SITE URL used by init()
-   (Fixes UK vs Default mismatch)
-*/
-(function loadEmbeddedMessagingBootstrap() {
-  try {
-    if (window.embeddedservice_bootstrap) {
-      // Bootstrap already present
-      initEmbeddedMessaging();
-      return;
-    }
-
-    // Avoid double script injection
-    if (document.getElementById('esw-bootstrap')) return;
-
-    const countryCode = getCountryCodeFromPath();
-    const countryInfo = getCountryInfo(countryCode);
-    const runtime = getRuntimeDeployment(countryInfo);
-
-    const s = document.createElement('script');
-    s.id = 'esw-bootstrap';
-    s.type = 'text/javascript';
-    s.src = runtime.SITE_URL + '/assets/js/bootstrap.min.js';
-    s.onload = function() { initEmbeddedMessaging(); };
-    s.onerror = function() {
-      console.error('[ESW] Failed to load bootstrap:', s.src);
-    };
-
-    document.body.appendChild(s);
-  } catch (e) {
-    console.error('[ESW] Bootstrap loader failed:', e);
-  }
-})();
-</script>
-
-<!-- ======================== ADVANCED CONTROL ======================== -->
-<script type="text/javascript">
 (function () {
   'use strict';
 
@@ -257,9 +102,9 @@ function initEmbeddedMessaging() {
     de: { first: 'Sprich mit mir!', followup: 'Sprich weiter mit mir!' },
     at: { first: 'Sprich mit mir!', followup: 'Sprich weiter mit mir!' },
     lu: { first: 'Sprich mit mir!', followup: 'Continue à me parler!' },
-    nl: { first: 'Praat met me!', followup: 'Blijf met me praten!'},
-    pl: { first: 'Porozmawiaj ze mną!', followup: 'Kontynuuj rozmowę ze mną!'},
-    pt: { first: 'Fala comigo!', followup: 'Continua a falar comigo!'},
+    nl: { first: 'Praat met me!', followup: 'Blijf met me praten!' },
+    pl: { first: 'Porozmawiaj ze mną!', followup: 'Kontynuuj rozmowę ze mną!' },
+    pt: { first: 'Fala comigo!', followup: 'Continua a falar comigo!' },
     en: { first: 'Talk to me!', followup: 'Keep talking to me!' },
     uk: { first: 'Talk to me!', followup: 'Keep talking to me!' },
     us: { first: 'Talk to me!', followup: 'Keep talking to me!' },
@@ -277,8 +122,6 @@ function initEmbeddedMessaging() {
     observers: { launcher: null, body: null, fixedRoot: null, statePoller: null }
   };
 
-document.documentElement.style.setProperty('--custom-button-text', `"${textToDisplay}"`);
-  
   /* ====== Utility ====== */
   const isMobile = () => window.innerWidth < CONFIG.DESKTOP_MIN_WIDTH;
   function getCountryCode() { return getCountryCodeFromPath(); }
@@ -299,96 +142,6 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
       state.observers[observerName] = null;
     }
   }
-
-  // ======= CUSTOM ROUND BUTTON =======
-  function applyCustomButtonStyle() {
-    const btn = document.querySelector('#embeddedMessagingConversationButton');
-    const img = document.querySelector('#embeddedMessagingIconChat');
-    const frame = document.querySelector('#embeddedMessagingFrame');
-
-    if (!btn) return;
-
-    if (frame && frame.classList.contains('isMinimized')) {
-      frame.style.display = 'none';
-    }
-
-    btn.style.width = '70px';
-    btn.style.height = '70px';
-    btn.style.borderRadius = '50%';
-    btn.style.display = 'flex';
-    btn.style.alignItems = 'center';
-    btn.style.justifyContent = 'center';
-    btn.style.paddingLeft = '0px';
-    btn.style.gap = '0px';
-    btn.style.cursor = 'pointer';
-
-    if (img) {
-      img.style.display = 'block';
-      img.style.width = '110px';
-      img.style.height = '110px';
-      img.style.flexShrink = '0';
-      img.style.marginLeft = '0px';
-      img.style.marginTop = '35px';
-    }
-
-    const container = document.querySelector('#embeddedMessagingIconContainer');
-    if (container) {
-      container.style.display = 'flex';
-      container.style.alignItems = 'center';
-      container.style.justifyContent = 'center';
-      container.style.width = '100%';
-      container.style.height = '100%';
-    }
-
-    const existingLabel = btn.querySelector('#customChatLabel');
-    if (existingLabel) existingLabel.remove();
-
-    if (!btn.dataset.customClick) {
-      btn.dataset.customClick = 'true';
-      btn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        clearTimeout(autoOpenTimer); // cancella anche il timer se clicca manualmente
-        embeddedservice_bootstrap.utilAPI.launchChat()
-          .catch(err => console.error('[ESW] launchChat error:', err));
-      });
-    }
-  }
-
-  const chatFrame = document.querySelector('#embeddedMessagingFrame');
-  if (chatFrame) {
-    const btnObserver = new MutationObserver((mutations) => {
-      mutations.forEach(m => {
-        if (m.target.id === 'embeddedMessagingFrame') {
-          if (m.target.classList.contains('isMinimized')) {
-            m.target.style.display = 'none';
-            setTimeout(applyCustomButtonStyle, 50);
-          } else if (m.target.classList.contains('isMaximized')) {
-            m.target.style.display = '';
-          }
-        }
-      });
-    });
-
-    btnObserver.observe(chatFrame, {
-      attributes: true,
-      attributeFilter: ['class']
-    });
-  }
-
-  applyCustomButtonStyle();
-
-  // ======= AUTO OPEN CHAT AFTER 10 SECONDS =======
-  const autoOpenTimer = setTimeout(function() {
-    if (!state.chatEverOpened && !isOpenState()) {
-      embeddedservice_bootstrap.utilAPI.launchChat()
-        .catch(err => console.error('[ESW] Auto open error:', err));
-    }
-  }, 10000);
-
-  // Cancella timer se utente clicca il pulsante prima dei 10 secondi
-  window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
-    clearTimeout(autoOpenTimer);
-  }, { once: true });
 
   /* ====== DOM Element Getters ====== */
   function getLauncherEl() {
@@ -420,13 +173,10 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
     }
     return document.querySelector('#embedded-messaging') || null;
   }
-
   function getHeaderEl() {
     const fromAttr = document.body?.getAttribute?.('data-esw-header');
     const candidates = (fromAttr ? fromAttr.split(',') : [])
-      .map(s => s.trim())
-      .filter(Boolean);
-
+      .map(s => s.trim()).filter(Boolean);
     const defaults = [
       'header.site-header', 'header.navbar', 'header#header', '#site-header',
       'header.header', 'header', '.topbar', '.navbar'
@@ -447,20 +197,13 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
     document.documentElement.style.setProperty('--site-header-height', h + 'px');
   }
 
-  /* ============================================================
-     FIX iOS 18: ANTI-OSCILLAZIONI (LOCK + HYSTERESIS)
-     ============================================================ */
-  let __vvRAF = 0;
-  let __baselineH = null;
-  let __keyboardOpen = false;
-  let __lockedH = null;
-  let __lastApplied = null;
-
+  /* ====== iOS 18 fix ====== */
+  let __vvRAF = 0, __baselineH = null, __keyboardOpen = false;
+  let __lockedH = null, __lastApplied = null;
   function __roundH(px) { return Math.round(px / 4) * 4; }
   function __getVVH() {
     const vv = window.visualViewport;
-    const h = vv ? vv.height : window.innerHeight;
-    return __roundH(h);
+    return __roundH(vv ? vv.height : window.innerHeight);
   }
   function __applyViewportVars(vvh) {
     document.documentElement.style.setProperty('--vvh', vvh + 'px');
@@ -470,20 +213,12 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
     if (__lastApplied === vvh) return;
     __lastApplied = vvh;
     if (__vvRAF) cancelAnimationFrame(__vvRAF);
-    __vvRAF = requestAnimationFrame(() => {
-      __applyViewportVars(vvh);
-      __vvRAF = 0;
-    });
+    __vvRAF = requestAnimationFrame(() => { __applyViewportVars(vvh); __vvRAF = 0; });
   }
 
-  /* ============================================================
-     NEW: SCROLL GUARD iOS 18 (blocca auto-scroll verso l'alto)
-     ============================================================ */
-  let __pageScrollY = 0;
-  let __guardAnchorWindowY = 0;
-  let __guardRAF = 0;
-  let __guardUntil = 0;
-  let __guardScrollApplying = false;
+  /* ====== Scroll Guard ====== */
+  let __pageScrollY = 0, __guardAnchorWindowY = 0;
+  let __guardRAF = 0, __guardUntil = 0, __guardScrollApplying = false;
 
   function lockPageScrollPersistent() {
     if (!isMobile()) return;
@@ -508,12 +243,8 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
     lockPageScrollPersistent();
     __guardUntil = Date.now() + ms;
     if (__guardRAF) cancelAnimationFrame(__guardRAF);
-
     const tick = () => {
-      if (!document.body.classList.contains('esw-open')) {
-        __guardRAF = 0;
-        return;
-      }
+      if (!document.body.classList.contains('esw-open')) { __guardRAF = 0; return; }
       const y = window.scrollY || window.pageYOffset || 0;
       if (y !== __guardAnchorWindowY) {
         __guardScrollApplying = true;
@@ -523,18 +254,14 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
         document.body.style.top = `-${__pageScrollY}px`;
         __guardScrollApplying = false;
       }
-      if (Date.now() < __guardUntil) {
-        __guardRAF = requestAnimationFrame(tick);
-      } else {
-        __guardRAF = 0;
-      }
+      if (Date.now() < __guardUntil) { __guardRAF = requestAnimationFrame(tick); }
+      else { __guardRAF = 0; }
     };
     __guardRAF = requestAnimationFrame(tick);
   }
   function stopScrollGuard() {
     if (__guardRAF) cancelAnimationFrame(__guardRAF);
-    __guardRAF = 0;
-    __guardUntil = 0;
+    __guardRAF = 0; __guardUntil = 0;
   }
 
   window.addEventListener('scroll', () => {
@@ -556,45 +283,20 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
 
   function updateVisualViewportVars() {
     const h = __getVVH();
-    if (__baselineH === null) {
-      __baselineH = h;
-      __applyOnce(h);
-      return;
-    }
-
-    const OPEN_THRESHOLD = 160;
-    const CLOSE_THRESHOLD = 90;
-    const MIN_DELTA_APPLY = 16;
-
+    if (__baselineH === null) { __baselineH = h; __applyOnce(h); return; }
+    const OPEN_THRESHOLD = 160, CLOSE_THRESHOLD = 90, MIN_DELTA_APPLY = 16;
     if (!__keyboardOpen && (__baselineH - h) > OPEN_THRESHOLD) {
-      __keyboardOpen = true;
-      startScrollGuard(1800);
-      __lockedH = h;
-      __applyOnce(__lockedH);
-      return;
+      __keyboardOpen = true; startScrollGuard(1800); __lockedH = h; __applyOnce(__lockedH); return;
     }
-
     if (__keyboardOpen) {
-      if (h < (__lockedH - MIN_DELTA_APPLY)) {
-        __lockedH = h;
-        __applyOnce(__lockedH);
-        return;
-      }
+      if (h < (__lockedH - MIN_DELTA_APPLY)) { __lockedH = h; __applyOnce(__lockedH); return; }
       if (h >= (__baselineH - CLOSE_THRESHOLD)) {
-        __keyboardOpen = false;
-        __lockedH = null;
-        __baselineH = h;
-        __applyOnce(h);
-        startScrollGuard(600);
-        return;
+        __keyboardOpen = false; __lockedH = null; __baselineH = h;
+        __applyOnce(h); startScrollGuard(600); return;
       }
       return;
     }
-
-    if (Math.abs(h - __baselineH) > MIN_DELTA_APPLY) {
-      __baselineH = h;
-      __applyOnce(h);
-    }
+    if (Math.abs(h - __baselineH) > MIN_DELTA_APPLY) { __baselineH = h; __applyOnce(h); }
   }
 
   function initMobileViewportTracking() {
@@ -608,10 +310,7 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', updateVisualViewportVars);
     }
-    window.addEventListener('resize', () => {
-      updateHeaderHeightVar();
-      updateVisualViewportVars();
-    });
+    window.addEventListener('resize', () => { updateHeaderHeightVar(); updateVisualViewportVars(); });
     setTimeout(updateVisualViewportVars, 80);
     setTimeout(updateVisualViewportVars, 260);
   }
@@ -624,14 +323,11 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
       if (state.nudgeBottomPosition === null) {
         const rect = launcher.getBoundingClientRect();
         const bottom = Math.max(0, window.innerHeight - rect.top + 20);
-        const maxBottom = window.innerHeight - 50;
-        const minBottom = 20;
-        state.nudgeBottomPosition = Math.min(Math.max(bottom, minBottom), maxBottom);
+        state.nudgeBottomPosition = Math.min(Math.max(bottom, 20), window.innerHeight - 50);
       }
       state.nudgeElement.style.bottom = state.nudgeBottomPosition + 'px';
     }
   }
-
   function lockLauncherStyle() {
     const launcher = getLauncherEl();
     if (!launcher) return;
@@ -648,7 +344,6 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
     launcher.style.zIndex = '2147483647';
     updateNudgePosition();
   }
-
   function lockFixedRootStyle() {
     const root = getFixedRootEl();
     if (!root) return;
@@ -665,15 +360,11 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
       root.style.zIndex = '2147483645';
     }
   }
-
   function applyStylesWithRetry() {
     lockLauncherStyle();
     lockFixedRootStyle();
     CONFIG.RETRY_DELAYS.forEach(delay => {
-      setTimeout(() => {
-        lockLauncherStyle();
-        lockFixedRootStyle();
-      }, delay);
+      setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, delay);
     });
   }
 
@@ -684,37 +375,23 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
     if (launcher) {
       state.observers.launcher = new MutationObserver(() => lockLauncherStyle());
       state.observers.launcher.observe(launcher, {
-        attributes: true,
-        attributeFilter: ['style', 'class', 'aria-expanded', 'aria-pressed']
+        attributes: true, attributeFilter: ['style', 'class', 'aria-expanded', 'aria-pressed']
       });
-
       launcher.addEventListener('click', () => {
         lockPageScrollPersistent();
         startScrollGuard(1600);
         setTimeout(evaluateAndApplyOpenState, 350);
       }, { capture: true, once: false });
     }
-
     disconnectObserver('fixedRoot');
     const root = getFixedRootEl();
     if (root) {
       state.observers.fixedRoot = new MutationObserver(() => lockFixedRootStyle());
-      state.observers.fixedRoot.observe(root, {
-        attributes: true,
-        attributeFilter: ['style', 'class']
-      });
+      state.observers.fixedRoot.observe(root, { attributes: true, attributeFilter: ['style', 'class'] });
     }
-
-    // Keep your original body observer behavior (works reliably across sites)
     if (!state.observers.body) {
-      state.observers.body = new MutationObserver(() => {
-        lockLauncherStyle();
-        lockFixedRootStyle();
-      });
-      state.observers.body.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
+      state.observers.body = new MutationObserver(() => { lockLauncherStyle(); lockFixedRootStyle(); });
+      state.observers.body.observe(document.body, { childList: true, subtree: true });
     }
   }
 
@@ -724,46 +401,32 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
     state.nudgeElement = document.createElement('div');
     state.nudgeElement.className = 'chat-nudge';
     state.nudgeElement.textContent = message;
-
     const closeBtn = document.createElement('span');
     closeBtn.className = 'close-btn';
     closeBtn.textContent = '×';
-    closeBtn.onclick = function (e) {
-      e.stopPropagation();
-      removeNudge();
-    };
-
+    closeBtn.onclick = function(e) { e.stopPropagation(); removeNudge(); };
     state.nudgeElement.appendChild(closeBtn);
-
-    state.nudgeElement.onclick = function () {
+    state.nudgeElement.onclick = function() {
       lockPageScrollPersistent();
       startScrollGuard(1600);
-      window.embeddedservice_bootstrap?.open?.();
+      embeddedservice_bootstrap.utilAPI.launchChat().catch(err => console.error(err));
       removeNudge();
     };
-
     document.body.appendChild(state.nudgeElement);
-
     if (!isMobile()) {
       if (state.nudgeBottomPosition === null) {
         const launcher = getLauncherEl();
         if (launcher) {
           const rect = launcher.getBoundingClientRect();
           const bottom = Math.max(0, window.innerHeight - rect.top + 20);
-          const maxBottom = window.innerHeight - 50;
-          const minBottom = 20;
-          state.nudgeBottomPosition = Math.min(Math.max(bottom, minBottom), maxBottom);
+          state.nudgeBottomPosition = Math.min(Math.max(bottom, 20), window.innerHeight - 50);
         }
       }
       state.nudgeElement.style.bottom = state.nudgeBottomPosition + 'px';
     }
   }
-
   function removeNudge() {
-    if (state.nudgeElement) {
-      state.nudgeElement.remove();
-      state.nudgeElement = null;
-    }
+    if (state.nudgeElement) { state.nudgeElement.remove(); state.nudgeElement = null; }
   }
 
   /* ====== State Detection ====== */
@@ -771,32 +434,23 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
     const frame = getChatFrameEl();
     const root = getFixedRootEl();
     if (!frame || !root) return false;
-
     const fs = getComputedStyle(frame);
     const fr = frame.getBoundingClientRect();
     const rr = root.getBoundingClientRect();
-
     const frameVisible =
-      fs.display !== 'none' &&
-      fs.visibility !== 'hidden' &&
-      fr.height > CONFIG.MIN_CHAT_HEIGHT &&
-      fr.width > CONFIG.MIN_CHAT_WIDTH;
-
-    const rootLarge = rr.height > CONFIG.MIN_CHAT_HEIGHT;
-    return frameVisible && rootLarge;
+      fs.display !== 'none' && fs.visibility !== 'hidden' &&
+      fr.height > CONFIG.MIN_CHAT_HEIGHT && fr.width > CONFIG.MIN_CHAT_WIDTH;
+    return frameVisible && rr.height > CONFIG.MIN_CHAT_HEIGHT;
   }
-
   function evaluateAndApplyOpenState() {
     const nowOpen = isOpenState();
     const wasOpen = state.chatCurrentlyOpen;
     if (nowOpen === wasOpen) return;
-
     if (wasOpen && !nowOpen) {
       state.chatCurrentlyOpen = false;
       document.body.classList.remove('esw-open');
       unlockPageScrollPersistent();
     }
-
     if (!wasOpen && nowOpen) {
       state.chatCurrentlyOpen = true;
       state.chatEverOpened = true;
@@ -807,47 +461,24 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
       clearAllTimers();
     }
   }
-
   function startStatePolling() {
     if (state.observers.statePoller) clearInterval(state.observers.statePoller);
     state.chatCurrentlyOpen = isOpenState();
-    state.observers.statePoller = setInterval(
-      evaluateAndApplyOpenState,
-      CONFIG.STATE_POLL_INTERVAL_MS
-    );
+    state.observers.statePoller = setInterval(evaluateAndApplyOpenState, CONFIG.STATE_POLL_INTERVAL_MS);
   }
-
   function handleResize() {
     updateHeaderHeightVar();
     updateNudgePosition();
     if (isMobile() && isOpenState()) return;
-    setTimeout(() => {
-      lockLauncherStyle();
-      lockFixedRootStyle();
-    }, 50);
+    setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, 50);
   }
 
-  /* ====== Salesforce Events ====== */
-  window.addEventListener('onEmbeddedMessagingReady', function () {
-    document.body.classList.add('chat-launcher-fixed');
-    updateHeaderHeightVar();
-    applyStylesWithRetry();
-    observeDynamicElements();
-    startStatePolling();
-    initMobileViewportTracking();
-    window.addEventListener('resize', handleResize);
-
-    clearTimer('first');
-    const messages = getLocalizedMessages();
-    state.timers.first = setTimeout(() => {
-      if (!state.chatEverOpened && !isOpenState()) showNudge(messages.first);
-    }, CONFIG.NUDGE_DELAY_MS);
-    // ======= CUSTOM ROUND BUTTON =======
+  /* ====== Custom Round Button ====== */
   function applyCustomButtonStyle() {
     const btn = document.querySelector('#embeddedMessagingConversationButton');
     const img = document.querySelector('#embeddedMessagingIconChat');
     const frame = document.querySelector('#embeddedMessagingFrame');
-    
+
     if (!btn) return;
 
     if (frame && frame.classList.contains('isMinimized')) {
@@ -889,49 +520,61 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
       btn.dataset.customClick = 'true';
       btn.addEventListener('click', function(e) {
         e.stopPropagation();
-        clearTimeout(autoOpenTimer); // cancella anche il timer se clicca manualmente
+        clearTimeout(window.__ESW_AUTO_OPEN_TIMER__);
         embeddedservice_bootstrap.utilAPI.launchChat()
           .catch(err => console.error('[ESW] launchChat error:', err));
       });
     }
   }
 
-  const chatFrame = document.querySelector('#embeddedMessagingFrame');
-  if (chatFrame) {
-    const btnObserver = new MutationObserver((mutations) => {
-      mutations.forEach(m => {
-        if (m.target.id === 'embeddedMessagingFrame') {
-          if (m.target.classList.contains('isMinimized')) {
-            m.target.style.display = 'none';
-            setTimeout(applyCustomButtonStyle, 50);
-          } else if (m.target.classList.contains('isMaximized')) {
-            m.target.style.display = '';
+  /* ====== Salesforce Events ====== */
+  window.addEventListener('onEmbeddedMessagingReady', function () {
+    document.body.classList.add('chat-launcher-fixed');
+    updateHeaderHeightVar();
+    applyStylesWithRetry();
+    observeDynamicElements();
+    startStatePolling();
+    initMobileViewportTracking();
+    window.addEventListener('resize', handleResize);
+
+    clearTimer('first');
+    const messages = getLocalizedMessages();
+    state.timers.first = setTimeout(() => {
+      if (!state.chatEverOpened && !isOpenState()) showNudge(messages.first);
+    }, CONFIG.NUDGE_DELAY_MS);
+
+    // ======= CUSTOM ROUND BUTTON =======
+    applyCustomButtonStyle();
+
+    // Observer su iframe per riapplicare stili dopo minimize/maximize
+    const chatFrame = document.querySelector('#embeddedMessagingFrame');
+    if (chatFrame) {
+      const btnObserver = new MutationObserver((mutations) => {
+        mutations.forEach(m => {
+          if (m.target.id === 'embeddedMessagingFrame') {
+            if (m.target.classList.contains('isMinimized')) {
+              m.target.style.display = 'none';
+              setTimeout(applyCustomButtonStyle, 50);
+            } else if (m.target.classList.contains('isMaximized')) {
+              m.target.style.display = '';
+            }
           }
-        }
+        });
       });
-    });
-
-    btnObserver.observe(chatFrame, {
-      attributes: true,
-      attributeFilter: ['class']
-    });
-  }
-
-  applyCustomButtonStyle();
-
-  // ======= AUTO OPEN CHAT AFTER 10 SECONDS =======
-  const autoOpenTimer = setTimeout(function() {
-    if (!state.chatEverOpened && !isOpenState()) {
-      embeddedservice_bootstrap.utilAPI.launchChat()
-        .catch(err => console.error('[ESW] Auto open error:', err));
+      btnObserver.observe(chatFrame, { attributes: true, attributeFilter: ['class'] });
     }
-  }, 10000);
 
-  // Cancella timer se utente clicca il pulsante prima dei 10 secondi
-  window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
-    clearTimeout(autoOpenTimer);
-  }, { once: true });
-});
+    // ======= AUTO OPEN CHAT AFTER 10 SECONDS =======
+    window.__ESW_AUTO_OPEN_TIMER__ = setTimeout(function() {
+      if (!state.chatEverOpened && !isOpenState()) {
+        embeddedservice_bootstrap.utilAPI.launchChat()
+          .catch(err => console.error('[ESW] Auto open error:', err));
+      }
+    }, 10000);
+
+    window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
+      clearTimeout(window.__ESW_AUTO_OPEN_TIMER__);
+    }, { once: true });
   });
 
   window.addEventListener('onEmbeddedMessagingButtonClicked', function () {
@@ -958,7 +601,6 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
     stopScrollGuard();
     unlockPageScrollPersistent();
     setTimeout(applyStylesWithRetry, 50);
-
     if (state.chatEverOpened) {
       clearTimer('followup');
       const messages = getLocalizedMessages();
@@ -974,6 +616,7 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
     unlockPageScrollPersistent();
     setTimeout(applyStylesWithRetry, 50);
   });
+
 })();
 </script>
 
