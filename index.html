@@ -27,7 +27,7 @@
     <section class="hero">
       <div class="container hero-inner">
         <div class="hero-copy">
-          <h1>UAT2 - Electric mobility, designed for the future.</h1>
+          <h1>UAT3 - Electric mobility, designed for the future.</h1>
           <p>Explore a new generation of electric vehicles with long range, smart features, and bold design.</p>
           <p><a class="btn" href="products.html">View Models</a></p>
         </div>
@@ -583,17 +583,20 @@ function initEmbeddedMessaging() {
     // Rimuovi label se esiste
     const existingLabel = btn.querySelector('#customChatLabel');
     if (existingLabel) existingLabel.remove();
+  }
 
-    // Click handler - aggiunto una sola volta
-    if (!btn.dataset.customClick) {
-      btn.dataset.customClick = 'true';
-      btn.addEventListener('click', function(e) {
+  // Click delegation su document - funziona anche dopo che Salesforce ricrea il pulsante
+  if (!window.__ESW_CLICK_DELEGATED__) {
+    window.__ESW_CLICK_DELEGATED__ = true;
+    document.addEventListener('click', function(e) {
+      const btn = e.target.closest('#embeddedMessagingConversationButton');
+      if (btn) {
         e.stopPropagation();
         clearTimeout(window.__ESW_AUTO_OPEN_TIMER__);
         embeddedservice_bootstrap.utilAPI.launchChat()
           .catch(err => console.error('[ESW] launchChat error:', err));
-      });
-    }
+      }
+    }, true); // capture: true per intercettare prima di Salesforce
   }
 
   /* ====== Salesforce Events ====== */
