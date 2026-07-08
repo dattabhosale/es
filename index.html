@@ -27,7 +27,7 @@
     <section class="hero">
       <div class="container hero-inner">
         <div class="hero-copy">
-          <h1>UAT - Electric mobility, designed for the future.</h1>
+          <h1>UAT2 - Electric mobility, designed for the future.</h1>
           <p>Explore a new generation of electric vehicles with long range, smart features, and bold design.</p>
           <p><a class="btn" href="products.html">View Models</a></p>
         </div>
@@ -772,6 +772,32 @@ function initEmbeddedMessaging() {
   margin-left: 8px;
 }
 .chat-nudge .close-btn:hover { color: #000; }
+
+/* ======= FORCE CUSTOM BUTTON ======= */
+#embeddedMessagingConversationButton {
+  display: flex !important;
+  width: 70px !important;
+  height: 70px !important;
+  border-radius: 50% !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+}
+
+#embeddedMessagingIconChat {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  margin: 0 !important;
+}
+
+#embeddedMessagingFrame.isMinimized {
+  display: none !important;
+}
 
 /* ======= MOBILE ======= */
 @media (max-width: 1024px) {
