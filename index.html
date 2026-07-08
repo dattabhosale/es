@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximun-scale=1.0" />
-  <title>LeapReplica - Electric Vehicles -UAT</title>
+  <title>LeapReplica - Electric Vehicles - UAT</title>
   <link rel="stylesheet" href="css/style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -79,8 +79,143 @@
       </nav>
     </div>
   </footer>
-<!-- ======================== SALESFORCE EMBEDDED MESSAGING (FULL UPDATED) ======================== -->
 
+<!-- ======================== SALESFORCE EMBEDDED MESSAGING - BLOCK 1: CONFIG + INIT ======================== -->
+<script type="text/javascript">
+
+/* ======================== CONFIGURATION ========================= */
+const ESW_CONFIG = {
+  ORG_ID: '00DUA000003t2Uy',
+
+  DEFAULT: {
+    DEPLOYMENT_NAME: 'Leapmotor_Test',
+    SITE_URL: 'https://leapmotor--uat.sandbox.my.site.com/ESWLeapmotorTest1765461060847',
+    SCRT2_URL: 'https://leapmotor--uat.sandbox.my.salesforce-scrt.com'
+  },
+
+  UK: {
+    DEPLOYMENT_NAME: 'Leapmotor_Test',
+    SITE_URL: 'https://leapmotor--uat.sandbox.my.site.com/ESWLeapmotorTest1765461060847',
+    SCRT2_URL: 'https://leapmotor--uat.sandbox.my.salesforce-scrt.com'
+  },
+
+  COUNTRY_MAPPING: {
+    'it':    { name: 'Italy',           language: 'it',    code: 'it' },
+    'es':    { name: 'Spain',           language: 'es',    code: 'es' },
+    'fr':    { name: 'France',          language: 'fr',    code: 'fr' },
+    'de':    { name: 'Germany',         language: 'de',    code: 'de' },
+    'at':    { name: 'Austria',         language: 'de',    code: 'at' },
+    'lu':    { name: 'Luxembourg',      language: 'fr',    code: 'lu' },
+    'nl':    { name: 'Netherlands',     language: 'nl_NL', code: 'nl' },
+    'pl':    { name: 'Poland',          language: 'pl',    code: 'pl' },
+    'pt':    { name: 'Portugal',        language: 'pt_PT', code: 'pt' },
+    'uk':    { name: 'United Kingdom',  language: 'en_US', code: 'uk' },
+    'be-fr': { name: 'Belgium_FR',      language: 'fr',    code: 'be' },
+    'be-nl': { name: 'Belgium_NL',      language: 'nl_NL', code: 'be' }
+  },
+
+  DEFAULT_COUNTRY: 'uk'
+};
+
+/* ======================== HELPERS ========================= */
+function getCountryCodeFromPath() {
+  const pathParts = window.location.pathname
+    .split('/')
+    .filter(function(part) { return part.length > 0; });
+  return pathParts.length > 0 ? pathParts[0].toLowerCase() : ESW_CONFIG.DEFAULT_COUNTRY;
+}
+
+function getCountryInfo(countryCode) {
+  return ESW_CONFIG.COUNTRY_MAPPING[countryCode] ||
+         ESW_CONFIG.COUNTRY_MAPPING[ESW_CONFIG.DEFAULT_COUNTRY];
+}
+
+function getRuntimeDeployment(countryInfo) {
+  const isUK = (countryInfo && countryInfo.code === 'uk');
+  return isUK ? ESW_CONFIG.UK : ESW_CONFIG.DEFAULT;
+}
+
+/* ======================== INIT (GUARDED) ========================= */
+function initEmbeddedMessaging() {
+  try {
+    if (window.__ESW_INIT_DONE__) return;
+    window.__ESW_INIT_DONE__ = true;
+
+    const countryCode = getCountryCodeFromPath();
+    const countryInfo = getCountryInfo(countryCode);
+    const runtime = getRuntimeDeployment(countryInfo);
+
+    if (!window.embeddedservice_bootstrap) {
+      console.error('[ESW] embeddedservice_bootstrap not available.');
+      return;
+    }
+
+    embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
+    embeddedservice_bootstrap.settings.language = countryInfo.language;
+
+    // Hidden prechat fields — set with delay to ensure prechatAPI is ready
+    window.addEventListener('onEmbeddedMessagingReady', function onReadyOnce() {
+      if (window.__ESW_READY_DONE__) return;
+      window.__ESW_READY_DONE__ = true;
+
+      setTimeout(function() {
+        try {
+          const cc = getCountryCodeFromPath();
+          const ci = getCountryInfo(cc);
+          embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+            Country: ci.name,
+            Language: ci.language,
+            CountryCode: ci.code
+          });
+          console.log('[ESW] Prechat fields set successfully:', ci);
+        } catch (e) {
+          console.error('[ESW] Failed to set hidden pre-chat fields:', e);
+        }
+      }, 500);
+    });
+
+    embeddedservice_bootstrap.init(
+      ESW_CONFIG.ORG_ID,
+      runtime.DEPLOYMENT_NAME,
+      runtime.SITE_URL,
+      { scrt2URL: runtime.SCRT2_URL }
+    );
+  } catch (err) {
+    console.error('[ESW] Error loading Embedded Messaging:', err);
+  }
+}
+
+/* ======================== DYNAMIC BOOTSTRAP LOADER ========================= */
+(function loadEmbeddedMessagingBootstrap() {
+  try {
+    if (window.embeddedservice_bootstrap) {
+      initEmbeddedMessaging();
+      return;
+    }
+
+    if (document.getElementById('esw-bootstrap')) return;
+
+    const countryCode = getCountryCodeFromPath();
+    const countryInfo = getCountryInfo(countryCode);
+    const runtime = getRuntimeDeployment(countryInfo);
+
+    const s = document.createElement('script');
+    s.id = 'esw-bootstrap';
+    s.type = 'text/javascript';
+    s.src = runtime.SITE_URL + '/assets/js/bootstrap.min.js';
+    s.onload = function() { initEmbeddedMessaging(); };
+    s.onerror = function() {
+      console.error('[ESW] Failed to load bootstrap:', s.src);
+    };
+
+    document.body.appendChild(s);
+  } catch (e) {
+    console.error('[ESW] Bootstrap loader failed:', e);
+  }
+})();
+</script>
+
+<!-- ======================== SALESFORCE EMBEDDED MESSAGING - BLOCK 2: ADVANCED CONTROL ======================== -->
 <script type="text/javascript">
 (function () {
   'use strict';
@@ -96,20 +231,20 @@
   };
 
   const MESSAGES = {
-    es: { first: '¡Habla conmigo!', followup: '¡Sigue hablándome!' },
-    it: { first: 'Parlami!', followup: 'Continua a parlarmi!' },
-    fr: { first: 'Parle-moi!', followup: 'Continue de me parler!' },
-    de: { first: 'Sprich mit mir!', followup: 'Sprich weiter mit mir!' },
-    at: { first: 'Sprich mit mir!', followup: 'Sprich weiter mit mir!' },
-    lu: { first: 'Sprich mit mir!', followup: 'Continue à me parler!' },
-    nl: { first: 'Praat met me!', followup: 'Blijf met me praten!' },
-    pl: { first: 'Porozmawiaj ze mną!', followup: 'Kontynuuj rozmowę ze mną!' },
-    pt: { first: 'Fala comigo!', followup: 'Continua a falar comigo!' },
-    en: { first: 'Talk to me!', followup: 'Keep talking to me!' },
-    uk: { first: 'Talk to me!', followup: 'Keep talking to me!' },
-    us: { first: 'Talk to me!', followup: 'Keep talking to me!' },
-    'be-fr': { first: 'Parle-moi!', followup: 'Continue de me parler!' },
-    'be-nl': { first: 'Praat met me!', followup: 'Praat verder met me!' }
+    es:      { first: '¡Habla conmigo!',         followup: '¡Sigue hablándome!' },
+    it:      { first: 'Parlami!',                followup: 'Continua a parlarmi!' },
+    fr:      { first: 'Parle-moi!',              followup: 'Continue de me parler!' },
+    de:      { first: 'Sprich mit mir!',         followup: 'Sprich weiter mit mir!' },
+    at:      { first: 'Sprich mit mir!',         followup: 'Sprich weiter mit mir!' },
+    lu:      { first: 'Sprich mit mir!',         followup: 'Continue à me parler!' },
+    nl:      { first: 'Praat met me!',           followup: 'Blijf met me praten!' },
+    pl:      { first: 'Porozmawiaj ze mną!',     followup: 'Kontynuuj rozmowę ze mną!' },
+    pt:      { first: 'Fala comigo!',            followup: 'Continua a falar comigo!' },
+    en:      { first: 'Talk to me!',             followup: 'Keep talking to me!' },
+    uk:      { first: 'Talk to me!',             followup: 'Keep talking to me!' },
+    us:      { first: 'Talk to me!',             followup: 'Keep talking to me!' },
+    'be-fr': { first: 'Parle-moi!',              followup: 'Continue de me parler!' },
+    'be-nl': { first: 'Praat met me!',           followup: 'Praat verder met me!' }
   };
 
   /* ====== State ====== */
@@ -124,23 +259,16 @@
 
   /* ====== Utility ====== */
   const isMobile = () => window.innerWidth < CONFIG.DESKTOP_MIN_WIDTH;
-  function getCountryCode() { return getCountryCodeFromPath(); }
   function getLocalizedMessages() {
-    const code = getCountryCode();
+    const code = getCountryCodeFromPath();
     return MESSAGES[code] || MESSAGES.en;
   }
   function clearTimer(timerName) {
-    if (state.timers[timerName]) {
-      clearTimeout(state.timers[timerName]);
-      state.timers[timerName] = null;
-    }
+    if (state.timers[timerName]) { clearTimeout(state.timers[timerName]); state.timers[timerName] = null; }
   }
   function clearAllTimers() { clearTimer('first'); clearTimer('followup'); }
   function disconnectObserver(observerName) {
-    if (state.observers[observerName]) {
-      state.observers[observerName].disconnect();
-      state.observers[observerName] = null;
-    }
+    if (state.observers[observerName]) { state.observers[observerName].disconnect(); state.observers[observerName] = null; }
   }
 
   /* ====== DOM Element Getters ====== */
@@ -175,12 +303,8 @@
   }
   function getHeaderEl() {
     const fromAttr = document.body?.getAttribute?.('data-esw-header');
-    const candidates = (fromAttr ? fromAttr.split(',') : [])
-      .map(s => s.trim()).filter(Boolean);
-    const defaults = [
-      'header.site-header', 'header.navbar', 'header#header', '#site-header',
-      'header.header', 'header', '.topbar', '.navbar'
-    ];
+    const candidates = (fromAttr ? fromAttr.split(',') : []).map(s => s.trim()).filter(Boolean);
+    const defaults = ['header.site-header', 'header.navbar', 'header#header', '#site-header', 'header.header', 'header', '.topbar', '.navbar'];
     for (const sel of [...candidates, ...defaults]) {
       const el = document.querySelector(sel);
       if (el) return el;
@@ -188,23 +312,17 @@
     return null;
   }
 
-  /* ====== CSS Vars: header height ====== */
+  /* ====== CSS Vars ====== */
   function updateHeaderHeightVar() {
     const header = getHeaderEl();
-    const h = header
-      ? Math.round(header.getBoundingClientRect().height || header.offsetHeight || 60)
-      : 60;
+    const h = header ? Math.round(header.getBoundingClientRect().height || header.offsetHeight || 60) : 60;
     document.documentElement.style.setProperty('--site-header-height', h + 'px');
   }
 
   /* ====== iOS 18 fix ====== */
-  let __vvRAF = 0, __baselineH = null, __keyboardOpen = false;
-  let __lockedH = null, __lastApplied = null;
+  let __vvRAF = 0, __baselineH = null, __keyboardOpen = false, __lockedH = null, __lastApplied = null;
   function __roundH(px) { return Math.round(px / 4) * 4; }
-  function __getVVH() {
-    const vv = window.visualViewport;
-    return __roundH(vv ? vv.height : window.innerHeight);
-  }
+  function __getVVH() { const vv = window.visualViewport; return __roundH(vv ? vv.height : window.innerHeight); }
   function __applyViewportVars(vvh) {
     document.documentElement.style.setProperty('--vvh', vvh + 'px');
     document.documentElement.style.setProperty('--vv-offset-top', '0px');
@@ -217,8 +335,7 @@
   }
 
   /* ====== Scroll Guard ====== */
-  let __pageScrollY = 0, __guardAnchorWindowY = 0;
-  let __guardRAF = 0, __guardUntil = 0, __guardScrollApplying = false;
+  let __pageScrollY = 0, __guardAnchorWindowY = 0, __guardRAF = 0, __guardUntil = 0, __guardScrollApplying = false;
 
   function lockPageScrollPersistent() {
     if (!isMobile()) return;
@@ -254,20 +371,14 @@
         document.body.style.top = `-${__pageScrollY}px`;
         __guardScrollApplying = false;
       }
-      if (Date.now() < __guardUntil) { __guardRAF = requestAnimationFrame(tick); }
-      else { __guardRAF = 0; }
+      if (Date.now() < __guardUntil) { __guardRAF = requestAnimationFrame(tick); } else { __guardRAF = 0; }
     };
     __guardRAF = requestAnimationFrame(tick);
   }
-  function stopScrollGuard() {
-    if (__guardRAF) cancelAnimationFrame(__guardRAF);
-    __guardRAF = 0; __guardUntil = 0;
-  }
+  function stopScrollGuard() { if (__guardRAF) cancelAnimationFrame(__guardRAF); __guardRAF = 0; __guardUntil = 0; }
 
   window.addEventListener('scroll', () => {
-    if (!isMobile()) return;
-    if (!document.body.classList.contains('esw-open')) return;
-    if (__guardScrollApplying) return;
+    if (!isMobile() || !document.body.classList.contains('esw-open') || __guardScrollApplying) return;
     const y = window.scrollY || window.pageYOffset || 0;
     if (y !== __guardAnchorWindowY) {
       __guardScrollApplying = true;
@@ -290,10 +401,7 @@
     }
     if (__keyboardOpen) {
       if (h < (__lockedH - MIN_DELTA_APPLY)) { __lockedH = h; __applyOnce(__lockedH); return; }
-      if (h >= (__baselineH - CLOSE_THRESHOLD)) {
-        __keyboardOpen = false; __lockedH = null; __baselineH = h;
-        __applyOnce(h); startScrollGuard(600); return;
-      }
+      if (h >= (__baselineH - CLOSE_THRESHOLD)) { __keyboardOpen = false; __lockedH = null; __baselineH = h; __applyOnce(h); startScrollGuard(600); return; }
       return;
     }
     if (Math.abs(h - __baselineH) > MIN_DELTA_APPLY) { __baselineH = h; __applyOnce(h); }
@@ -303,13 +411,8 @@
     updateHeaderHeightVar();
     updateVisualViewportVars();
     const header = getHeaderEl();
-    if (header && 'ResizeObserver' in window) {
-      const ro = new ResizeObserver(() => updateHeaderHeightVar());
-      ro.observe(header);
-    }
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', updateVisualViewportVars);
-    }
+    if (header && 'ResizeObserver' in window) { const ro = new ResizeObserver(() => updateHeaderHeightVar()); ro.observe(header); }
+    if (window.visualViewport) { window.visualViewport.addEventListener('resize', updateVisualViewportVars); }
     window.addEventListener('resize', () => { updateHeaderHeightVar(); updateVisualViewportVars(); });
     setTimeout(updateVisualViewportVars, 80);
     setTimeout(updateVisualViewportVars, 260);
@@ -322,8 +425,7 @@
     if (launcher) {
       if (state.nudgeBottomPosition === null) {
         const rect = launcher.getBoundingClientRect();
-        const bottom = Math.max(0, window.innerHeight - rect.top + 20);
-        state.nudgeBottomPosition = Math.min(Math.max(bottom, 20), window.innerHeight - 50);
+        state.nudgeBottomPosition = Math.min(Math.max(Math.max(0, window.innerHeight - rect.top + 20), 20), window.innerHeight - 50);
       }
       state.nudgeElement.style.bottom = state.nudgeBottomPosition + 'px';
     }
@@ -332,11 +434,9 @@
     const launcher = getLauncherEl();
     if (!launcher) return;
     const cs = getComputedStyle(document.documentElement);
-    const bottom = cs.getPropertyValue('--chat-launcher-bottom').trim() || '60px';
-    const right = cs.getPropertyValue('--chat-launcher-right').trim() || '30px';
     launcher.style.position = 'fixed';
-    launcher.style.bottom = bottom;
-    launcher.style.right = right;
+    launcher.style.bottom = cs.getPropertyValue('--chat-launcher-bottom').trim() || '60px';
+    launcher.style.right = cs.getPropertyValue('--chat-launcher-right').trim() || '30px';
     launcher.style.left = 'auto';
     launcher.style.top = 'auto';
     launcher.style.transform = 'none';
@@ -346,26 +446,21 @@
   }
   function lockFixedRootStyle() {
     const root = getFixedRootEl();
-    if (!root) return;
-    if (!isMobile()) {
-      const cs = getComputedStyle(document.documentElement);
-      const gap = cs.getPropertyValue('--chat-frame-bottom-gap').trim() || '40px';
-      const rightGap = cs.getPropertyValue('--chat-frame-right-gap').trim() || '30px';
-      root.style.position = 'fixed';
-      root.style.top = 'auto';
-      root.style.left = 'auto';
-      root.style.right = rightGap;
-      root.style.bottom = gap;
-      root.style.inset = 'auto ' + rightGap + ' ' + gap + ' auto';
-      root.style.zIndex = '2147483645';
-    }
+    if (!root || isMobile()) return;
+    const cs = getComputedStyle(document.documentElement);
+    const gap = cs.getPropertyValue('--chat-frame-bottom-gap').trim() || '40px';
+    const rightGap = cs.getPropertyValue('--chat-frame-right-gap').trim() || '30px';
+    root.style.position = 'fixed';
+    root.style.top = 'auto';
+    root.style.left = 'auto';
+    root.style.right = rightGap;
+    root.style.bottom = gap;
+    root.style.inset = 'auto ' + rightGap + ' ' + gap + ' auto';
+    root.style.zIndex = '2147483645';
   }
   function applyStylesWithRetry() {
-    lockLauncherStyle();
-    lockFixedRootStyle();
-    CONFIG.RETRY_DELAYS.forEach(delay => {
-      setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, delay);
-    });
+    lockLauncherStyle(); lockFixedRootStyle();
+    CONFIG.RETRY_DELAYS.forEach(delay => { setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, delay); });
   }
 
   /* ====== Observer Setup ====== */
@@ -374,14 +469,8 @@
     const launcher = getLauncherEl();
     if (launcher) {
       state.observers.launcher = new MutationObserver(() => lockLauncherStyle());
-      state.observers.launcher.observe(launcher, {
-        attributes: true, attributeFilter: ['style', 'class', 'aria-expanded', 'aria-pressed']
-      });
-      launcher.addEventListener('click', () => {
-        lockPageScrollPersistent();
-        startScrollGuard(1600);
-        setTimeout(evaluateAndApplyOpenState, 350);
-      }, { capture: true, once: false });
+      state.observers.launcher.observe(launcher, { attributes: true, attributeFilter: ['style', 'class', 'aria-expanded', 'aria-pressed'] });
+      launcher.addEventListener('click', () => { lockPageScrollPersistent(); startScrollGuard(1600); setTimeout(evaluateAndApplyOpenState, 350); }, { capture: true, once: false });
     }
     disconnectObserver('fixedRoot');
     const root = getFixedRootEl();
@@ -407,8 +496,7 @@
     closeBtn.onclick = function(e) { e.stopPropagation(); removeNudge(); };
     state.nudgeElement.appendChild(closeBtn);
     state.nudgeElement.onclick = function() {
-      lockPageScrollPersistent();
-      startScrollGuard(1600);
+      lockPageScrollPersistent(); startScrollGuard(1600);
       embeddedservice_bootstrap.utilAPI.launchChat().catch(err => console.error(err));
       removeNudge();
     };
@@ -418,16 +506,13 @@
         const launcher = getLauncherEl();
         if (launcher) {
           const rect = launcher.getBoundingClientRect();
-          const bottom = Math.max(0, window.innerHeight - rect.top + 20);
-          state.nudgeBottomPosition = Math.min(Math.max(bottom, 20), window.innerHeight - 50);
+          state.nudgeBottomPosition = Math.min(Math.max(Math.max(0, window.innerHeight - rect.top + 20), 20), window.innerHeight - 50);
         }
       }
       state.nudgeElement.style.bottom = state.nudgeBottomPosition + 'px';
     }
   }
-  function removeNudge() {
-    if (state.nudgeElement) { state.nudgeElement.remove(); state.nudgeElement = null; }
-  }
+  function removeNudge() { if (state.nudgeElement) { state.nudgeElement.remove(); state.nudgeElement = null; } }
 
   /* ====== State Detection ====== */
   function isOpenState() {
@@ -437,29 +522,16 @@
     const fs = getComputedStyle(frame);
     const fr = frame.getBoundingClientRect();
     const rr = root.getBoundingClientRect();
-    const frameVisible =
-      fs.display !== 'none' && fs.visibility !== 'hidden' &&
-      fr.height > CONFIG.MIN_CHAT_HEIGHT && fr.width > CONFIG.MIN_CHAT_WIDTH;
-    return frameVisible && rr.height > CONFIG.MIN_CHAT_HEIGHT;
+    return fs.display !== 'none' && fs.visibility !== 'hidden' &&
+      fr.height > CONFIG.MIN_CHAT_HEIGHT && fr.width > CONFIG.MIN_CHAT_WIDTH &&
+      rr.height > CONFIG.MIN_CHAT_HEIGHT;
   }
   function evaluateAndApplyOpenState() {
     const nowOpen = isOpenState();
     const wasOpen = state.chatCurrentlyOpen;
     if (nowOpen === wasOpen) return;
-    if (wasOpen && !nowOpen) {
-      state.chatCurrentlyOpen = false;
-      document.body.classList.remove('esw-open');
-      unlockPageScrollPersistent();
-    }
-    if (!wasOpen && nowOpen) {
-      state.chatCurrentlyOpen = true;
-      state.chatEverOpened = true;
-      document.body.classList.add('esw-open');
-      lockPageScrollPersistent();
-      startScrollGuard(1600);
-      removeNudge();
-      clearAllTimers();
-    }
+    if (wasOpen && !nowOpen) { state.chatCurrentlyOpen = false; document.body.classList.remove('esw-open'); unlockPageScrollPersistent(); }
+    if (!wasOpen && nowOpen) { state.chatCurrentlyOpen = true; state.chatEverOpened = true; document.body.classList.add('esw-open'); lockPageScrollPersistent(); startScrollGuard(1600); removeNudge(); clearAllTimers(); }
   }
   function startStatePolling() {
     if (state.observers.statePoller) clearInterval(state.observers.statePoller);
@@ -467,8 +539,7 @@
     state.observers.statePoller = setInterval(evaluateAndApplyOpenState, CONFIG.STATE_POLL_INTERVAL_MS);
   }
   function handleResize() {
-    updateHeaderHeightVar();
-    updateNudgePosition();
+    updateHeaderHeightVar(); updateNudgePosition();
     if (isMobile() && isOpenState()) return;
     setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, 50);
   }
@@ -481,10 +552,12 @@
 
     if (!btn) return;
 
+    // Nascondi iframe quando minimizzato
     if (frame && frame.classList.contains('isMinimized')) {
       frame.style.display = 'none';
     }
 
+    // Pulsante rotondo
     btn.style.width = '70px';
     btn.style.height = '70px';
     btn.style.borderRadius = '50%';
@@ -495,6 +568,7 @@
     btn.style.gap = '0px';
     btn.style.cursor = 'pointer';
 
+    // Icona
     if (img) {
       img.style.display = 'block';
       img.style.width = '110px';
@@ -504,6 +578,7 @@
       img.style.marginTop = '35px';
     }
 
+    // Container icona
     const container = document.querySelector('#embeddedMessagingIconContainer');
     if (container) {
       container.style.display = 'flex';
@@ -513,9 +588,11 @@
       container.style.height = '100%';
     }
 
+    // Rimuovi label se esiste
     const existingLabel = btn.querySelector('#customChatLabel');
     if (existingLabel) existingLabel.remove();
 
+    // Click handler - aggiunto una sola volta
     if (!btn.dataset.customClick) {
       btn.dataset.customClick = 'true';
       btn.addEventListener('click', function(e) {
@@ -537,6 +614,7 @@
     initMobileViewportTracking();
     window.addEventListener('resize', handleResize);
 
+    // Nudge timer
     clearTimer('first');
     const messages = getLocalizedMessages();
     state.timers.first = setTimeout(() => {
@@ -572,6 +650,7 @@
       }
     }, 10000);
 
+    // Cancella timer se utente clicca il pulsante prima dei 10 secondi
     window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
       clearTimeout(window.__ESW_AUTO_OPEN_TIMER__);
     }, { once: true });
@@ -634,7 +713,7 @@
   --chat-frame-right-gap: 30px;
 }
 
-/* ======= DESKTOP (UNCHANGED) ======= */
+/* ======= DESKTOP ======= */
 @media (min-width: 1025px) {
   .embeddedMessagingFrame {
     border-radius: 16px !important;
@@ -683,11 +762,11 @@
   animation: bounce 5s ease-out;
 }
 @keyframes bounce {
-  0% { transform: translateY(0); }
-  20% { transform: translateY(-6px); }
-  40% { transform: translateY(0); }
-  60% { transform: translateY(-3px); }
-  80% { transform: translateY(0); }
+  0%   { transform: translateY(0); }
+  20%  { transform: translateY(-6px); }
+  40%  { transform: translateY(0); }
+  60%  { transform: translateY(-3px); }
+  80%  { transform: translateY(0); }
   100% { transform: translateY(0); }
 }
 .chat-nudge .close-btn {
@@ -702,7 +781,7 @@
 }
 .chat-nudge .close-btn:hover { color: #000; }
 
-/* ======= MOBILE (FIX) — iPhone Safari keyboard-safe under fixed header ======= */
+/* ======= MOBILE ======= */
 @media (max-width: 1024px) {
   body.esw-open {
     position: relative !important;
@@ -710,7 +789,6 @@
     width: 100% !important;
     overscroll-behavior: none;
   }
-
   body.page-scroll-locked {
     position: fixed !important;
     left: 0 !important;
@@ -720,7 +798,6 @@
     overscroll-behavior: none !important;
     touch-action: none !important;
   }
-
   .esw-open #embedded-messaging {
     position: fixed !important;
     left: 0 !important;
@@ -733,7 +810,6 @@
     margin: 0 !important;
     z-index: 2147483646 !important;
   }
-
   .esw-open iframe[data-embedded-messaging-iframe],
   .esw-open .embeddedMessagingFrame {
     position: fixed !important;
@@ -748,7 +824,6 @@
     border-radius: 0 !important;
     z-index: 2147483646 !important;
   }
-
   .esw-open .embeddedMessagingWindow,
   .esw-open .embeddedMessagingFrameContainer,
   .esw-open .embeddedMessagingConversation,
@@ -761,39 +836,25 @@
     margin: 0 !important;
     transform: none !important;
   }
-
   .esw-open .embeddedMessagingHeader {
     position: sticky !important;
     top: 0 !important;
     z-index: 10 !important;
   }
-
   .esw-open .embeddedMessagingConversation {
     display: flex !important;
     flex-direction: column !important;
     height: 100% !important;
   }
-
   .esw-open .embeddedMessagingConversationBody {
     flex: 1 1 auto !important;
     overflow-y: auto !important;
     -webkit-overflow-scrolling: touch;
     overflow-anchor: none !important;
   }
-
-  .esw-open .embeddedMessagingInputContainer {
-    flex-shrink: 0 !important;
-  }
-
-  html, body {
-    width: 100% !important;
-    max-width: 100% !important;
-    overflow-x: hidden !important;
-  }
-
-  body.esw-open {
-    overflow-x: hidden !important;
-  }
+  .esw-open .embeddedMessagingInputContainer { flex-shrink: 0 !important; }
+  html, body { width: 100% !important; max-width: 100% !important; overflow-x: hidden !important; }
+  body.esw-open { overflow-x: hidden !important; }
 }
 </style>
 
