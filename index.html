@@ -174,6 +174,9 @@ function initEmbeddedMessaging() {
     // Hidden prechat fields
     // (Make sure these exist/mapped in Messaging Settings + Deployment Pre-Chat hidden fields)
     window.addEventListener("onEmbeddedMessagingReady", function onReadyOnce() {
+      state.timers.first = setTimeout(() => {
+    if (!state.chatEverOpened && !isOpenState()) showNudge(messages.first);
+}, CONFIG.NUDGE_DELAY_MS);
       // Guard in case the event fires more than once
       if (window.__ESW_READY_DONE__) return;
       window.__ESW_READY_DONE__ = true;
@@ -274,28 +277,6 @@ function initEmbeddedMessaging() {
     observers: { launcher: null, body: null, fixedRoot: null, statePoller: null }
   };
 
-  const BUTTOMLABEL = {
-    es: { first: 'Chat with me!'},
-    it: { first: 'Chat with me!' },
-    fr: { first: 'Chat with me!' },
-    de: { first: 'Chat with me!' },
-    at: { first: 'Chat with me!' },
-    lu: { first: 'Chat with me!' },
-    nl: { first: 'Chat with me!'},
-    pl: { first: 'Chat with me!'},
-    pt: { first: 'Chat with me!'},
-    en: { first: 'Chat with me!' },
-    uk: { first: 'Chat with me!' },
-    us: { first: 'Chat with me!' },
-    'be-fr': { first: 'Chat with me!' },
-    'be-nl': { first: 'Chat with me!' }
-};
-
-const countryCo = getCountryCodeFromPath();
-const langKey = BUTTOMLABEL[countryCo] ? countryCo : 'en';
-
-const textToDisplay = BUTTOMLABEL[langKey].first;
-
 document.documentElement.style.setProperty('--custom-button-text', `"${textToDisplay}"`);
   
   /* ====== Utility ====== */
@@ -318,6 +299,96 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
       state.observers[observerName] = null;
     }
   }
+
+  // ======= CUSTOM ROUND BUTTON =======
+  function applyCustomButtonStyle() {
+    const btn = document.querySelector('#embeddedMessagingConversationButton');
+    const img = document.querySelector('#embeddedMessagingIconChat');
+    const frame = document.querySelector('#embeddedMessagingFrame');
+
+    if (!btn) return;
+
+    if (frame && frame.classList.contains('isMinimized')) {
+      frame.style.display = 'none';
+    }
+
+    btn.style.width = '70px';
+    btn.style.height = '70px';
+    btn.style.borderRadius = '50%';
+    btn.style.display = 'flex';
+    btn.style.alignItems = 'center';
+    btn.style.justifyContent = 'center';
+    btn.style.paddingLeft = '0px';
+    btn.style.gap = '0px';
+    btn.style.cursor = 'pointer';
+
+    if (img) {
+      img.style.display = 'block';
+      img.style.width = '110px';
+      img.style.height = '110px';
+      img.style.flexShrink = '0';
+      img.style.marginLeft = '0px';
+      img.style.marginTop = '35px';
+    }
+
+    const container = document.querySelector('#embeddedMessagingIconContainer');
+    if (container) {
+      container.style.display = 'flex';
+      container.style.alignItems = 'center';
+      container.style.justifyContent = 'center';
+      container.style.width = '100%';
+      container.style.height = '100%';
+    }
+
+    const existingLabel = btn.querySelector('#customChatLabel');
+    if (existingLabel) existingLabel.remove();
+
+    if (!btn.dataset.customClick) {
+      btn.dataset.customClick = 'true';
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        clearTimeout(autoOpenTimer); // cancella anche il timer se clicca manualmente
+        embeddedservice_bootstrap.utilAPI.launchChat()
+          .catch(err => console.error('[ESW] launchChat error:', err));
+      });
+    }
+  }
+
+  const chatFrame = document.querySelector('#embeddedMessagingFrame');
+  if (chatFrame) {
+    const btnObserver = new MutationObserver((mutations) => {
+      mutations.forEach(m => {
+        if (m.target.id === 'embeddedMessagingFrame') {
+          if (m.target.classList.contains('isMinimized')) {
+            m.target.style.display = 'none';
+            setTimeout(applyCustomButtonStyle, 50);
+          } else if (m.target.classList.contains('isMaximized')) {
+            m.target.style.display = '';
+          }
+        }
+      });
+    });
+
+    btnObserver.observe(chatFrame, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+  }
+
+  applyCustomButtonStyle();
+
+  // ======= AUTO OPEN CHAT AFTER 10 SECONDS =======
+  const autoOpenTimer = setTimeout(function() {
+    if (!state.chatEverOpened && !isOpenState()) {
+      embeddedservice_bootstrap.utilAPI.launchChat()
+        .catch(err => console.error('[ESW] Auto open error:', err));
+    }
+  }, 10000);
+
+  // Cancella timer se utente clicca il pulsante prima dei 10 secondi
+  window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
+    clearTimeout(autoOpenTimer);
+  }, { once: true });
 
   /* ====== DOM Element Getters ====== */
   function getLauncherEl() {
@@ -990,45 +1061,6 @@ document.documentElement.style.setProperty('--custom-button-text', `"${textToDis
   body.esw-open {
     overflow-x: hidden !important;
   }
-}
-  .embeddedServiceHelpButton .helpButton .uiButton {
-    width: 220px !important;       /* Larghezza fissa per contenere icona + testo */
-    height: 60px !important;        /* Altezza ridotta rispetto ai tuoi 80px per farlo rettangolare */
-    border-radius: 12px !important; /* Angoli arrotondati (cambia a piacimento, es. 8px o 15px) */
-
-    /* Attiva il layout flessibile per allineare gli elementi */
-    display: flex !important;
-    flex-direction: row !important; 
-    align-items: center !important; 
-    justify-content: flex-start !important; 
-    padding-left: 15px !important;  
-}
-
-.embeddedServiceHelpButton .helpButton .uiButton .embeddedServiceIcon {
-    width: 30px !important;        
-    height: 30px !important;
-    margin-right: 12px !important; 
-}
-
-
-.embeddedServiceHelpButton .helpButton .uiButton .helpButtonLabel {
-    text-align: left !important;    
-    display: inline-block !important;
-    white-space: nowrap !important; 
-  padding: 0 !important;
-}
-
-
-.embeddedServiceHelpButton .helpButton .uiButton .helpButtonLabel .label {
-    display: none !important;
-}
-
-
-.embeddedServiceHelpButton .helpButton .uiButton .helpButtonLabel::after {
-    content: var(--custom-button-text) !important; /* Riferimento alla variabile JS */
-    font-size: 16px !important;                     
-    color: #ffffff !important;                     
-    font-weight: bold !important;                  
 }
 </style>
 
