@@ -789,17 +789,33 @@ function initEmbeddedMessaging() {
   cursor: pointer !important;
 }
 
-#embeddedMessagingIconChat {
+#embeddedMessagingIconContainer {
+  transform: translate(-21px, -1px) !important;
+  width: 70px !important;
+  height: 70px !important;
+  overflow: visible !important;
+  position: relative !important;
   display: block !important;
+  flex-shrink: 0 !important;
+}
+
+#embeddedMessagingIconMinimize {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  position: absolute !important;
+}
+
+#embeddedMessagingIconChat {
+  position: absolute !important;
+  top: 50% !important;
+  left: 60% !important;
+  transform: translate(-38%, -33%) !important;
   width: 160% !important;
   height: 160% !important;
   object-fit: cover !important;
-  object-position: center !important;
   margin: 0 !important;
-}
-
-#embeddedMessagingIconContainer {
-  transform: translate(-21px, -1px) !important;
+  display: block !important;
 }
 
 #embeddedMessagingFrame.isMinimized {
