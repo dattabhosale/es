@@ -27,7 +27,7 @@
     <section class="hero">
       <div class="container hero-inner">
         <div class="hero-copy">
-          <h1>UAT3 - Electric mobility, designed for the future.</h1>
+          <h1>UAT - Electric mobility, designed for the future.</h1>
           <p>Explore a new generation of electric vehicles with long range, smart features, and bold design.</p>
           <p><a class="btn" href="products.html">View Models</a></p>
         </div>
@@ -707,10 +707,7 @@ function initEmbeddedMessaging() {
   --chat-frame-bottom-gap: 40px;
   --chat-frame-right-gap: 30px;
 }
-/* Nascondi icona minimize SVG dentro il pulsante */
-#embeddedMessagingIconMinimize {
-  display: none !important;
-}
+
 /* ======= DESKTOP ======= */
 @media (min-width: 1025px) {
   .embeddedMessagingFrame {
@@ -794,19 +791,15 @@ function initEmbeddedMessaging() {
 
 #embeddedMessagingIconChat {
   display: block !important;
-  width: 100% !important;
-  height: 100% !important;
+  width: 160% !important;
+  height: 160% !important;
   object-fit: cover !important;
   object-position: center !important;
   margin: 0 !important;
 }
-#embeddedMessagingIconChat {
-  display: block !important;
-  width: 130% !important;    /* ← più di 100% = zoom in */
-  height: 130% !important;
-  object-fit: cover !important;
-  object-position: center !important;
-  margin: 0 !important;
+
+#embeddedMessagingIconContainer {
+  transform: translate(-21px, -1px) !important;
 }
 
 #embeddedMessagingFrame.isMinimized {
@@ -830,7 +823,6 @@ function initEmbeddedMessaging() {
     overscroll-behavior: none !important;
     touch-action: none !important;
   }
-  
   .esw-open #embedded-messaging {
     position: fixed !important;
     left: 0 !important;
