@@ -171,6 +171,21 @@ function initEmbeddedMessaging() {
         } catch (e) {
           console.error('[ESW] Failed to set hidden pre-chat fields:', e);
         }
+
+        // AUTO OPEN dopo che i campi sono stati settati
+        window.__ESW_AUTO_OPEN_TIMER__ = setTimeout(function() {
+          if (!window.__ESW_CHAT_EVER_OPENED__ && window.embeddedservice_bootstrap) {
+            embeddedservice_bootstrap.utilAPI.launchChat()
+              .catch(err => console.error('[ESW] Auto open error:', err));
+          }
+        }, 10000);
+
+        // Cancella timer se utente clicca prima dei 10 secondi
+        window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
+          clearTimeout(window.__ESW_AUTO_OPEN_TIMER__);
+          window.__ESW_CHAT_EVER_OPENED__ = true;
+        }, { once: true });
+
       }, 500);
     });
 
@@ -637,17 +652,10 @@ function initEmbeddedMessaging() {
       btnObserver.observe(chatFrame, { attributes: true, attributeFilter: ['class'] });
     }
 
-    // ======= AUTO OPEN CHAT AFTER 10 SECONDS =======
-    window.__ESW_AUTO_OPEN_TIMER__ = setTimeout(function() {
-      if (!state.chatEverOpened && !isOpenState()) {
-        embeddedservice_bootstrap.utilAPI.launchChat()
-          .catch(err => console.error('[ESW] Auto open error:', err));
-      }
-    }, 10000);
-
     // Cancella timer se utente clicca il pulsante prima dei 10 secondi
     window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
       clearTimeout(window.__ESW_AUTO_OPEN_TIMER__);
+      window.__ESW_CHAT_EVER_OPENED__ = true;
     }, { once: true });
   });
 
