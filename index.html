@@ -80,7 +80,7 @@
     </div>
   </footer>
 
-<!-- ======================== SALESFORCE EMBEDDED MESSAGING - BLOCK 1: CONFIG + INIT ======================== -->
+<!-- ======================== BLOCK 1: CONFIG + INIT ======================== -->
 <script type="text/javascript">
 
 const ESW_CONFIG = {
@@ -96,76 +96,60 @@ const ESW_CONFIG = {
     SCRT2_URL: 'https://leapmotor--uat.sandbox.my.salesforce-scrt.com'
   },
   COUNTRY_MAPPING: {
-    'it':    { name: 'Italy',           language: 'it',    code: 'it' },
-    'es':    { name: 'Spain',           language: 'es',    code: 'es' },
-    'fr':    { name: 'France',          language: 'fr',    code: 'fr' },
-    'de':    { name: 'Germany',         language: 'de',    code: 'de' },
-    'at':    { name: 'Austria',         language: 'de',    code: 'at' },
-    'lu':    { name: 'Luxembourg',      language: 'fr',    code: 'lu' },
-    'nl':    { name: 'Netherlands',     language: 'nl_NL', code: 'nl' },
-    'pl':    { name: 'Poland',          language: 'pl',    code: 'pl' },
-    'pt':    { name: 'Portugal',        language: 'pt_PT', code: 'pt' },
-    'uk':    { name: 'United Kingdom',  language: 'en_US', code: 'uk' },
-    'be-fr': { name: 'Belgium_FR',      language: 'fr',    code: 'be-fr' },
-    'be-nl': { name: 'Belgium_NL',      language: 'nl_NL', code: 'be-nl' }
+    'it':    { name: 'Italy',          language: 'it',    code: 'it' },
+    'es':    { name: 'Spain',          language: 'es',    code: 'es' },
+    'fr':    { name: 'France',         language: 'fr',    code: 'fr' },
+    'de':    { name: 'Germany',        language: 'de',    code: 'de' },
+    'at':    { name: 'Austria',        language: 'de',    code: 'at' },
+    'lu':    { name: 'Luxembourg',     language: 'fr',    code: 'lu' },
+    'nl':    { name: 'Netherlands',    language: 'nl_NL', code: 'nl' },
+    'pl':    { name: 'Poland',         language: 'pl',    code: 'pl' },
+    'pt':    { name: 'Portugal',       language: 'pt_PT', code: 'pt' },
+    'uk':    { name: 'United Kingdom', language: 'en_US', code: 'uk' },
+    'be-fr': { name: 'Belgium_FR',     language: 'fr',    code: 'be-fr' },
+    'be-nl': { name: 'Belgium_NL',     language: 'nl_NL', code: 'be-nl' }
   },
   DEFAULT_COUNTRY: 'uk'
 };
 
 function getCountryCodeFromPath() {
-  const pathParts = window.location.pathname.split('/').filter(function(part) { return part.length > 0; });
-  return pathParts.length > 0 ? pathParts[0].toLowerCase() : ESW_CONFIG.DEFAULT_COUNTRY;
+  const parts = window.location.pathname.split('/').filter(p => p.length > 0);
+  return parts.length > 0 ? parts[0].toLowerCase() : ESW_CONFIG.DEFAULT_COUNTRY;
 }
-
-function getCountryInfo(countryCode) {
-  return ESW_CONFIG.COUNTRY_MAPPING[countryCode] || ESW_CONFIG.COUNTRY_MAPPING[ESW_CONFIG.DEFAULT_COUNTRY];
+function getCountryInfo(code) {
+  return ESW_CONFIG.COUNTRY_MAPPING[code] || ESW_CONFIG.COUNTRY_MAPPING[ESW_CONFIG.DEFAULT_COUNTRY];
 }
-
-function getRuntimeDeployment(countryInfo) {
-  const isUK = (countryInfo && countryInfo.code === 'uk');
-  return isUK ? ESW_CONFIG.UK : ESW_CONFIG.DEFAULT;
+function getRuntimeDeployment(ci) {
+  return (ci && ci.code === 'uk') ? ESW_CONFIG.UK : ESW_CONFIG.DEFAULT;
 }
 
 function initEmbeddedMessaging() {
+  if (window.__ESW_INIT_DONE__) return;
+  window.__ESW_INIT_DONE__ = true;
   try {
-    if (window.__ESW_INIT_DONE__) return;
-    window.__ESW_INIT_DONE__ = true;
-
-    const countryCode = getCountryCodeFromPath();
-    const countryInfo = getCountryInfo(countryCode);
-    const runtime = getRuntimeDeployment(countryInfo);
-
-    if (!window.embeddedservice_bootstrap) {
-      console.error('[ESW] embeddedservice_bootstrap not available.');
-      return;
-    }
-
+    const cc = getCountryCodeFromPath();
+    const ci = getCountryInfo(cc);
+    const rt = getRuntimeDeployment(ci);
+    if (!window.embeddedservice_bootstrap) { console.error('[ESW] bootstrap not available'); return; }
     embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
-    embeddedservice_bootstrap.settings.language = countryInfo.language;
+    embeddedservice_bootstrap.settings.language = ci.language;
 
     window.addEventListener('onEmbeddedMessagingReady', function onReadyOnce() {
       if (window.__ESW_READY_DONE__) return;
       window.__ESW_READY_DONE__ = true;
-
       setTimeout(function() {
         try {
-          const cc = getCountryCodeFromPath();
-          const ci = getCountryInfo(cc);
+          const c = getCountryCodeFromPath();
+          const i = getCountryInfo(c);
           embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
-            Country: ci.name,
-            Language: ci.language,
-            CountryCode: ci.code
+            Country: i.name, Language: i.language, CountryCode: i.code
           });
-          console.log('[ESW] Prechat fields set successfully:', ci);
-        } catch (e) {
-          console.error('[ESW] Failed to set hidden pre-chat fields:', e);
-        }
+          console.log('[ESW] Prechat fields set:', i);
+        } catch(e) { console.error('[ESW] prechat fields error:', e); }
 
-        // AUTO OPEN dopo che i campi sono stati settati
         window.__ESW_AUTO_OPEN_TIMER__ = setTimeout(function() {
           if (!window.__ESW_CHAT_EVER_OPENED__ && window.embeddedservice_bootstrap) {
-            embeddedservice_bootstrap.utilAPI.launchChat()
-              .catch(err => console.error('[ESW] Auto open error:', err));
+            embeddedservice_bootstrap.utilAPI.launchChat().catch(err => console.error('[ESW] auto open:', err));
           }
         }, 10000);
 
@@ -173,46 +157,31 @@ function initEmbeddedMessaging() {
           clearTimeout(window.__ESW_AUTO_OPEN_TIMER__);
           window.__ESW_CHAT_EVER_OPENED__ = true;
         }, { once: true });
-
       }, 500);
     });
 
-    embeddedservice_bootstrap.init(
-      ESW_CONFIG.ORG_ID,
-      runtime.DEPLOYMENT_NAME,
-      runtime.SITE_URL,
-      { scrt2URL: runtime.SCRT2_URL }
-    );
-  } catch (err) {
-    console.error('[ESW] Error loading Embedded Messaging:', err);
-  }
+    embeddedservice_bootstrap.init(ESW_CONFIG.ORG_ID, rt.DEPLOYMENT_NAME, rt.SITE_URL, { scrt2URL: rt.SCRT2_URL });
+  } catch(err) { console.error('[ESW] init error:', err); }
 }
 
-(function loadEmbeddedMessagingBootstrap() {
-  try {
-    if (window.embeddedservice_bootstrap) { initEmbeddedMessaging(); return; }
-    if (document.getElementById('esw-bootstrap')) return;
-
-    const countryCode = getCountryCodeFromPath();
-    const countryInfo = getCountryInfo(countryCode);
-    const runtime = getRuntimeDeployment(countryInfo);
-
-    const s = document.createElement('script');
-    s.id = 'esw-bootstrap';
-    s.type = 'text/javascript';
-    s.src = runtime.SITE_URL + '/assets/js/bootstrap.min.js';
-    s.onload = function() { initEmbeddedMessaging(); };
-    s.onerror = function() { console.error('[ESW] Failed to load bootstrap:', s.src); };
-    document.body.appendChild(s);
-  } catch (e) {
-    console.error('[ESW] Bootstrap loader failed:', e);
-  }
+(function() {
+  if (window.embeddedservice_bootstrap) { initEmbeddedMessaging(); return; }
+  if (document.getElementById('esw-bootstrap')) return;
+  const cc = getCountryCodeFromPath();
+  const ci = getCountryInfo(cc);
+  const rt = getRuntimeDeployment(ci);
+  const s = document.createElement('script');
+  s.id = 'esw-bootstrap';
+  s.src = rt.SITE_URL + '/assets/js/bootstrap.min.js';
+  s.onload = initEmbeddedMessaging;
+  s.onerror = () => console.error('[ESW] bootstrap load failed');
+  document.body.appendChild(s);
 })();
 </script>
 
-<!-- ======================== SALESFORCE EMBEDDED MESSAGING - BLOCK 2: ADVANCED CONTROL ======================== -->
+<!-- ======================== BLOCK 2: ADVANCED CONTROL ======================== -->
 <script type="text/javascript">
-(function () {
+(function() {
   'use strict';
 
   const CONFIG = {
@@ -225,44 +194,40 @@ function initEmbeddedMessaging() {
   };
 
   const MESSAGES = {
-    es:      { first: '¡Habla conmigo!',         followup: '¡Sigue hablándome!' },
-    it:      { first: 'Parlami!',                followup: 'Continua a parlarmi!' },
-    fr:      { first: 'Parle-moi!',              followup: 'Continue de me parler!' },
-    de:      { first: 'Sprich mit mir!',         followup: 'Sprich weiter mit mir!' },
-    at:      { first: 'Sprich mit mir!',         followup: 'Sprich weiter mit mir!' },
-    lu:      { first: 'Sprich mit mir!',         followup: 'Continue à me parler!' },
-    nl:      { first: 'Praat met me!',           followup: 'Blijf met me praten!' },
-    pl:      { first: 'Porozmawiaj ze mną!',     followup: 'Kontynuuj rozmowę ze mną!' },
-    pt:      { first: 'Fala comigo!',            followup: 'Continua a falar comigo!' },
-    en:      { first: 'Talk to me!',             followup: 'Keep talking to me!' },
-    uk:      { first: 'Talk to me!',             followup: 'Keep talking to me!' },
-    us:      { first: 'Talk to me!',             followup: 'Keep talking to me!' },
-    'be-fr': { first: 'Parle-moi!',              followup: 'Continue de me parler!' },
-    'be-nl': { first: 'Praat met me!',           followup: 'Praat verder met me!' }
+    es: { first: '¡Habla conmigo!', followup: '¡Sigue hablándome!' },
+    it: { first: 'Parlami!', followup: 'Continua a parlarmi!' },
+    fr: { first: 'Parle-moi!', followup: 'Continue de me parler!' },
+    de: { first: 'Sprich mit mir!', followup: 'Sprich weiter mit mir!' },
+    at: { first: 'Sprich mit mir!', followup: 'Sprich weiter mit mir!' },
+    lu: { first: 'Sprich mit mir!', followup: 'Continue à me parler!' },
+    nl: { first: 'Praat met me!', followup: 'Blijf met me praten!' },
+    pl: { first: 'Porozmawiaj ze mną!', followup: 'Kontynuuj rozmowę ze mną!' },
+    pt: { first: 'Fala comigo!', followup: 'Continua a falar comigo!' },
+    en: { first: 'Talk to me!', followup: 'Keep talking to me!' },
+    uk: { first: 'Talk to me!', followup: 'Keep talking to me!' },
+    'be-fr': { first: 'Parle-moi!', followup: 'Continue de me parler!' },
+    'be-nl': { first: 'Praat met me!', followup: 'Praat verder met me!' }
   };
 
-  // Testo localizzato pulsante desktop
   const BUTTON_LABELS = {
-    it:      'Chatta con noi!',
-    es:      '¡Chatea con nosotros!',
-    fr:      'Chattez avec nous!',
-    de:      'Chatte mit uns!',
-    at:      'Chatte mit uns!',
-    lu:      'Chattez avec nous!',
-    nl:      'Chat met ons!',
-    pl:      'Porozmawiaj z nami!',
-    pt:      'Fale connosco!',
-    uk:      'Chat with us!',
-    en:      'Chat with us!',
+    it: 'Chatta con noi!',
+    es: '¡Chatea con nosotros!',
+    fr: 'Chattez avec nous!',
+    de: 'Chatte mit uns!',
+    at: 'Chatte mit uns!',
+    lu: 'Chattez avec nous!',
+    nl: 'Chat met ons!',
+    pl: 'Porozmawiaj z nami!',
+    pt: 'Fale connosco!',
+    uk: 'Chat with us!',
+    en: 'Chat with us!',
     'be-fr': 'Chattez avec nous!',
     'be-nl': 'Chat met ons!'
   };
 
   const state = {
-    chatEverOpened: false,
-    chatCurrentlyOpen: false,
-    nudgeElement: null,
-    nudgeBottomPosition: null,
+    chatEverOpened: false, chatCurrentlyOpen: false,
+    nudgeElement: null, nudgeBottomPosition: null,
     timers: { first: null, followup: null },
     observers: { launcher: null, body: null, fixedRoot: null, statePoller: null }
   };
@@ -273,91 +238,72 @@ function initEmbeddedMessaging() {
     const code = getCountryCodeFromPath();
     return MESSAGES[code] || MESSAGES.en;
   }
-
   function getButtonLabel() {
     const code = getCountryCodeFromPath();
     const ci = getCountryInfo(code);
     return BUTTON_LABELS[code] || BUTTON_LABELS[ci.code] || BUTTON_LABELS.en;
   }
-
-  function clearTimer(timerName) {
-    if (state.timers[timerName]) { clearTimeout(state.timers[timerName]); state.timers[timerName] = null; }
-  }
+  function clearTimer(n) { if (state.timers[n]) { clearTimeout(state.timers[n]); state.timers[n] = null; } }
   function clearAllTimers() { clearTimer('first'); clearTimer('followup'); }
-  function disconnectObserver(observerName) {
-    if (state.observers[observerName]) { state.observers[observerName].disconnect(); state.observers[observerName] = null; }
-  }
+  function disconnectObserver(n) { if (state.observers[n]) { state.observers[n].disconnect(); state.observers[n] = null; } }
 
   function getLauncherEl() {
-    return (
-      document.querySelector('.embeddedServiceLauncher') ||
+    return document.querySelector('.embeddedServiceLauncher') ||
       document.querySelector('.embeddedServiceSidebarButton') ||
       document.querySelector('[data-embedded-messaging-launcher]') ||
-      document.querySelector('#embedded-messaging .embeddedMessagingIcon') ||
       document.querySelector('#embedded-messaging button') ||
-      document.querySelector('button[class*="Launcher"], div[class*="Launcher"]')
-    );
+      document.querySelector('button[class*="Launcher"]');
   }
   function getChatFrameEl() {
-    return (
-      document.querySelector('.embeddedMessagingFrame') ||
-      document.querySelector('iframe[data-embedded-messaging-iframe]') ||
-      document.querySelector('iframe[src*="embeddedmessaging"]') ||
-      document.querySelector('iframe[id*="embeddedMessaging"]')
-    );
+    return document.querySelector('#embeddedMessagingFrame') ||
+      document.querySelector('.embeddedMessagingFrame');
   }
   function getFixedRootEl() {
     const frame = getChatFrameEl();
     if (!frame) return null;
     let el = frame;
     while (el && el !== document.body) {
-      const cs = getComputedStyle(el);
-      if (cs.position === 'fixed') return el;
+      if (getComputedStyle(el).position === 'fixed') return el;
       el = el.parentElement;
     }
     return document.querySelector('#embedded-messaging') || null;
   }
   function getHeaderEl() {
-    const fromAttr = document.body?.getAttribute?.('data-esw-header');
-    const candidates = (fromAttr ? fromAttr.split(',') : []).map(s => s.trim()).filter(Boolean);
-    const defaults = ['header.site-header', 'header.navbar', 'header#header', '#site-header', 'header.header', 'header', '.topbar', '.navbar'];
-    for (const sel of [...candidates, ...defaults]) {
-      const el = document.querySelector(sel);
-      if (el) return el;
-    }
+    const defaults = ['header.site-header','header.navbar','header#header','#site-header','header','.topbar','.navbar'];
+    for (const sel of defaults) { const el = document.querySelector(sel); if (el) return el; }
     return null;
   }
 
   function updateHeaderHeightVar() {
-    const header = getHeaderEl();
-    const h = header ? Math.round(header.getBoundingClientRect().height || header.offsetHeight || 60) : 60;
-    document.documentElement.style.setProperty('--site-header-height', h + 'px');
+    const h = getHeaderEl();
+    const height = h ? Math.round(h.getBoundingClientRect().height || h.offsetHeight || 60) : 60;
+    document.documentElement.style.setProperty('--site-header-height', height + 'px');
   }
 
-  let __vvRAF = 0, __baselineH = null, __keyboardOpen = false, __lockedH = null, __lastApplied = null;
-  function __roundH(px) { return Math.round(px / 4) * 4; }
-  function __getVVH() { const vv = window.visualViewport; return __roundH(vv ? vv.height : window.innerHeight); }
+  /* iOS 18 viewport fix */
+  let __vvRAF=0, __baselineH=null, __keyboardOpen=false, __lockedH=null, __lastApplied=null;
+  function __roundH(px) { return Math.round(px/4)*4; }
+  function __getVVH() { const vv=window.visualViewport; return __roundH(vv?vv.height:window.innerHeight); }
   function __applyViewportVars(vvh) {
-    document.documentElement.style.setProperty('--vvh', vvh + 'px');
+    document.documentElement.style.setProperty('--vvh', vvh+'px');
     document.documentElement.style.setProperty('--vv-offset-top', '0px');
   }
   function __applyOnce(vvh) {
-    if (__lastApplied === vvh) return;
-    __lastApplied = vvh;
+    if (__lastApplied===vvh) return;
+    __lastApplied=vvh;
     if (__vvRAF) cancelAnimationFrame(__vvRAF);
-    __vvRAF = requestAnimationFrame(() => { __applyViewportVars(vvh); __vvRAF = 0; });
+    __vvRAF=requestAnimationFrame(()=>{ __applyViewportVars(vvh); __vvRAF=0; });
   }
 
-  let __pageScrollY = 0, __guardAnchorWindowY = 0, __guardRAF = 0, __guardUntil = 0, __guardScrollApplying = false;
-
+  /* Scroll guard */
+  let __pageScrollY=0, __guardAnchorWindowY=0, __guardRAF=0, __guardUntil=0, __guardScrollApplying=false;
   function lockPageScrollPersistent() {
-    if (!isMobile()) return;
-    if (document.body.classList.contains('page-scroll-locked')) return;
-    __pageScrollY = window.scrollY || window.pageYOffset || 0;
+    if (!isMobile() || document.body.classList.contains('page-scroll-locked')) return;
+    __pageScrollY = window.scrollY||window.pageYOffset||0;
     document.body.classList.add('page-scroll-locked');
     document.body.style.top = `-${__pageScrollY}px`;
     __guardAnchorWindowY = 0;
-    try { window.scrollTo(0, 0); } catch(e) {}
+    try { window.scrollTo(0,0); } catch(e) {}
   }
   function unlockPageScrollPersistent() {
     if (!document.body.classList.contains('page-scroll-locked')) return;
@@ -367,304 +313,298 @@ function initEmbeddedMessaging() {
     document.body.style.top = '';
     window.scrollTo(0, y);
   }
-  function startScrollGuard(ms = 1600) {
-    if (!isMobile()) return;
-    if (!document.body.classList.contains('esw-open')) return;
+  function startScrollGuard(ms=1600) {
+    if (!isMobile() || !document.body.classList.contains('esw-open')) return;
     lockPageScrollPersistent();
-    __guardUntil = Date.now() + ms;
+    __guardUntil = Date.now()+ms;
     if (__guardRAF) cancelAnimationFrame(__guardRAF);
     const tick = () => {
-      if (!document.body.classList.contains('esw-open')) { __guardRAF = 0; return; }
-      const y = window.scrollY || window.pageYOffset || 0;
+      if (!document.body.classList.contains('esw-open')) { __guardRAF=0; return; }
+      const y = window.scrollY||window.pageYOffset||0;
       if (y !== __guardAnchorWindowY) {
-        __guardScrollApplying = true;
-        window.scrollTo(0, __guardAnchorWindowY);
-        document.documentElement.scrollTop = __guardAnchorWindowY;
-        document.body.scrollTop = __guardAnchorWindowY;
-        document.body.style.top = `-${__pageScrollY}px`;
-        __guardScrollApplying = false;
+        __guardScrollApplying=true;
+        window.scrollTo(0,__guardAnchorWindowY);
+        document.documentElement.scrollTop=__guardAnchorWindowY;
+        document.body.scrollTop=__guardAnchorWindowY;
+        document.body.style.top=`-${__pageScrollY}px`;
+        __guardScrollApplying=false;
       }
-      if (Date.now() < __guardUntil) { __guardRAF = requestAnimationFrame(tick); } else { __guardRAF = 0; }
+      if (Date.now()<__guardUntil) { __guardRAF=requestAnimationFrame(tick); } else { __guardRAF=0; }
     };
-    __guardRAF = requestAnimationFrame(tick);
+    __guardRAF=requestAnimationFrame(tick);
   }
-  function stopScrollGuard() { if (__guardRAF) cancelAnimationFrame(__guardRAF); __guardRAF = 0; __guardUntil = 0; }
+  function stopScrollGuard() { if (__guardRAF) cancelAnimationFrame(__guardRAF); __guardRAF=0; __guardUntil=0; }
 
-  window.addEventListener('scroll', () => {
-    if (!isMobile() || !document.body.classList.contains('esw-open') || __guardScrollApplying) return;
-    const y = window.scrollY || window.pageYOffset || 0;
-    if (y !== __guardAnchorWindowY) {
-      __guardScrollApplying = true;
-      window.scrollTo(0, __guardAnchorWindowY);
-      document.documentElement.scrollTop = __guardAnchorWindowY;
-      document.body.scrollTop = __guardAnchorWindowY;
-      document.body.style.top = `-${__pageScrollY}px`;
-      __guardScrollApplying = false;
+  window.addEventListener('scroll', ()=>{
+    if (!isMobile()||!document.body.classList.contains('esw-open')||__guardScrollApplying) return;
+    const y=window.scrollY||window.pageYOffset||0;
+    if (y!==__guardAnchorWindowY) {
+      __guardScrollApplying=true;
+      window.scrollTo(0,__guardAnchorWindowY);
+      document.documentElement.scrollTop=__guardAnchorWindowY;
+      document.body.scrollTop=__guardAnchorWindowY;
+      document.body.style.top=`-${__pageScrollY}px`;
+      __guardScrollApplying=false;
     }
-  }, { passive: true });
+  }, {passive:true});
 
-  try { if ('scrollRestoration' in history) history.scrollRestoration = 'manual'; } catch(e) {}
+  try { if ('scrollRestoration' in history) history.scrollRestoration='manual'; } catch(e) {}
 
   function updateVisualViewportVars() {
-    const h = __getVVH();
-    if (__baselineH === null) { __baselineH = h; __applyOnce(h); return; }
-    const OPEN_THRESHOLD = 160, CLOSE_THRESHOLD = 90, MIN_DELTA_APPLY = 16;
-    if (!__keyboardOpen && (__baselineH - h) > OPEN_THRESHOLD) {
-      __keyboardOpen = true; startScrollGuard(1800); __lockedH = h; __applyOnce(__lockedH); return;
-    }
+    const h=__getVVH();
+    if (__baselineH===null) { __baselineH=h; __applyOnce(h); return; }
+    const OT=160, CT=90, MD=16;
+    if (!__keyboardOpen&&(__baselineH-h)>OT) { __keyboardOpen=true; startScrollGuard(1800); __lockedH=h; __applyOnce(__lockedH); return; }
     if (__keyboardOpen) {
-      if (h < (__lockedH - MIN_DELTA_APPLY)) { __lockedH = h; __applyOnce(__lockedH); return; }
-      if (h >= (__baselineH - CLOSE_THRESHOLD)) { __keyboardOpen = false; __lockedH = null; __baselineH = h; __applyOnce(h); startScrollGuard(600); return; }
+      if (h<(__lockedH-MD)) { __lockedH=h; __applyOnce(__lockedH); return; }
+      if (h>=(__baselineH-CT)) { __keyboardOpen=false; __lockedH=null; __baselineH=h; __applyOnce(h); startScrollGuard(600); return; }
       return;
     }
-    if (Math.abs(h - __baselineH) > MIN_DELTA_APPLY) { __baselineH = h; __applyOnce(h); }
+    if (Math.abs(h-__baselineH)>MD) { __baselineH=h; __applyOnce(h); }
   }
 
   function initMobileViewportTracking() {
-    updateHeaderHeightVar();
-    updateVisualViewportVars();
-    const header = getHeaderEl();
-    if (header && 'ResizeObserver' in window) { const ro = new ResizeObserver(() => updateHeaderHeightVar()); ro.observe(header); }
-    if (window.visualViewport) { window.visualViewport.addEventListener('resize', updateVisualViewportVars); }
-    window.addEventListener('resize', () => { updateHeaderHeightVar(); updateVisualViewportVars(); });
+    updateHeaderHeightVar(); updateVisualViewportVars();
+    const header=getHeaderEl();
+    if (header&&'ResizeObserver' in window) { const ro=new ResizeObserver(()=>updateHeaderHeightVar()); ro.observe(header); }
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', updateVisualViewportVars);
+    window.addEventListener('resize', ()=>{ updateHeaderHeightVar(); updateVisualViewportVars(); });
     setTimeout(updateVisualViewportVars, 80);
     setTimeout(updateVisualViewportVars, 260);
   }
 
   function updateNudgePosition() {
-    if (isMobile() || !state.nudgeElement) return;
-    const launcher = getLauncherEl();
+    if (isMobile()||!state.nudgeElement) return;
+    const launcher=getLauncherEl();
     if (launcher) {
-      if (state.nudgeBottomPosition === null) {
-        const rect = launcher.getBoundingClientRect();
-        state.nudgeBottomPosition = Math.min(Math.max(Math.max(0, window.innerHeight - rect.top + 20), 20), window.innerHeight - 50);
+      if (state.nudgeBottomPosition===null) {
+        const rect=launcher.getBoundingClientRect();
+        state.nudgeBottomPosition=Math.min(Math.max(Math.max(0,window.innerHeight-rect.top+20),20),window.innerHeight-50);
       }
-      state.nudgeElement.style.bottom = state.nudgeBottomPosition + 'px';
+      state.nudgeElement.style.bottom=state.nudgeBottomPosition+'px';
     }
   }
   function lockLauncherStyle() {
-    const launcher = getLauncherEl();
+    const launcher=getLauncherEl();
     if (!launcher) return;
-    const cs = getComputedStyle(document.documentElement);
-    launcher.style.position = 'fixed';
-    launcher.style.bottom = cs.getPropertyValue('--chat-launcher-bottom').trim() || '60px';
-    launcher.style.right = cs.getPropertyValue('--chat-launcher-right').trim() || '30px';
-    launcher.style.left = 'auto';
-    launcher.style.top = 'auto';
-    launcher.style.transform = 'none';
-    launcher.style.transition = 'none';
-    launcher.style.zIndex = '2147483647';
+    const cs=getComputedStyle(document.documentElement);
+    launcher.style.position='fixed';
+    launcher.style.bottom=cs.getPropertyValue('--chat-launcher-bottom').trim()||'60px';
+    launcher.style.right=cs.getPropertyValue('--chat-launcher-right').trim()||'30px';
+    launcher.style.left='auto'; launcher.style.top='auto';
+    launcher.style.transform='none'; launcher.style.transition='none';
+    launcher.style.zIndex='2147483647';
     updateNudgePosition();
   }
   function lockFixedRootStyle() {
-    const root = getFixedRootEl();
-    if (!root || isMobile()) return;
-    const cs = getComputedStyle(document.documentElement);
-    const gap = cs.getPropertyValue('--chat-frame-bottom-gap').trim() || '40px';
-    const rightGap = cs.getPropertyValue('--chat-frame-right-gap').trim() || '30px';
-    root.style.position = 'fixed';
-    root.style.top = 'auto';
-    root.style.left = 'auto';
-    root.style.right = rightGap;
-    root.style.bottom = gap;
-    root.style.inset = 'auto ' + rightGap + ' ' + gap + ' auto';
-    root.style.zIndex = '2147483645';
+    const root=getFixedRootEl();
+    if (!root||isMobile()) return;
+    const cs=getComputedStyle(document.documentElement);
+    const gap=cs.getPropertyValue('--chat-frame-bottom-gap').trim()||'40px';
+    const rg=cs.getPropertyValue('--chat-frame-right-gap').trim()||'30px';
+    root.style.position='fixed'; root.style.top='auto'; root.style.left='auto';
+    root.style.right=rg; root.style.bottom=gap;
+    root.style.inset='auto '+rg+' '+gap+' auto';
+    root.style.zIndex='2147483645';
   }
   function applyStylesWithRetry() {
     lockLauncherStyle(); lockFixedRootStyle();
-    CONFIG.RETRY_DELAYS.forEach(delay => { setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, delay); });
+    CONFIG.RETRY_DELAYS.forEach(d=>setTimeout(()=>{ lockLauncherStyle(); lockFixedRootStyle(); },d));
   }
 
   function observeDynamicElements() {
     disconnectObserver('launcher');
-    const launcher = getLauncherEl();
+    const launcher=getLauncherEl();
     if (launcher) {
-      state.observers.launcher = new MutationObserver(() => lockLauncherStyle());
-      state.observers.launcher.observe(launcher, { attributes: true, attributeFilter: ['style', 'class', 'aria-expanded', 'aria-pressed'] });
-      launcher.addEventListener('click', () => { lockPageScrollPersistent(); startScrollGuard(1600); setTimeout(evaluateAndApplyOpenState, 350); }, { capture: true, once: false });
+      state.observers.launcher=new MutationObserver(()=>lockLauncherStyle());
+      state.observers.launcher.observe(launcher,{attributes:true,attributeFilter:['style','class','aria-expanded','aria-pressed']});
+      launcher.addEventListener('click',()=>{ lockPageScrollPersistent(); startScrollGuard(1600); setTimeout(evaluateAndApplyOpenState,350); },{capture:true,once:false});
     }
     disconnectObserver('fixedRoot');
-    const root = getFixedRootEl();
+    const root=getFixedRootEl();
     if (root) {
-      state.observers.fixedRoot = new MutationObserver(() => lockFixedRootStyle());
-      state.observers.fixedRoot.observe(root, { attributes: true, attributeFilter: ['style', 'class'] });
+      state.observers.fixedRoot=new MutationObserver(()=>lockFixedRootStyle());
+      state.observers.fixedRoot.observe(root,{attributes:true,attributeFilter:['style','class']});
     }
     if (!state.observers.body) {
-      state.observers.body = new MutationObserver(() => { lockLauncherStyle(); lockFixedRootStyle(); });
-      state.observers.body.observe(document.body, { childList: true, subtree: true });
+      state.observers.body=new MutationObserver(()=>{ lockLauncherStyle(); lockFixedRootStyle(); });
+      state.observers.body.observe(document.body,{childList:true,subtree:true});
     }
   }
 
   function showNudge(message) {
     if (state.nudgeElement) return;
-    state.nudgeElement = document.createElement('div');
-    state.nudgeElement.className = 'chat-nudge';
-    state.nudgeElement.textContent = message;
-    const closeBtn = document.createElement('span');
-    closeBtn.className = 'close-btn';
-    closeBtn.textContent = '×';
-    closeBtn.onclick = function(e) { e.stopPropagation(); removeNudge(); };
+    state.nudgeElement=document.createElement('div');
+    state.nudgeElement.className='chat-nudge';
+    state.nudgeElement.textContent=message;
+    const closeBtn=document.createElement('span');
+    closeBtn.className='close-btn'; closeBtn.textContent='×';
+    closeBtn.onclick=e=>{ e.stopPropagation(); removeNudge(); };
     state.nudgeElement.appendChild(closeBtn);
-    state.nudgeElement.onclick = function() {
-      lockPageScrollPersistent(); startScrollGuard(1600);
-      embeddedservice_bootstrap.utilAPI.launchChat().catch(err => console.error(err));
-      removeNudge();
-    };
+    state.nudgeElement.onclick=()=>{ lockPageScrollPersistent(); startScrollGuard(1600); embeddedservice_bootstrap.utilAPI.launchChat().catch(e=>console.error(e)); removeNudge(); };
     document.body.appendChild(state.nudgeElement);
     if (!isMobile()) {
-      if (state.nudgeBottomPosition === null) {
-        const launcher = getLauncherEl();
+      if (state.nudgeBottomPosition===null) {
+        const launcher=getLauncherEl();
         if (launcher) {
-          const rect = launcher.getBoundingClientRect();
-          state.nudgeBottomPosition = Math.min(Math.max(Math.max(0, window.innerHeight - rect.top + 20), 20), window.innerHeight - 50);
+          const rect=launcher.getBoundingClientRect();
+          state.nudgeBottomPosition=Math.min(Math.max(Math.max(0,window.innerHeight-rect.top+20),20),window.innerHeight-50);
         }
       }
-      state.nudgeElement.style.bottom = state.nudgeBottomPosition + 'px';
+      state.nudgeElement.style.bottom=state.nudgeBottomPosition+'px';
     }
   }
-  function removeNudge() { if (state.nudgeElement) { state.nudgeElement.remove(); state.nudgeElement = null; } }
+  function removeNudge() { if (state.nudgeElement) { state.nudgeElement.remove(); state.nudgeElement=null; } }
 
   function isOpenState() {
-    const frame = getChatFrameEl();
-    const root = getFixedRootEl();
-    if (!frame || !root) return false;
-    const fs = getComputedStyle(frame);
-    const fr = frame.getBoundingClientRect();
-    const rr = root.getBoundingClientRect();
-    return fs.display !== 'none' && fs.visibility !== 'hidden' &&
-      fr.height > CONFIG.MIN_CHAT_HEIGHT && fr.width > CONFIG.MIN_CHAT_WIDTH &&
-      rr.height > CONFIG.MIN_CHAT_HEIGHT;
+    const frame=getChatFrameEl(), root=getFixedRootEl();
+    if (!frame||!root) return false;
+    const fs=getComputedStyle(frame), fr=frame.getBoundingClientRect(), rr=root.getBoundingClientRect();
+    return fs.display!=='none'&&fs.visibility!=='hidden'&&fr.height>CONFIG.MIN_CHAT_HEIGHT&&fr.width>CONFIG.MIN_CHAT_WIDTH&&rr.height>CONFIG.MIN_CHAT_HEIGHT;
   }
   function evaluateAndApplyOpenState() {
-    const nowOpen = isOpenState();
-    const wasOpen = state.chatCurrentlyOpen;
-    if (nowOpen === wasOpen) return;
-    if (wasOpen && !nowOpen) { state.chatCurrentlyOpen = false; document.body.classList.remove('esw-open'); unlockPageScrollPersistent(); }
-    if (!wasOpen && nowOpen) { state.chatCurrentlyOpen = true; state.chatEverOpened = true; document.body.classList.add('esw-open'); lockPageScrollPersistent(); startScrollGuard(1600); removeNudge(); clearAllTimers(); }
+    const nowOpen=isOpenState(), wasOpen=state.chatCurrentlyOpen;
+    if (nowOpen===wasOpen) return;
+    if (wasOpen&&!nowOpen) { state.chatCurrentlyOpen=false; document.body.classList.remove('esw-open'); unlockPageScrollPersistent(); }
+    if (!wasOpen&&nowOpen) { state.chatCurrentlyOpen=true; state.chatEverOpened=true; document.body.classList.add('esw-open'); lockPageScrollPersistent(); startScrollGuard(1600); removeNudge(); clearAllTimers(); }
   }
   function startStatePolling() {
     if (state.observers.statePoller) clearInterval(state.observers.statePoller);
-    state.chatCurrentlyOpen = isOpenState();
-    state.observers.statePoller = setInterval(evaluateAndApplyOpenState, CONFIG.STATE_POLL_INTERVAL_MS);
+    state.chatCurrentlyOpen=isOpenState();
+    state.observers.statePoller=setInterval(evaluateAndApplyOpenState,CONFIG.STATE_POLL_INTERVAL_MS);
   }
   function handleResize() {
     updateHeaderHeightVar(); updateNudgePosition();
-    if (isMobile() && isOpenState()) return;
-    // Riapplica stile pulsante quando si ridimensiona la finestra (mobile <-> desktop)
     applyCustomButtonStyle();
-    setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, 50);
+    if (!isMobile()||!isOpenState()) setTimeout(()=>{ lockLauncherStyle(); lockFixedRootStyle(); },50);
   }
 
-  /* ====== Custom Button: Mobile=round, Desktop=rectangular ====== */
+  /* ====== Custom Button ====== */
   function applyCustomButtonStyle() {
-    const btn = document.querySelector('#embeddedMessagingConversationButton');
-    const img = document.querySelector('#embeddedMessagingIconChat');
-    const frame = document.querySelector('#embeddedMessagingFrame');
+    const btn=document.querySelector('#embeddedMessagingConversationButton');
+    const img=document.querySelector('#embeddedMessagingIconChat');
+    const frame=document.querySelector('#embeddedMessagingFrame');
+    const container=document.querySelector('#embeddedMessagingIconContainer');
+    const spinner=document.querySelector('#embeddedMessagingIconMinimize');
 
     if (!btn) return;
 
-    // Nascondi iframe quando minimizzato
-    if (frame && frame.classList.contains('isMinimized')) {
-      frame.style.setProperty('display', 'none', 'important');
+    // Nascondi iframe minimizzato
+    if (frame&&frame.classList.contains('isMinimized')) {
+      frame.style.setProperty('display','none','important');
     }
 
-    btn.style.setProperty('display', 'flex', 'important');
-    btn.style.cursor = 'pointer';
-    btn.style.padding = '0';
-    btn.style.alignItems = 'center';
+    // Nascondi sempre spinner
+    if (spinner) {
+      spinner.style.setProperty('display','none','important');
+      spinner.style.width='0'; spinner.style.height='0';
+    }
+
+    // Forza display flex
+    btn.style.setProperty('display','flex','important');
+    btn.style.cursor='pointer';
+    btn.style.padding='0';
+    btn.style.alignItems='center';
 
     if (isMobile()) {
-      // ===== MOBILE: pulsante rotondo =====
-      btn.style.width = '70px';
-      btn.style.height = '70px';
-      btn.style.borderRadius = '50%';
-      btn.style.justifyContent = 'center';
-      btn.style.gap = '0';
-      btn.style.overflow = 'hidden';
-      btn.style.paddingLeft = '0';
+      /* ===== MOBILE: rotondo ===== */
+      btn.style.width='70px'; btn.style.height='70px';
+      btn.style.borderRadius='50%';
+      btn.style.justifyContent='center';
+      btn.style.gap='0'; btn.style.paddingLeft='0';
+      btn.style.overflow='hidden';
 
-      if (img) {
-        img.style.setProperty('display', 'block', 'important');
-        img.style.width = '100%';
-        img.style.height = '100%';
-        img.style.objectFit = 'cover';
-        img.style.objectPosition = 'center';
-        img.style.margin = '0';
-        img.style.flexShrink = '0';
-        img.style.position = '';
-        img.style.top = '';
-        img.style.left = '';
-        img.style.transform = '';
+      if (container) {
+        container.style.transform='translate(-21px, -1px)';
+        container.style.width='70px'; container.style.height='70px';
+        container.style.overflow='visible';
+        container.style.position='relative';
+        container.style.display='block';
+        container.style.flexShrink='0';
       }
 
-      // Rimuovi label desktop se esiste
-      const existingLabel = btn.querySelector('#customChatLabel');
-      if (existingLabel) existingLabel.remove();
+      if (img) {
+        img.style.setProperty('display','block','important');
+        img.style.position='absolute';
+        img.style.top='50%'; img.style.left='60%';
+        img.style.transform='translate(-38%, -33%)';
+        img.style.width='160%'; img.style.height='160%';
+        img.style.objectFit='cover'; img.style.margin='0';
+        img.style.borderRadius='0';
+      }
+
+      // Rimuovi label
+      const lbl=btn.querySelector('#customChatLabel');
+      if (lbl) lbl.remove();
 
     } else {
-      // ===== DESKTOP: pulsante rettangolare con testo =====
-      btn.style.width = '220px';
-      btn.style.height = '60px';
-      btn.style.borderRadius = '30px';
-      btn.style.justifyContent = 'flex-start';
-      btn.style.gap = '12px';
-      btn.style.overflow = 'visible';
-      btn.style.paddingLeft = '15px';
+      /* ===== DESKTOP: rettangolare con testo ===== */
+      btn.style.width='240px'; btn.style.height='65px';
+      btn.style.borderRadius='30px';
+      btn.style.justifyContent='flex-start';
+      btn.style.gap='10px'; btn.style.paddingLeft='12px';
+      btn.style.overflow='visible';
+
+      if (container) {
+        container.style.transform='none';
+        container.style.width='auto'; container.style.height='auto';
+        container.style.overflow='visible';
+        container.style.position='static';
+        container.style.display='flex';
+        container.style.alignItems='center';
+        container.style.flexShrink='0';
+      }
 
       if (img) {
-        img.style.setProperty('display', 'block', 'important');
-        img.style.width = '45px';
-        img.style.height = '45px';
-        img.style.objectFit = 'cover';
-        img.style.objectPosition = 'center';
-        img.style.margin = '0';
-        img.style.flexShrink = '0';
-        img.style.borderRadius = '50%';
-        img.style.position = '';
-        img.style.top = '';
-        img.style.left = '';
-        img.style.transform = '';
+        img.style.setProperty('display','block','important');
+        img.style.position='static';
+        img.style.top=''; img.style.left='';
+        img.style.transform='none';
+        img.style.width='45px'; img.style.height='45px';
+        img.style.objectFit='cover'; img.style.objectPosition='center';
+        img.style.margin='0'; img.style.flexShrink='0';
+        img.style.borderRadius='50%';
       }
 
-      // Nascondi spinner SVG desktop
-      const spinnerDesktop = btn.querySelector('#embeddedMessagingIconMinimize');
-      if (spinnerDesktop) {
-        spinnerDesktop.style.setProperty('display', 'none', 'important');
-        spinnerDesktop.style.width = '0';
-        spinnerDesktop.style.height = '0';
+      // Label localizzata
+      let lbl=btn.querySelector('#customChatLabel');
+      if (!lbl) {
+        lbl=document.createElement('span');
+        lbl.id='customChatLabel';
+        lbl.style.cssText='color:white;font-size:16px;font-weight:bold;white-space:nowrap;pointer-events:none;display:block;';
+        btn.appendChild(lbl);
       }
-
-      // Aggiungi label localizzata se non esiste
-      const existingLabelDesktop = btn.querySelector('#customChatLabel');
-      if (!existingLabelDesktop) {
-        const label = document.createElement('span');
-        label.id = 'customChatLabel';
-        label.textContent = getButtonLabel();
-        label.style.cssText = 'color:white;font-size:16px;font-weight:bold;white-space:nowrap;pointer-events:none;display:block;';
-        btn.appendChild(label);
-      } else {
-        existingLabelDesktop.textContent = getButtonLabel();
-        existingLabelDesktop.style.display = 'block';
-      }
+      lbl.textContent=getButtonLabel();
+      lbl.style.display='block';
     }
   }
 
-  // Click delegation su document
+  // Observer su MutationObserver per spinner aggiunto dinamicamente
+  function watchForSpinner() {
+    const btn=document.querySelector('#embeddedMessagingConversationButton');
+    if (!btn) return;
+    const obs=new MutationObserver(()=>{
+      const spinner=btn.querySelector('#embeddedMessagingIconMinimize');
+      if (spinner) { spinner.style.setProperty('display','none','important'); spinner.style.width='0'; spinner.style.height='0'; }
+    });
+    obs.observe(btn,{childList:true,subtree:true});
+  }
+
+  // Click delegation
   if (!window.__ESW_CLICK_DELEGATED__) {
-    window.__ESW_CLICK_DELEGATED__ = true;
-    document.addEventListener('click', function(e) {
-      const btn = e.target.closest('#embeddedMessagingConversationButton');
+    window.__ESW_CLICK_DELEGATED__=true;
+    document.addEventListener('click', e=>{
+      const btn=e.target.closest('#embeddedMessagingConversationButton');
       if (btn) {
         e.stopPropagation();
         clearTimeout(window.__ESW_AUTO_OPEN_TIMER__);
-        embeddedservice_bootstrap.utilAPI.launchChat()
-          .catch(err => console.error('[ESW] launchChat error:', err));
+        embeddedservice_bootstrap.utilAPI.launchChat().catch(err=>console.error('[ESW] launchChat:',err));
       }
     }, true);
   }
 
   /* ====== Salesforce Events ====== */
-  window.addEventListener('onEmbeddedMessagingReady', function () {
+  window.addEventListener('onEmbeddedMessagingReady', function() {
     document.body.classList.add('chat-launcher-fixed');
     updateHeaderHeightVar();
     applyStylesWithRetry();
@@ -674,77 +614,65 @@ function initEmbeddedMessaging() {
     window.addEventListener('resize', handleResize);
 
     clearTimer('first');
-    const messages = getLocalizedMessages();
-    state.timers.first = setTimeout(() => {
-      if (!state.chatEverOpened && !isOpenState()) showNudge(messages.first);
-    }, CONFIG.NUDGE_DELAY_MS);
+    const messages=getLocalizedMessages();
+    state.timers.first=setTimeout(()=>{ if (!state.chatEverOpened&&!isOpenState()) showNudge(messages.first); }, CONFIG.NUDGE_DELAY_MS);
 
     applyCustomButtonStyle();
-    // Retry per assicurarsi che label e stili siano applicati dopo che Salesforce finisce il rendering
-    setTimeout(applyCustomButtonStyle, 200);
-    setTimeout(applyCustomButtonStyle, 600);
+    setTimeout(applyCustomButtonStyle, 300);
+    setTimeout(applyCustomButtonStyle, 700);
+    watchForSpinner();
 
-    const chatFrame = document.querySelector('#embeddedMessagingFrame');
+    const chatFrame=document.querySelector('#embeddedMessagingFrame');
     if (chatFrame) {
-      const btnObserver = new MutationObserver((mutations) => {
-        mutations.forEach(m => {
-          if (m.target.id === 'embeddedMessagingFrame') {
+      const obs=new MutationObserver(mutations=>{
+        mutations.forEach(m=>{
+          if (m.target.id==='embeddedMessagingFrame') {
             if (m.target.classList.contains('isMinimized')) {
-              m.target.style.setProperty('display', 'none', 'important');
+              m.target.style.setProperty('display','none','important');
               setTimeout(applyCustomButtonStyle, 50);
             } else if (m.target.classList.contains('isMaximized')) {
-              m.target.style.display = '';
+              m.target.style.display='';
             }
           }
         });
       });
-      btnObserver.observe(chatFrame, { attributes: true, attributeFilter: ['class'] });
+      obs.observe(chatFrame,{attributes:true,attributeFilter:['class']});
     }
 
     window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
       clearTimeout(window.__ESW_AUTO_OPEN_TIMER__);
-      window.__ESW_CHAT_EVER_OPENED__ = true;
-    }, { once: true });
+      window.__ESW_CHAT_EVER_OPENED__=true;
+    }, {once:true});
   });
 
-  window.addEventListener('onEmbeddedMessagingButtonClicked', function () {
-    lockPageScrollPersistent();
-    startScrollGuard(1600);
+  window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
+    lockPageScrollPersistent(); startScrollGuard(1600);
     setTimeout(evaluateAndApplyOpenState, 250);
   });
 
-  window.addEventListener('onEmbeddedMessagingWindowOpened', function () {
-    state.chatCurrentlyOpen = true;
-    document.body.classList.add('esw-open');
-    lockPageScrollPersistent();
-    startScrollGuard(1600);
-    removeNudge();
-    clearAllTimers();
+  window.addEventListener('onEmbeddedMessagingWindowOpened', function() {
+    state.chatCurrentlyOpen=true; document.body.classList.add('esw-open');
+    lockPageScrollPersistent(); startScrollGuard(1600);
+    removeNudge(); clearAllTimers();
     setTimeout(applyStylesWithRetry, 50);
     setTimeout(updateVisualViewportVars, 50);
     setTimeout(updateVisualViewportVars, 250);
   });
 
-  window.addEventListener('onEmbeddedMessagingWindowMinimized', function () {
-    state.chatCurrentlyOpen = false;
-    document.body.classList.remove('esw-open');
-    stopScrollGuard();
-    unlockPageScrollPersistent();
+  window.addEventListener('onEmbeddedMessagingWindowMinimized', function() {
+    state.chatCurrentlyOpen=false; document.body.classList.remove('esw-open');
+    stopScrollGuard(); unlockPageScrollPersistent();
     setTimeout(applyStylesWithRetry, 50);
     if (state.chatEverOpened) {
       clearTimer('followup');
-      const messages = getLocalizedMessages();
-      state.timers.followup = setTimeout(() => {
-        if (!isOpenState()) showNudge(messages.followup);
-      }, CONFIG.NUDGE_DELAY_MS);
+      const messages=getLocalizedMessages();
+      state.timers.followup=setTimeout(()=>{ if (!isOpenState()) showNudge(messages.followup); }, CONFIG.NUDGE_DELAY_MS);
     }
   });
 
-  window.addEventListener('onEmbeddedMessagingWindowClosed', function () {
-    state.chatCurrentlyOpen = false;
-    document.body.classList.remove('esw-open');
-    unlockPageScrollPersistent();
-    setTimeout(applyStylesWithRetry, 50);
+  window.addEventListener('onEmbeddedMessagingWindowClosed', function() {
+    state.chatCurrentlyOpen=false; document.body.classList.remove('esw-open');
+    unlockPageScrollPersistent(); setTimeout(applyStylesWithRetry, 50);
   });
 
 })();
@@ -756,7 +684,6 @@ function initEmbeddedMessaging() {
   --chat-launcher-bottom: 60px;
   --chat-launcher-right: 30px;
   --chat-nudge-offset: 70px;
-  --chat-header-height: 60px;
   --site-header-height: 60px;
   --vvh: 100dvh;
   --vv-offset-top: 0px;
@@ -764,7 +691,7 @@ function initEmbeddedMessaging() {
   --chat-frame-right-gap: 30px;
 }
 
-/* ======= DESKTOP ======= */
+/* ======= DESKTOP FRAME ======= */
 @media (min-width: 1025px) {
   .embeddedMessagingFrame {
     border-radius: 16px !important;
@@ -784,14 +711,13 @@ function initEmbeddedMessaging() {
 /* ======= LAUNCHER FIXED ======= */
 .chat-launcher-fixed .embeddedServiceLauncher,
 .chat-launcher-fixed .embeddedServiceSidebarButton,
-.chat-launcher-fixed #embedded-messaging .embeddedMessagingIcon,
+.chat-launcher-fixed #embedded-messaging button,
 .chat-launcher-fixed button[class*="Launcher"],
 .chat-launcher-fixed div[class*="Launcher"] {
   position: fixed !important;
   bottom: var(--chat-launcher-bottom) !important;
   right: var(--chat-launcher-right) !important;
-  left: auto !important;
-  top: auto !important;
+  left: auto !important; top: auto !important;
   transform: none !important;
   z-index: 2147483647 !important;
 }
@@ -801,238 +727,96 @@ function initEmbeddedMessaging() {
   position: fixed;
   bottom: calc(var(--chat-launcher-bottom) + var(--chat-nudge-offset));
   right: var(--chat-launcher-right);
-  background: #ffffff;
-  color: #000;
+  background: #fff; color: #000;
   padding: 10px 20px 10px 12px;
   border-radius: 12px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
-  font-size: 14px;
-  font-weight: 500;
-  z-index: 2147483646;
-  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  font-size: 14px; font-weight: 500;
+  z-index: 2147483646; cursor: pointer;
   animation: bounce 5s ease-out;
 }
 @keyframes bounce {
-  0%   { transform: translateY(0); }
-  20%  { transform: translateY(-6px); }
-  40%  { transform: translateY(0); }
-  60%  { transform: translateY(-3px); }
-  80%  { transform: translateY(0); }
-  100% { transform: translateY(0); }
+  0%,40%,80%,100% { transform: translateY(0); }
+  20% { transform: translateY(-6px); }
+  60% { transform: translateY(-3px); }
 }
 .chat-nudge .close-btn {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  font-weight: bold;
-  font-size: 14px;
-  color: #666;
-  cursor: pointer;
-  margin-left: 8px;
+  position: absolute; top: 4px; right: 6px;
+  font-weight: bold; font-size: 14px; color: #666; cursor: pointer;
 }
 .chat-nudge .close-btn:hover { color: #000; }
 
-/* ======= FORCE CUSTOM BUTTON - BASE ======= */
+/* ======= BUTTON BASE ======= */
 #embeddedMessagingConversationButton {
   display: flex !important;
   cursor: pointer !important;
-  padding: 0 !important;
-  align-items: center !important;
 }
-
+#embeddedMessagingIconMinimize {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
 #embeddedMessagingFrame.isMinimized {
   display: none !important;
 }
 
-/* ======= DESKTOP BUTTON (>= 1025px) ======= */
-@media (min-width: 1025px) {
-  #embeddedMessagingConversationButton {
-    width: 240px !important;
-    height: 65px !important;
-    border-radius: 30px !important;
-    justify-content: flex-start !important;
-    padding-left: 10px !important;
-    gap: 10px !important;
-    overflow: visible !important;
-  }
-
-  #embeddedMessagingIconContainer {
-    transform: none !important;
-    width: auto !important;
-    height: auto !important;
-    overflow: visible !important;
-    position: static !important;
-    display: flex !important;
-    align-items: center !important;
-    flex-shrink: 0 !important;
-  }
-
-  #embeddedMessagingIconMinimize {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
-  }
-
-  #embeddedMessagingIconChat {
-    display: block !important;
-    width: 45px !important;
-    height: 45px !important;
-    object-fit: cover !important;
-    object-position: center !important;
-    margin: 0 !important;
-    border-radius: 50% !important;
-    position: static !important;
-    transform: none !important;
-    top: auto !important;
-    left: auto !important;
-  }
-
-  /* Reset mobile full-screen on desktop */
-  .esw-open .embeddedMessagingFrame,
-  .esw-open iframe[data-embedded-messaging-iframe] {
-    position: fixed !important;
-    left: auto !important;
-    right: 30px !important;
-    top: auto !important;
-    bottom: 40px !important;
-    width: auto !important;
-    max-width: none !important;
-    height: auto !important;
-    max-height: none !important;
-    inset: auto 30px 40px auto !important;
-  }
-
-  .esw-open #embedded-messaging {
-    position: fixed !important;
-    left: auto !important;
-    right: 30px !important;
-    top: auto !important;
-    bottom: 40px !important;
-    width: auto !important;
-    max-width: none !important;
-    height: auto !important;
-    max-height: none !important;
-    inset: auto 30px 40px auto !important;
-  }
-}
-
-/* ======= MOBILE BUTTON (<= 1024px) ======= */
+/* ======= MOBILE (<= 1024px) ======= */
 @media (max-width: 1024px) {
   #embeddedMessagingConversationButton {
-    width: 70px !important;
-    height: 70px !important;
+    width: 70px !important; height: 70px !important;
     border-radius: 50% !important;
     justify-content: center !important;
-    gap: 0 !important;
+    gap: 0 !important; padding: 0 !important;
     overflow: hidden !important;
-    padding-left: 0 !important;
   }
-
   #embeddedMessagingIconContainer {
     transform: translate(-21px, -1px) !important;
-    width: 70px !important;
-    height: 70px !important;
+    width: 70px !important; height: 70px !important;
     overflow: visible !important;
     position: relative !important;
     display: block !important;
     flex-shrink: 0 !important;
   }
-
-  #embeddedMessagingIconMinimize {
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
-  }
-
-
-
-    display: none !important;
-    width: 0 !important;
-    height: 0 !important;
-    position: absolute !important;
-  }
-
   #embeddedMessagingIconChat {
     position: absolute !important;
-    top: 50% !important;
-    left: 60% !important;
+    top: 50% !important; left: 60% !important;
     transform: translate(-38%, -33%) !important;
-    width: 160% !important;
-    height: 160% !important;
+    width: 160% !important; height: 160% !important;
     object-fit: cover !important;
-    margin: 0 !important;
-    display: block !important;
+    margin: 0 !important; display: block !important;
   }
 
-  body.esw-open {
-    position: relative !important;
-    overflow: hidden !important;
-    width: 100% !important;
-    overscroll-behavior: none;
-  }
-  body.page-scroll-locked {
-    position: fixed !important;
-    left: 0 !important;
-    right: 0 !important;
-    width: 100% !important;
-    overflow: hidden !important;
-    overscroll-behavior: none !important;
-    touch-action: none !important;
-  }
+  body.esw-open { position: relative !important; overflow: hidden !important; width: 100% !important; overscroll-behavior: none; }
+  body.page-scroll-locked { position: fixed !important; left: 0 !important; right: 0 !important; width: 100% !important; overflow: hidden !important; overscroll-behavior: none !important; touch-action: none !important; }
+
   .esw-open #embedded-messaging {
-    position: fixed !important;
-    left: 0 !important;
-    right: 0 !important;
+    position: fixed !important; left: 0 !important; right: 0 !important;
     top: calc(var(--site-header-height, 60px) + var(--vv-offset-top, 0px)) !important;
     height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
     max-height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
-    width: 100vw !important;
-    max-width: none !important;
-    margin: 0 !important;
+    width: 100vw !important; max-width: none !important; margin: 0 !important;
     z-index: 2147483646 !important;
   }
-  .esw-open iframe[data-embedded-messaging-iframe],
-  .esw-open .embeddedMessagingFrame {
-    position: fixed !important;
-    left: 0 !important;
-    right: 0 !important;
+  .esw-open .embeddedMessagingFrame,
+  .esw-open iframe[data-embedded-messaging-iframe] {
+    position: fixed !important; left: 0 !important; right: 0 !important;
     top: calc(var(--site-header-height, 60px) + var(--vv-offset-top, 0px)) !important;
     height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
     max-height: calc(var(--vvh, 100dvh) - var(--site-header-height, 60px) - var(--vv-offset-top, 0px)) !important;
-    width: 100vw !important;
-    max-width: none !important;
-    margin: 0 !important;
-    border-radius: 0 !important;
-    z-index: 2147483646 !important;
+    width: 100vw !important; max-width: none !important; margin: 0 !important;
+    border-radius: 0 !important; z-index: 2147483646 !important;
   }
   .esw-open .embeddedMessagingWindow,
   .esw-open .embeddedMessagingFrameContainer,
   .esw-open .embeddedMessagingConversation,
   .esw-open .embeddedMessagingConversationContainer,
   .esw-open .embeddedMessagingConversationBody {
-    width: 100% !important;
-    max-width: none !important;
-    left: 0 !important;
-    right: 0 !important;
-    margin: 0 !important;
-    transform: none !important;
+    width: 100% !important; max-width: none !important;
+    left: 0 !important; right: 0 !important; margin: 0 !important; transform: none !important;
   }
-  .esw-open .embeddedMessagingHeader {
-    position: sticky !important;
-    top: 0 !important;
-    z-index: 10 !important;
-  }
-  .esw-open .embeddedMessagingConversation {
-    display: flex !important;
-    flex-direction: column !important;
-    height: 100% !important;
-  }
-  .esw-open .embeddedMessagingConversationBody {
-    flex: 1 1 auto !important;
-    overflow-y: auto !important;
-    -webkit-overflow-scrolling: touch;
-    overflow-anchor: none !important;
-  }
+  .esw-open .embeddedMessagingHeader { position: sticky !important; top: 0 !important; z-index: 10 !important; }
+  .esw-open .embeddedMessagingConversation { display: flex !important; flex-direction: column !important; height: 100% !important; }
+  .esw-open .embeddedMessagingConversationBody { flex: 1 1 auto !important; overflow-y: auto !important; -webkit-overflow-scrolling: touch; overflow-anchor: none !important; }
   .esw-open .embeddedMessagingInputContainer { flex-shrink: 0 !important; }
   html, body { width: 100% !important; max-width: 100% !important; overflow-x: hidden !important; }
   body.esw-open { overflow-x: hidden !important; }
