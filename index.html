@@ -83,22 +83,18 @@
 <!-- ======================== SALESFORCE EMBEDDED MESSAGING - BLOCK 1: CONFIG + INIT ======================== -->
 <script type="text/javascript">
 
-/* ======================== CONFIGURATION ========================= */
 const ESW_CONFIG = {
   ORG_ID: '00DUA000003t2Uy',
-
   DEFAULT: {
     DEPLOYMENT_NAME: 'Leapmotor_Test',
     SITE_URL: 'https://leapmotor--uat.sandbox.my.site.com/ESWLeapmotorTest1765461060847',
     SCRT2_URL: 'https://leapmotor--uat.sandbox.my.salesforce-scrt.com'
   },
-
   UK: {
     DEPLOYMENT_NAME: 'Leapmotor_Test',
     SITE_URL: 'https://leapmotor--uat.sandbox.my.site.com/ESWLeapmotorTest1765461060847',
     SCRT2_URL: 'https://leapmotor--uat.sandbox.my.salesforce-scrt.com'
   },
-
   COUNTRY_MAPPING: {
     'it':    { name: 'Italy',           language: 'it',    code: 'it' },
     'es':    { name: 'Spain',           language: 'es',    code: 'es' },
@@ -110,24 +106,19 @@ const ESW_CONFIG = {
     'pl':    { name: 'Poland',          language: 'pl',    code: 'pl' },
     'pt':    { name: 'Portugal',        language: 'pt_PT', code: 'pt' },
     'uk':    { name: 'United Kingdom',  language: 'en_US', code: 'uk' },
-    'be-fr': { name: 'Belgium_FR',      language: 'fr',    code: 'be' },
-    'be-nl': { name: 'Belgium_NL',      language: 'nl_NL', code: 'be' }
+    'be-fr': { name: 'Belgium_FR',      language: 'fr',    code: 'be-fr' },
+    'be-nl': { name: 'Belgium_NL',      language: 'nl_NL', code: 'be-nl' }
   },
-
   DEFAULT_COUNTRY: 'uk'
 };
 
-/* ======================== HELPERS ========================= */
 function getCountryCodeFromPath() {
-  const pathParts = window.location.pathname
-    .split('/')
-    .filter(function(part) { return part.length > 0; });
+  const pathParts = window.location.pathname.split('/').filter(function(part) { return part.length > 0; });
   return pathParts.length > 0 ? pathParts[0].toLowerCase() : ESW_CONFIG.DEFAULT_COUNTRY;
 }
 
 function getCountryInfo(countryCode) {
-  return ESW_CONFIG.COUNTRY_MAPPING[countryCode] ||
-         ESW_CONFIG.COUNTRY_MAPPING[ESW_CONFIG.DEFAULT_COUNTRY];
+  return ESW_CONFIG.COUNTRY_MAPPING[countryCode] || ESW_CONFIG.COUNTRY_MAPPING[ESW_CONFIG.DEFAULT_COUNTRY];
 }
 
 function getRuntimeDeployment(countryInfo) {
@@ -135,7 +126,6 @@ function getRuntimeDeployment(countryInfo) {
   return isUK ? ESW_CONFIG.UK : ESW_CONFIG.DEFAULT;
 }
 
-/* ======================== INIT (GUARDED) ========================= */
 function initEmbeddedMessaging() {
   try {
     if (window.__ESW_INIT_DONE__) return;
@@ -153,7 +143,6 @@ function initEmbeddedMessaging() {
     embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
     embeddedservice_bootstrap.settings.language = countryInfo.language;
 
-    // Hidden prechat fields — set with delay to ensure prechatAPI is ready
     window.addEventListener('onEmbeddedMessagingReady', function onReadyOnce() {
       if (window.__ESW_READY_DONE__) return;
       window.__ESW_READY_DONE__ = true;
@@ -180,7 +169,6 @@ function initEmbeddedMessaging() {
           }
         }, 10000);
 
-        // Cancella timer se utente clicca prima dei 10 secondi
         window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
           clearTimeout(window.__ESW_AUTO_OPEN_TIMER__);
           window.__ESW_CHAT_EVER_OPENED__ = true;
@@ -200,14 +188,9 @@ function initEmbeddedMessaging() {
   }
 }
 
-/* ======================== DYNAMIC BOOTSTRAP LOADER ========================= */
 (function loadEmbeddedMessagingBootstrap() {
   try {
-    if (window.embeddedservice_bootstrap) {
-      initEmbeddedMessaging();
-      return;
-    }
-
+    if (window.embeddedservice_bootstrap) { initEmbeddedMessaging(); return; }
     if (document.getElementById('esw-bootstrap')) return;
 
     const countryCode = getCountryCodeFromPath();
@@ -219,10 +202,7 @@ function initEmbeddedMessaging() {
     s.type = 'text/javascript';
     s.src = runtime.SITE_URL + '/assets/js/bootstrap.min.js';
     s.onload = function() { initEmbeddedMessaging(); };
-    s.onerror = function() {
-      console.error('[ESW] Failed to load bootstrap:', s.src);
-    };
-
+    s.onerror = function() { console.error('[ESW] Failed to load bootstrap:', s.src); };
     document.body.appendChild(s);
   } catch (e) {
     console.error('[ESW] Bootstrap loader failed:', e);
@@ -235,7 +215,6 @@ function initEmbeddedMessaging() {
 (function () {
   'use strict';
 
-  /* ====== Configuration ====== */
   const CONFIG = {
     NUDGE_DELAY_MS: 30000,
     DESKTOP_MIN_WIDTH: 1025,
@@ -262,7 +241,23 @@ function initEmbeddedMessaging() {
     'be-nl': { first: 'Praat met me!',           followup: 'Praat verder met me!' }
   };
 
-  /* ====== State ====== */
+  // Testo localizzato pulsante desktop
+  const BUTTON_LABELS = {
+    it:      'Chatta con noi!',
+    es:      '¡Chatea con nosotros!',
+    fr:      'Chattez avec nous!',
+    de:      'Chatte mit uns!',
+    at:      'Chatte mit uns!',
+    lu:      'Chattez avec nous!',
+    nl:      'Chat met ons!',
+    pl:      'Porozmawiaj z nami!',
+    pt:      'Fale connosco!',
+    uk:      'Chat with us!',
+    en:      'Chat with us!',
+    'be-fr': 'Chattez avec nous!',
+    'be-nl': 'Chat met ons!'
+  };
+
   const state = {
     chatEverOpened: false,
     chatCurrentlyOpen: false,
@@ -272,12 +267,19 @@ function initEmbeddedMessaging() {
     observers: { launcher: null, body: null, fixedRoot: null, statePoller: null }
   };
 
-  /* ====== Utility ====== */
   const isMobile = () => window.innerWidth < CONFIG.DESKTOP_MIN_WIDTH;
+
   function getLocalizedMessages() {
     const code = getCountryCodeFromPath();
     return MESSAGES[code] || MESSAGES.en;
   }
+
+  function getButtonLabel() {
+    const code = getCountryCodeFromPath();
+    const ci = getCountryInfo(code);
+    return BUTTON_LABELS[code] || BUTTON_LABELS[ci.code] || BUTTON_LABELS.en;
+  }
+
   function clearTimer(timerName) {
     if (state.timers[timerName]) { clearTimeout(state.timers[timerName]); state.timers[timerName] = null; }
   }
@@ -286,7 +288,6 @@ function initEmbeddedMessaging() {
     if (state.observers[observerName]) { state.observers[observerName].disconnect(); state.observers[observerName] = null; }
   }
 
-  /* ====== DOM Element Getters ====== */
   function getLauncherEl() {
     return (
       document.querySelector('.embeddedServiceLauncher') ||
@@ -327,14 +328,12 @@ function initEmbeddedMessaging() {
     return null;
   }
 
-  /* ====== CSS Vars ====== */
   function updateHeaderHeightVar() {
     const header = getHeaderEl();
     const h = header ? Math.round(header.getBoundingClientRect().height || header.offsetHeight || 60) : 60;
     document.documentElement.style.setProperty('--site-header-height', h + 'px');
   }
 
-  /* ====== iOS 18 fix ====== */
   let __vvRAF = 0, __baselineH = null, __keyboardOpen = false, __lockedH = null, __lastApplied = null;
   function __roundH(px) { return Math.round(px / 4) * 4; }
   function __getVVH() { const vv = window.visualViewport; return __roundH(vv ? vv.height : window.innerHeight); }
@@ -349,7 +348,6 @@ function initEmbeddedMessaging() {
     __vvRAF = requestAnimationFrame(() => { __applyViewportVars(vvh); __vvRAF = 0; });
   }
 
-  /* ====== Scroll Guard ====== */
   let __pageScrollY = 0, __guardAnchorWindowY = 0, __guardRAF = 0, __guardUntil = 0, __guardScrollApplying = false;
 
   function lockPageScrollPersistent() {
@@ -433,7 +431,6 @@ function initEmbeddedMessaging() {
     setTimeout(updateVisualViewportVars, 260);
   }
 
-  /* ====== Style Locking ====== */
   function updateNudgePosition() {
     if (isMobile() || !state.nudgeElement) return;
     const launcher = getLauncherEl();
@@ -478,7 +475,6 @@ function initEmbeddedMessaging() {
     CONFIG.RETRY_DELAYS.forEach(delay => { setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, delay); });
   }
 
-  /* ====== Observer Setup ====== */
   function observeDynamicElements() {
     disconnectObserver('launcher');
     const launcher = getLauncherEl();
@@ -499,7 +495,6 @@ function initEmbeddedMessaging() {
     }
   }
 
-  /* ====== Nudge ====== */
   function showNudge(message) {
     if (state.nudgeElement) return;
     state.nudgeElement = document.createElement('div');
@@ -529,7 +524,6 @@ function initEmbeddedMessaging() {
   }
   function removeNudge() { if (state.nudgeElement) { state.nudgeElement.remove(); state.nudgeElement = null; } }
 
-  /* ====== State Detection ====== */
   function isOpenState() {
     const frame = getChatFrameEl();
     const root = getFixedRootEl();
@@ -556,10 +550,12 @@ function initEmbeddedMessaging() {
   function handleResize() {
     updateHeaderHeightVar(); updateNudgePosition();
     if (isMobile() && isOpenState()) return;
+    // Riapplica stile pulsante quando si ridimensiona la finestra (mobile <-> desktop)
+    applyCustomButtonStyle();
     setTimeout(() => { lockLauncherStyle(); lockFixedRootStyle(); }, 50);
   }
 
-  /* ====== Custom Round Button ====== */
+  /* ====== Custom Button: Mobile=round, Desktop=rectangular ====== */
   function applyCustomButtonStyle() {
     const btn = document.querySelector('#embeddedMessagingConversationButton');
     const img = document.querySelector('#embeddedMessagingIconChat');
@@ -572,35 +568,79 @@ function initEmbeddedMessaging() {
       frame.style.setProperty('display', 'none', 'important');
     }
 
-    // Pulsante rotondo
     btn.style.setProperty('display', 'flex', 'important');
-    btn.style.width = '70px';
-    btn.style.height = '70px';
-    btn.style.borderRadius = '50%';
-    btn.style.alignItems = 'center';
-    btn.style.justifyContent = 'center';
-    btn.style.padding = '0';
-    btn.style.gap = '0';
     btn.style.cursor = 'pointer';
-    btn.style.overflow = 'hidden';
+    btn.style.padding = '0';
+    btn.style.alignItems = 'center';
 
-    // Icona — si adatta al pulsante
-    if (img) {
-      img.style.setProperty('display', 'block', 'important');
-      img.style.width = '100%';
-      img.style.height = '100%';
-      img.style.objectFit = 'cover';
-      img.style.objectPosition = 'center';
-      img.style.margin = '0';
-      img.style.flexShrink = '0';
+    if (isMobile()) {
+      // ===== MOBILE: pulsante rotondo =====
+      btn.style.width = '70px';
+      btn.style.height = '70px';
+      btn.style.borderRadius = '50%';
+      btn.style.justifyContent = 'center';
+      btn.style.gap = '0';
+      btn.style.overflow = 'hidden';
+      btn.style.paddingLeft = '0';
+
+      if (img) {
+        img.style.setProperty('display', 'block', 'important');
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        img.style.objectPosition = 'center';
+        img.style.margin = '0';
+        img.style.flexShrink = '0';
+        img.style.position = '';
+        img.style.top = '';
+        img.style.left = '';
+        img.style.transform = '';
+      }
+
+      // Rimuovi label desktop se esiste
+      const existingLabel = btn.querySelector('#customChatLabel');
+      if (existingLabel) existingLabel.remove();
+
+    } else {
+      // ===== DESKTOP: pulsante rettangolare con testo =====
+      btn.style.width = '220px';
+      btn.style.height = '60px';
+      btn.style.borderRadius = '30px';
+      btn.style.justifyContent = 'flex-start';
+      btn.style.gap = '12px';
+      btn.style.overflow = 'visible';
+      btn.style.paddingLeft = '15px';
+
+      if (img) {
+        img.style.setProperty('display', 'block', 'important');
+        img.style.width = '30px';
+        img.style.height = '30px';
+        img.style.objectFit = 'cover';
+        img.style.objectPosition = 'center';
+        img.style.margin = '0';
+        img.style.flexShrink = '0';
+        img.style.borderRadius = '50%';
+        img.style.position = '';
+        img.style.top = '';
+        img.style.left = '';
+        img.style.transform = '';
+      }
+
+      // Aggiungi label localizzata se non esiste
+      if (!btn.querySelector('#customChatLabel')) {
+        const label = document.createElement('span');
+        label.id = 'customChatLabel';
+        label.textContent = getButtonLabel();
+        label.style.cssText = 'color:white;font-size:16px;font-weight:bold;white-space:nowrap;pointer-events:none;';
+        btn.appendChild(label);
+      } else {
+        // Aggiorna testo se già esiste
+        btn.querySelector('#customChatLabel').textContent = getButtonLabel();
+      }
     }
-
-    // Rimuovi label se esiste
-    const existingLabel = btn.querySelector('#customChatLabel');
-    if (existingLabel) existingLabel.remove();
   }
 
-  // Click delegation su document - funziona anche dopo che Salesforce ricrea il pulsante
+  // Click delegation su document
   if (!window.__ESW_CLICK_DELEGATED__) {
     window.__ESW_CLICK_DELEGATED__ = true;
     document.addEventListener('click', function(e) {
@@ -611,7 +651,7 @@ function initEmbeddedMessaging() {
         embeddedservice_bootstrap.utilAPI.launchChat()
           .catch(err => console.error('[ESW] launchChat error:', err));
       }
-    }, true); // capture: true per intercettare prima di Salesforce
+    }, true);
   }
 
   /* ====== Salesforce Events ====== */
@@ -624,24 +664,21 @@ function initEmbeddedMessaging() {
     initMobileViewportTracking();
     window.addEventListener('resize', handleResize);
 
-    // Nudge timer
     clearTimer('first');
     const messages = getLocalizedMessages();
     state.timers.first = setTimeout(() => {
       if (!state.chatEverOpened && !isOpenState()) showNudge(messages.first);
     }, CONFIG.NUDGE_DELAY_MS);
 
-    // ======= CUSTOM ROUND BUTTON =======
     applyCustomButtonStyle();
 
-    // Observer su iframe per riapplicare stili dopo minimize/maximize
     const chatFrame = document.querySelector('#embeddedMessagingFrame');
     if (chatFrame) {
       const btnObserver = new MutationObserver((mutations) => {
         mutations.forEach(m => {
           if (m.target.id === 'embeddedMessagingFrame') {
             if (m.target.classList.contains('isMinimized')) {
-              m.target.style.display = 'none';
+              m.target.style.setProperty('display', 'none', 'important');
               setTimeout(applyCustomButtonStyle, 50);
             } else if (m.target.classList.contains('isMaximized')) {
               m.target.style.display = '';
@@ -652,7 +689,6 @@ function initEmbeddedMessaging() {
       btnObserver.observe(chatFrame, { attributes: true, attributeFilter: ['class'] });
     }
 
-    // Cancella timer se utente clicca il pulsante prima dei 10 secondi
     window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
       clearTimeout(window.__ESW_AUTO_OPEN_TIMER__);
       window.__ESW_CHAT_EVER_OPENED__ = true;
@@ -784,54 +820,101 @@ function initEmbeddedMessaging() {
 }
 .chat-nudge .close-btn:hover { color: #000; }
 
-/* ======= FORCE CUSTOM BUTTON ======= */
+/* ======= FORCE CUSTOM BUTTON - BASE ======= */
 #embeddedMessagingConversationButton {
   display: flex !important;
-  width: 70px !important;
-  height: 70px !important;
-  border-radius: 50% !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 0 !important;
-  overflow: hidden !important;
   cursor: pointer !important;
-}
-
-#embeddedMessagingIconContainer {
-  transform: translate(-21px, -1px) !important;
-  width: 70px !important;
-  height: 70px !important;
-  overflow: visible !important;
-  position: relative !important;
-  display: block !important;
-  flex-shrink: 0 !important;
-}
-
-#embeddedMessagingIconMinimize {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-  position: absolute !important;
-}
-
-#embeddedMessagingIconChat {
-  position: absolute !important;
-  top: 50% !important;
-  left: 60% !important;
-  transform: translate(-38%, -33%) !important;
-  width: 160% !important;
-  height: 160% !important;
-  object-fit: cover !important;
-  margin: 0 !important;
-  display: block !important;
+  padding: 0 !important;
+  align-items: center !important;
 }
 
 #embeddedMessagingFrame.isMinimized {
   display: none !important;
 }
 
-/* ======= MOBILE ======= */
+/* ======= DESKTOP BUTTON (>= 1025px) ======= */
+@media (min-width: 1025px) {
+  #embeddedMessagingConversationButton {
+    width: 220px !important;
+    height: 60px !important;
+    border-radius: 30px !important;
+    justify-content: flex-start !important;
+    padding-left: 15px !important;
+    gap: 12px !important;
+    overflow: visible !important;
+  }
+
+  #embeddedMessagingIconContainer {
+    transform: none !important;
+    width: auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    position: static !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  #embeddedMessagingIconMinimize {
+    display: none !important;
+  }
+
+  #embeddedMessagingIconChat {
+    display: block !important;
+    width: 30px !important;
+    height: 30px !important;
+    object-fit: cover !important;
+    object-position: center !important;
+    margin: 0 !important;
+    border-radius: 50% !important;
+    position: static !important;
+    transform: none !important;
+    top: auto !important;
+    left: auto !important;
+  }
+}
+
+/* ======= MOBILE BUTTON (<= 1024px) ======= */
 @media (max-width: 1024px) {
+  #embeddedMessagingConversationButton {
+    width: 70px !important;
+    height: 70px !important;
+    border-radius: 50% !important;
+    justify-content: center !important;
+    gap: 0 !important;
+    overflow: hidden !important;
+    padding-left: 0 !important;
+  }
+
+  #embeddedMessagingIconContainer {
+    transform: translate(-21px, -1px) !important;
+    width: 70px !important;
+    height: 70px !important;
+    overflow: visible !important;
+    position: relative !important;
+    display: block !important;
+    flex-shrink: 0 !important;
+  }
+
+  #embeddedMessagingIconMinimize {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    position: absolute !important;
+  }
+
+  #embeddedMessagingIconChat {
+    position: absolute !important;
+    top: 50% !important;
+    left: 60% !important;
+    transform: translate(-38%, -33%) !important;
+    width: 160% !important;
+    height: 160% !important;
+    object-fit: cover !important;
+    margin: 0 !important;
+    display: block !important;
+  }
+
   body.esw-open {
     position: relative !important;
     overflow: hidden !important;
