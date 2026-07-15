@@ -613,8 +613,8 @@ function initEmbeddedMessaging() {
 
       if (img) {
         img.style.setProperty('display', 'block', 'important');
-        img.style.width = '30px';
-        img.style.height = '30px';
+        img.style.width = '65px';
+        img.style.height = '65px';
         img.style.objectFit = 'cover';
         img.style.objectPosition = 'center';
         img.style.margin = '0';
@@ -624,6 +624,14 @@ function initEmbeddedMessaging() {
         img.style.top = '';
         img.style.left = '';
         img.style.transform = '';
+      }
+
+      // Nascondi spinner SVG desktop
+      const spinnerDesktop = btn.querySelector('#embeddedMessagingIconMinimize');
+      if (spinnerDesktop) {
+        spinnerDesktop.style.setProperty('display', 'none', 'important');
+        spinnerDesktop.style.width = '0';
+        spinnerDesktop.style.height = '0';
       }
 
       // Aggiungi label localizzata se non esiste
@@ -861,6 +869,13 @@ function initEmbeddedMessaging() {
 
   #embeddedMessagingIconMinimize {
     display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+
+
+    display: none !important;
   }
 
   #embeddedMessagingIconChat {
@@ -901,6 +916,13 @@ function initEmbeddedMessaging() {
   }
 
   #embeddedMessagingIconMinimize {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+
+
     display: none !important;
     width: 0 !important;
     height: 0 !important;
