@@ -613,8 +613,8 @@ function initEmbeddedMessaging() {
 
       if (img) {
         img.style.setProperty('display', 'block', 'important');
-        img.style.width = '65px';
-        img.style.height = '65px';
+        img.style.width = '45px';
+        img.style.height = '45px';
         img.style.objectFit = 'cover';
         img.style.objectPosition = 'center';
         img.style.margin = '0';
@@ -847,12 +847,12 @@ function initEmbeddedMessaging() {
 /* ======= DESKTOP BUTTON (>= 1025px) ======= */
 @media (min-width: 1025px) {
   #embeddedMessagingConversationButton {
-    width: 220px !important;
-    height: 60px !important;
+    width: 240px !important;
+    height: 65px !important;
     border-radius: 30px !important;
     justify-content: flex-start !important;
-    padding-left: 15px !important;
-    gap: 12px !important;
+    padding-left: 10px !important;
+    gap: 10px !important;
     overflow: visible !important;
   }
 
@@ -873,15 +873,10 @@ function initEmbeddedMessaging() {
     height: 0 !important;
   }
 
-
-
-    display: none !important;
-  }
-
   #embeddedMessagingIconChat {
     display: block !important;
-    width: 30px !important;
-    height: 30px !important;
+    width: 45px !important;
+    height: 45px !important;
     object-fit: cover !important;
     object-position: center !important;
     margin: 0 !important;
@@ -890,6 +885,34 @@ function initEmbeddedMessaging() {
     transform: none !important;
     top: auto !important;
     left: auto !important;
+  }
+
+  /* Reset mobile full-screen on desktop */
+  .esw-open .embeddedMessagingFrame,
+  .esw-open iframe[data-embedded-messaging-iframe] {
+    position: fixed !important;
+    left: auto !important;
+    right: 30px !important;
+    top: auto !important;
+    bottom: 40px !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    inset: auto 30px 40px auto !important;
+  }
+
+  .esw-open #embedded-messaging {
+    position: fixed !important;
+    left: auto !important;
+    right: 30px !important;
+    top: auto !important;
+    bottom: 40px !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    inset: auto 30px 40px auto !important;
   }
 }
 
