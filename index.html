@@ -581,13 +581,21 @@ function initEmbeddedMessaging() {
 
   // Observer su MutationObserver per spinner aggiunto dinamicamente
   function watchForSpinner() {
-    const btn=document.querySelector('#embeddedMessagingConversationButton');
-    if (!btn) return;
-    const obs=new MutationObserver(()=>{
-      const spinner=btn.querySelector('#embeddedMessagingIconMinimize');
-      if (spinner) { spinner.style.setProperty('display','none','important'); spinner.style.width='0'; spinner.style.height='0'; }
+    // Salesforce aggiunge/rimuove spinner dentro il container, non il button
+    const container = document.querySelector('#embeddedMessagingIconContainer');
+    if (!container) return;
+    const obs = new MutationObserver(() => {
+      // Nascondi spinner immediatamente
+      const spinner = container.querySelector('#embeddedMessagingIconMinimize');
+      if (spinner) {
+        spinner.style.setProperty('display', 'none', 'important');
+        spinner.style.width = '0';
+        spinner.style.height = '0';
+      }
+      // Riapplica stili dopo ogni cambiamento al container
+      setTimeout(applyCustomButtonStyle, 30);
     });
-    obs.observe(btn,{childList:true,subtree:true});
+    obs.observe(container, { childList: true, subtree: true });
   }
 
   // Click delegation
