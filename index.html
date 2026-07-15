@@ -627,15 +627,16 @@ function initEmbeddedMessaging() {
       }
 
       // Aggiungi label localizzata se non esiste
-      if (!btn.querySelector('#customChatLabel')) {
+      const existingLabelDesktop = btn.querySelector('#customChatLabel');
+      if (!existingLabelDesktop) {
         const label = document.createElement('span');
         label.id = 'customChatLabel';
         label.textContent = getButtonLabel();
-        label.style.cssText = 'color:white;font-size:16px;font-weight:bold;white-space:nowrap;pointer-events:none;';
+        label.style.cssText = 'color:white;font-size:16px;font-weight:bold;white-space:nowrap;pointer-events:none;display:block;';
         btn.appendChild(label);
       } else {
-        // Aggiorna testo se già esiste
-        btn.querySelector('#customChatLabel').textContent = getButtonLabel();
+        existingLabelDesktop.textContent = getButtonLabel();
+        existingLabelDesktop.style.display = 'block';
       }
     }
   }
@@ -671,6 +672,9 @@ function initEmbeddedMessaging() {
     }, CONFIG.NUDGE_DELAY_MS);
 
     applyCustomButtonStyle();
+    // Retry per assicurarsi che label e stili siano applicati dopo che Salesforce finisce il rendering
+    setTimeout(applyCustomButtonStyle, 200);
+    setTimeout(applyCustomButtonStyle, 600);
 
     const chatFrame = document.querySelector('#embeddedMessagingFrame');
     if (chatFrame) {
