@@ -767,9 +767,16 @@ function initEmbeddedMessaging() {
   cursor: pointer !important;
 }
 #embeddedMessagingIconMinimize {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 150% !important;
+  transform: translate(-50%, -50%) !important;
+  width: 40px !important;
+  height: 40px !important;
+  z-index: 10 !important;
+}
+#embeddedMessagingIconContainer {
+  position: relative !important;
 }
 #embeddedMessagingIconChat {
   display: block !important;
