@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximun-scale=1.0" />
-  <title>LeapReplica - Electric Vehicles - UAT</title>
+  <title>LeapReplica - Electric Vehicles - UAT2</title>
   <link rel="stylesheet" href="css/style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -539,7 +539,7 @@ function initEmbeddedMessaging() {
 
     } else {
       /* ===== DESKTOP: rettangolare con testo ===== */
-      btn.style.width='240px'; btn.style.height='65px';
+      btn.style.width='240px'; btn.style.height='50px';
       btn.style.borderRadius='30px';
       btn.style.justifyContent='flex-start';
       btn.style.gap='10px'; btn.style.paddingLeft='12px';
@@ -547,12 +547,16 @@ function initEmbeddedMessaging() {
 
       if (container) {
         container.style.transform='none';
-        container.style.width='auto'; container.style.height='auto';
-        container.style.overflow='visible';
+        container.style.width='100px'; container.style.height='100px';
+        container.style.overflow='hidden';
+        container.style.borderRadius='50%';
         container.style.position='static';
         container.style.display='flex';
         container.style.alignItems='center';
+        container.style.justifyContent='center';
         container.style.flexShrink='0';
+        container.style.marginLeft='-15px';
+        container.style.marginTop='15px';
       }
 
       if (img) {
@@ -560,10 +564,10 @@ function initEmbeddedMessaging() {
         img.style.position='static';
         img.style.top=''; img.style.left='';
         img.style.transform='none';
-        img.style.width='45px'; img.style.height='45px';
+        img.style.width='100%'; img.style.height='100%';
         img.style.objectFit='cover'; img.style.objectPosition='center';
         img.style.margin='0'; img.style.flexShrink='0';
-        img.style.borderRadius='50%';
+        img.style.borderRadius='0';
       }
 
       // Label localizzata
@@ -763,6 +767,9 @@ function initEmbeddedMessaging() {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
+}
+#embeddedMessagingIconChat {
+  display: block !important;
 }
 #embeddedMessagingFrame.isMinimized {
   display: none !important;
