@@ -133,7 +133,16 @@ function initEmbeddedMessaging() {
     if (!window.embeddedservice_bootstrap) { console.error('[ESW] bootstrap not available'); return; }
     embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
     embeddedservice_bootstrap.settings.language = ci.language;
-
+    
+    window.addEventListener('message', function(e) {
+    if (e.data?.type === 'lpm_customer_type_selected') {
+        const value = e.data.customerType;        // 'Private' o 'Business'
+        const convId = e.data.conversationId;
+        // Qui chiami un Flow tramite REST API con le credenziali della pagina
+        // oppure scrivi il valore in un campo della pre-chat session
+        console.log('Customer type selected:', value, convId);
+      }
+    });
     window.addEventListener('onEmbeddedMessagingReady', function onReadyOnce() {
       if (window.__ESW_READY_DONE__) return;
       window.__ESW_READY_DONE__ = true;
