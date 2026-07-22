@@ -189,22 +189,42 @@ function initEmbeddedMessaging() {
 
 (function () {
  
-    // ── Configurazione ────────────────────────────────────────────────────────
-    const SF_BASE_URL    = 'https://leapmotor--uat.sandbox.my.salesforce.com'; // adatta al tuo org
-    const SF_API_VERSION = 'v63.0';
+    // 1. Recupera e salva il MessagingSession Id appena la chat è pronta
+    window.addEventListener('onEmbeddedMessagingReady', function () {
+        try {
+            const sessionId = embeddedservice_bootstrap.utilAPI.getSessionId();
+            window.__lpm_session_id = sessionId || null;
+            console.log('[Leapmotor] MessagingSession Id ready:', window.__lpm_session_id);
+        } catch (e) {
+            console.warn('[Leapmotor] getSessionId error:', e);
+            window.__lpm_session_id = null;
+        }
+    });
  
-    // ── Listener postMessage dal LWC ─────────────────────────────────────────
+    // Aggiorna il sessionId anche quando la conversazione inizia
+    // (in alcuni deployment getSessionId è disponibile solo dopo questo evento)
+    window.addEventListener('onEmbeddedMessagingConversationStarted', function () {
+        try {
+            const sessionId = embeddedservice_bootstrap.utilAPI.getSessionId();
+            if (sessionId) {
+                window.__lpm_session_id = sessionId;
+                console.log('[Leapmotor] MessagingSession Id updated:', window.__lpm_session_id);
+            }
+        } catch (e) {
+            console.warn('[Leapmotor] getSessionId on conversationStarted error:', e);
+        }
+    });
+ 
+    // 2. Ricevi il postMessage dal LWC
     window.addEventListener('message', async function (event) {
- 
-        // Accetta solo messaggi dal nostro LWC
         if (!event.data || event.data.type !== 'lpm_customer_type_selected') return;
  
-        const value          = event.data.customerType;   // 'Private' o 'Business'
-        const conversationId = event.data.conversationId;
+        const value     = event.data.customerType;
+        const sessionId = window.__lpm_session_id;
  
-        console.log('[Leapmotor] Customer type received:', value, '| convId:', conversationId);
+        console.log('[Leapmotor] Customer type received:', value, '| sessionId:', sessionId);
  
-        // ── 1. Invia il messaggio nella chat ──────────────────────────────────
+        // Invia il valore nella chat come messaggio dell'utente
         try {
             await embeddedservice_bootstrap.utilAPI.sendMessage(value);
             console.log('[Leapmotor] sendMessage OK:', value);
@@ -212,111 +232,16 @@ function initEmbeddedMessaging() {
             console.error('[Leapmotor] sendMessage error:', e);
         }
  
-        // ── 2. Salva su MessagingSession tramite REST API ─────────────────────
-        // Recupera il MessagingSession Id dalla conversazione attiva
-        try {
-            const sessionId = await getMessagingSessionId(conversationId);
-            if (sessionId) {
-                await saveCustomerTypeToSession(sessionId, value);
-            } else {
-                console.warn('[Leapmotor] MessagingSession Id non trovato per conversationId:', conversationId);
-            }
-        } catch (e) {
-            console.error('[Leapmotor] saveCustomerType error:', e);
-        }
-    });
- 
-    // ── Recupera il MessagingSession Id dalla conversazione ───────────────────
-    // La conversazione MIAW ha un Id interno — lo recuperiamo tramite SOQL
-    async function getMessagingSessionId(conversationId) {
-        if (!conversationId) return null;
-        try {
-            const token = await getAccessToken();
-            if (!token) return null;
- 
-            // Query SOQL: cerca la MessagingSession per ConversationIdentifier
-            const query = encodeURIComponent(
-                `SELECT Id FROM MessagingSession WHERE ConversationIdentifier = '${conversationId}' LIMIT 1`
-            );
-            const url = `${SF_BASE_URL}/services/data/${SF_API_VERSION}/query/?q=${query}`;
- 
-            const res = await fetch(url, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
- 
-            if (!res.ok) {
-                console.error('[Leapmotor] SOQL query failed:', res.status, await res.text());
-                return null;
-            }
- 
-            const data = await res.json();
-            const id   = data?.records?.[0]?.Id || null;
-            console.log('[Leapmotor] MessagingSession Id found:', id);
-            return id;
- 
-        } catch (e) {
-            console.error('[Leapmotor] getMessagingSessionId error:', e);
-            return null;
-        }
-    }
- 
-    // ── Salva LPM_CustomerType__c sulla MessagingSession ─────────────────────
-    async function saveCustomerTypeToSession(sessionId, value) {
-        try {
-            const token = await getAccessToken();
-            if (!token) return;
- 
-            const url = `${SF_BASE_URL}/services/data/${SF_API_VERSION}/sobjects/MessagingSession/${sessionId}`;
-            const res = await fetch(url, {
-                method : 'PATCH',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Content-Type' : 'application/json'
-                },
-                body: JSON.stringify({ LPM_CustomerType__c: value })
-            });
- 
-            if (res.ok) {
-                console.log('[Leapmotor] LPM_CustomerType__c saved:', value, '| sessionId:', sessionId);
-            } else {
-                console.error('[Leapmotor] PATCH failed:', res.status, await res.text());
-            }
-        } catch (e) {
-            console.error('[Leapmotor] saveCustomerTypeToSession error:', e);
-        }
-    }
- 
-    // ── Recupera access token dall'SDK Salesforce ─────────────────────────────
-    // Il token viene reso disponibile da Salesforce dopo l'autenticazione
-    async function getAccessToken() {
-        try {
-            // Metodo 1: token dalla sessione MIAW (disponibile dopo conversationStarted)
-            const token = embeddedservice_bootstrap?.embeddedServiceConfig?.embeddedServiceSrc
-                ? await new Promise((resolve) => {
-                    window.addEventListener('onEmbeddedMessagingConversationStarted', function handler(e) {
-                        window.removeEventListener('onEmbeddedMessagingConversationStarted', handler);
-                        resolve(e.detail?.accessToken || null);
-                    });
-                    // Timeout 100ms: se già avviata, usa il token cached
-                    setTimeout(() => resolve(window.__lpm_sf_token || null), 100);
-                })
-                : null;
- 
-            if (token) return token;
- 
-            // Metodo 2: token cached (salvato all'avvio della conversazione)
-            return window.__lpm_sf_token || null;
- 
-        } catch (e) {
-            return null;
-        }
-    }
- 
-    // ── Salva il token quando la conversazione inizia ─────────────────────────
-    window.addEventListener('onEmbeddedMessagingConversationStarted', function (e) {
-        if (e.detail?.accessToken) {
-            window.__lpm_sf_token = e.detail.accessToken;
-            console.log('[Leapmotor] Access token cached');
+        // Rimanda al LWC il sessionId per la chiamata Apex
+        if (sessionId) {
+            window.parent.postMessage({
+                type               : 'lpm_session_id_response',
+                messagingSessionId : sessionId,
+                customerType       : value
+            }, '*');
+            console.log('[Leapmotor] lpm_session_id_response sent to LWC:', sessionId);
+        } else {
+            console.warn('[Leapmotor] sessionId non disponibile, Apex non verrà chiamato');
         }
     });
  
