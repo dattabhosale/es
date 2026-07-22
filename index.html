@@ -82,7 +82,7 @@
 
 <!-- ======================== BLOCK 1: CONFIG + INIT ======================== -->
 <script type="text/javascript">
-
+/* ======================== BLOCK 1: CONFIG + INIT ======================== */
 const ESW_CONFIG = {
   ORG_ID: '00DUA000003t2Uy',
   DEFAULT: {
@@ -111,7 +111,7 @@ const ESW_CONFIG = {
   },
   DEFAULT_COUNTRY: 'uk'
 };
- 
+
 function getCountryCodeFromPath() {
   const parts = window.location.pathname.split('/').filter(p => p.length > 0);
   return parts.length > 0 ? parts[0].toLowerCase() : ESW_CONFIG.DEFAULT_COUNTRY;
@@ -122,10 +122,11 @@ function getCountryInfo(code) {
 function getRuntimeDeployment(ci) {
   return (ci && ci.code === 'uk') ? ESW_CONFIG.UK : ESW_CONFIG.DEFAULT;
 }
- 
-// SessionId globale — popolato su onEmbeddedMessagingConversationStarted
-window.__lpm_session_id = null;
- 
+
+// Stato globale per customer type
+window.__lpm_session_id      = null;   // Salesforce MessagingSession Id
+window.__lpm_customer_type   = null;   // valore in attesa se sessionId non ancora disponibile
+
 function initEmbeddedMessaging() {
   if (window.__ESW_INIT_DONE__) return;
   window.__ESW_INIT_DONE__ = true;
@@ -134,15 +135,15 @@ function initEmbeddedMessaging() {
     const ci = getCountryInfo(cc);
     const rt = getRuntimeDeployment(ci);
     if (!window.embeddedservice_bootstrap) { console.error('[ESW] bootstrap not available'); return; }
- 
+
     embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
     embeddedservice_bootstrap.settings.language = ci.language;
- 
-    // ── 1. onEmbeddedMessagingReady: prechat + auto-open ─────────────────────
+
+    // ── 1. onEmbeddedMessagingReady ───────────────────────────────────────────
     window.addEventListener('onEmbeddedMessagingReady', function () {
       if (window.__ESW_READY_DONE__) return;
       window.__ESW_READY_DONE__ = true;
- 
+
       setTimeout(function() {
         try {
           const c = getCountryCodeFromPath();
@@ -152,70 +153,87 @@ function initEmbeddedMessaging() {
           });
           console.log('[ESW] Prechat fields set:', i);
         } catch(e) { console.error('[ESW] prechat fields error:', e); }
- 
+
         window.__ESW_AUTO_OPEN_TIMER__ = setTimeout(function() {
           if (!window.__ESW_CHAT_EVER_OPENED__ && window.embeddedservice_bootstrap) {
             embeddedservice_bootstrap.utilAPI.launchChat().catch(err => console.error('[ESW] auto open:', err));
           }
         }, 10000);
- 
+
         window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
           clearTimeout(window.__ESW_AUTO_OPEN_TIMER__);
           window.__ESW_CHAT_EVER_OPENED__ = true;
         }, { once: true });
       }, 500);
     });
- 
-    // ── 2. onEmbeddedMessagingConversationStarted: recupera sessionId ─────────
-    // getSessionId() è disponibile solo DOPO che la conversazione è iniziata
+
+    // ── 2. onEmbeddedMessagingConversationStarted ─────────────────────────────
+    // Qui getSessionId() è disponibile. Se il cliente ha già cliccato
+    // (valore in coda in __lpm_customer_type), processiamo subito.
     window.addEventListener('onEmbeddedMessagingConversationStarted', function () {
       try {
         const sessionId = embeddedservice_bootstrap.utilAPI.getSessionId();
         window.__lpm_session_id = sessionId || null;
-        console.log('[Leapmotor] MessagingSession Id:', window.__lpm_session_id);
+        console.log('[Leapmotor] SessionId available:', window.__lpm_session_id);
       } catch (e) {
         console.warn('[Leapmotor] getSessionId error:', e);
       }
+
+      // Processa valore in coda se il cliente aveva già cliccato
+      if (window.__lpm_customer_type && window.__lpm_session_id) {
+        console.log('[Leapmotor] Processing queued customer type:', window.__lpm_customer_type);
+        _sendSessionIdToLwc(window.__lpm_session_id, window.__lpm_customer_type);
+        window.__lpm_customer_type = null;
+      }
     });
- 
+
     // ── 3. Listener postMessage dal LWC ──────────────────────────────────────
     // Riceve { type: 'lpm_customer_type_selected', customerType: 'Private'/'Business' }
-    // - sendTextMessage() invia il valore nella chat (metodo corretto, non sendMessage)
-    // - rimanda sessionId al LWC per la chiamata Apex
-    window.addEventListener('message', async function (event) {
+    // NON inviamo nulla nella chat — usiamo setSessionContext per passare il valore
+    // silenziosamente all'agent, poi rimandamo il sessionId al LWC per Apex.
+    window.addEventListener('message', function (event) {
       if (!event.data || event.data.type !== 'lpm_customer_type_selected') return;
- 
-      const value     = event.data.customerType;
-      const sessionId = window.__lpm_session_id;
- 
-      console.log('[Leapmotor] Customer type received:', value, '| sessionId:', sessionId);
- 
-      // ⚠️ Il metodo corretto è sendTextMessage, NON sendMessage
+
+      const value = event.data.customerType;
+      console.log('[Leapmotor] Customer type received:', value);
+
+      // Passa il valore all'agent come variabile di contesto (invisibile nella chat)
       try {
-        await embeddedservice_bootstrap.utilAPI.sendTextMessage(value);
-        console.log('[Leapmotor] sendTextMessage OK:', value);
+        embeddedservice_bootstrap.utilAPI.setSessionContext({
+          customerType: value
+        });
+        console.log('[Leapmotor] setSessionContext OK:', { customerType: value });
       } catch (e) {
-        console.error('[Leapmotor] sendTextMessage error:', e);
+        // setSessionContext potrebbe non essere disponibile in tutte le versioni
+        console.warn('[Leapmotor] setSessionContext not available:', e.message);
       }
- 
-      // Rimanda al LWC il sessionId per la chiamata Apex
-      if (sessionId) {
-        window.parent.postMessage({
-          type               : 'lpm_session_id_response',
-          messagingSessionId : sessionId,
-          customerType       : value
-        }, '*');
-        console.log('[Leapmotor] lpm_session_id_response sent:', sessionId);
+
+      // Se sessionId già disponibile → manda subito al LWC per Apex
+      if (window.__lpm_session_id) {
+        _sendSessionIdToLwc(window.__lpm_session_id, value);
       } else {
-        console.warn('[Leapmotor] sessionId null — conversazione non ancora iniziata?');
+        // SessionId non ancora disponibile → metti in coda
+        // Verrà processato su onEmbeddedMessagingConversationStarted
+        console.log('[Leapmotor] SessionId not yet available, queuing value:', value);
+        window.__lpm_customer_type = value;
       }
     });
- 
+
     embeddedservice_bootstrap.init(ESW_CONFIG.ORG_ID, rt.DEPLOYMENT_NAME, rt.SITE_URL, { scrt2URL: rt.SCRT2_URL });
- 
+
   } catch(err) { console.error('[ESW] init error:', err); }
 }
- 
+
+// Rimanda il sessionId al LWC che chiamerà Apex
+function _sendSessionIdToLwc(sessionId, customerType) {
+  window.parent.postMessage({
+    type               : 'lpm_session_id_response',
+    messagingSessionId : sessionId,
+    customerType       : customerType
+  }, '*');
+  console.log('[Leapmotor] lpm_session_id_response sent to LWC:', sessionId, customerType);
+}
+
 (function() {
   if (window.embeddedservice_bootstrap) { initEmbeddedMessaging(); return; }
   if (document.getElementById('esw-bootstrap')) return;
