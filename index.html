@@ -83,7 +83,6 @@
 <!-- ======================== BLOCK 1: CONFIG + INIT ======================== -->
 <script type="text/javascript">
 /* ======================== BLOCK 1: CONFIG + INIT ======================== */
-/* ======================== BLOCK 1: CONFIG + INIT ======================== */
 const ESW_CONFIG = {
   ORG_ID: '00DUA000003t2Uy',
   DEFAULT: {
@@ -191,12 +190,23 @@ function initEmbeddedMessaging() {
       console.log('[Leapmotor] Customer type received:', value, '| conversationId:', conversationId);
 
       if (conversationId) {
-        window.parent.postMessage({
-          type             : 'lpm_conversation_id_response',
-          conversationId   : conversationId,
-          customerType     : value
-        }, '*');
-        console.log('[Leapmotor] lpm_conversation_id_response sent:', conversationId, value);
+        const payload = {
+          type           : 'lpm_conversation_id_response',
+          conversationId : conversationId,
+          customerType   : value
+        };
+        // Invia il messaggio all'iframe Salesforce che contiene il LWC
+        const chatFrame = document.querySelector('#embeddedMessagingFrame') ||
+                          document.querySelector('iframe[name*="embedded"]') ||
+                          document.querySelector('iframe[title*="Chat"]');
+        if (chatFrame && chatFrame.contentWindow) {
+          chatFrame.contentWindow.postMessage(payload, '*');
+          console.log('[Leapmotor] lpm_conversation_id_response sent to iframe:', conversationId, value);
+        } else {
+          // Fallback: broadcast su window (funziona se LWC è in stesso frame)
+          window.postMessage(payload, '*');
+          console.log('[Leapmotor] lpm_conversation_id_response broadcast:', conversationId, value);
+        }
       } else {
         console.warn('[Leapmotor] conversationId not available yet');
       }
