@@ -123,8 +123,27 @@ function getRuntimeDeployment(ci) {
   return (ci && ci.code === 'uk') ? ESW_CONFIG.UK : ESW_CONFIG.DEFAULT;
 }
 
-// conversationId catturato dal primo messaggio (welcome del bot)
+// conversationId catturato dal primo messaggio SSE
 window.__lpm_conversation_id = null;
+
+// Invia la risposta con conversationId all'iframe del LWC
+function _sendToLwc(conversationId, customerType) {
+  const payload = {
+    type           : 'lpm_conversation_id_response',
+    conversationId : conversationId,
+    customerType   : customerType
+  };
+  const chatFrame = document.querySelector('#embeddedMessagingFrame') ||
+                    document.querySelector('iframe[name*="embedded"]') ||
+                    document.querySelector('iframe[title*="Chat"]');
+  if (chatFrame && chatFrame.contentWindow) {
+    chatFrame.contentWindow.postMessage(payload, '*');
+    console.log('[Leapmotor] lpm_conversation_id_response sent to iframe:', conversationId, customerType);
+  } else {
+    window.postMessage(payload, '*');
+    console.log('[Leapmotor] lpm_conversation_id_response broadcast:', conversationId, customerType);
+  }
+}
 
 function initEmbeddedMessaging() {
   if (window.__ESW_INIT_DONE__) return;
@@ -138,22 +157,19 @@ function initEmbeddedMessaging() {
     embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
     embeddedservice_bootstrap.settings.language = ci.language;
 
-    // ── 1. Cattura conversationId dal primo messaggio ricevuto ────────────────
-    // onEmbeddedMessageSent contiene conversationId nel detail
-    // Lo salviamo al primo messaggio utile (welcome del bot)
+    // ── 1. Cattura conversationId dai primi eventi SSE disponibili ────────────
     window.addEventListener('onEmbeddedMessagingConversationStarted', function (e) {
       try {
         const cid = e?.detail?.conversationId || e?.detail?.conversation?.conversationId;
-        if (cid) {
+        if (cid && !window.__lpm_conversation_id) {
           window.__lpm_conversation_id = cid;
           console.log('[Leapmotor] conversationId from conversationStarted:', cid);
         }
       } catch (err) { /* ignora */ }
     });
 
-    // Backup: cattura conversationId dal primo messaggio SSE
     window.addEventListener('onEmbeddedMessageSent', function (e) {
-      if (window.__lpm_conversation_id) return; // già salvato
+      if (window.__lpm_conversation_id) return;
       try {
         const cid = e?.detail?.conversationId || e?.detail?.conversationEntry?.conversationId;
         if (cid) {
@@ -163,7 +179,6 @@ function initEmbeddedMessaging() {
       } catch (err) { /* ignora */ }
     });
 
-    // Secondo backup: cattura da qualsiasi evento SSE in arrivo
     window.addEventListener('onEmbeddedMessagingNewMessage', function (e) {
       if (window.__lpm_conversation_id) return;
       try {
@@ -176,37 +191,18 @@ function initEmbeddedMessaging() {
     });
 
     // ── 2. Listener postMessage dal LWC ──────────────────────────────────────
-    // Riceve { type: 'lpm_customer_type_selected', customerType: 'Private'/'Business',
-    //          conversationId: '...' }
-    // Rimanda al LWC il conversationId per la chiamata Apex
+    // Riceve { type: 'lpm_customer_type_selected', customerType, conversationId }
+    // Il sito rimanda il conversationId al LWC che chiama Apex → Platform Event
     window.addEventListener('message', function (event) {
       if (!event.data || event.data.type !== 'lpm_customer_type_selected') return;
 
       const value          = event.data.customerType;
-      // Usa il conversationId inviato dal LWC (dal messaggio agent)
-      // oppure quello salvato globalmente
       const conversationId = event.data.conversationId || window.__lpm_conversation_id;
 
       console.log('[Leapmotor] Customer type received:', value, '| conversationId:', conversationId);
 
       if (conversationId) {
-        const payload = {
-          type           : 'lpm_conversation_id_response',
-          conversationId : conversationId,
-          customerType   : value
-        };
-        // Invia il messaggio all'iframe Salesforce che contiene il LWC
-        const chatFrame = document.querySelector('#embeddedMessagingFrame') ||
-                          document.querySelector('iframe[name*="embedded"]') ||
-                          document.querySelector('iframe[title*="Chat"]');
-        if (chatFrame && chatFrame.contentWindow) {
-          chatFrame.contentWindow.postMessage(payload, '*');
-          console.log('[Leapmotor] lpm_conversation_id_response sent to iframe:', conversationId, value);
-        } else {
-          // Fallback: broadcast su window (funziona se LWC è in stesso frame)
-          window.postMessage(payload, '*');
-          console.log('[Leapmotor] lpm_conversation_id_response broadcast:', conversationId, value);
-        }
+        _sendToLwc(conversationId, value);
       } else {
         console.warn('[Leapmotor] conversationId not available yet');
       }
