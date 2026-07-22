@@ -417,7 +417,12 @@ function _sendSessionIdToLwc(sessionId, customerType) {
       __guardScrollApplying=false;
     }
   }, {passive:true});
-
+  
+  window.addEventListener('onEmbeddedMessagingConversationStarted', function() {
+    console.log('[Leapmotor] onEmbeddedMessagingConversationStarted fired');
+    console.log('[Leapmotor] sessionId at this point:', 
+        embeddedservice_bootstrap.utilAPI.getSessionId());
+});
   try { if ('scrollRestoration' in history) history.scrollRestoration='manual'; } catch(e) {}
 
   function updateVisualViewportVars() {
