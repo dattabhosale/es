@@ -111,7 +111,7 @@ const ESW_CONFIG = {
   },
   DEFAULT_COUNTRY: 'uk'
 };
-
+ 
 function getCountryCodeFromPath() {
   const parts = window.location.pathname.split('/').filter(p => p.length > 0);
   return parts.length > 0 ? parts[0].toLowerCase() : ESW_CONFIG.DEFAULT_COUNTRY;
@@ -122,7 +122,11 @@ function getCountryInfo(code) {
 function getRuntimeDeployment(ci) {
   return (ci && ci.code === 'uk') ? ESW_CONFIG.UK : ESW_CONFIG.DEFAULT;
 }
-
+ 
+// ── Customer Type: sessionId globale ─────────────────────────────────────────
+// Viene popolato dagli event listener qui sotto e usato nel listener postMessage
+window.__lpm_session_id = null;
+ 
 function initEmbeddedMessaging() {
   if (window.__ESW_INIT_DONE__) return;
   window.__ESW_INIT_DONE__ = true;
@@ -131,21 +135,24 @@ function initEmbeddedMessaging() {
     const ci = getCountryInfo(cc);
     const rt = getRuntimeDeployment(ci);
     if (!window.embeddedservice_bootstrap) { console.error('[ESW] bootstrap not available'); return; }
+ 
     embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
     embeddedservice_bootstrap.settings.language = ci.language;
-    
-    window.addEventListener('message', function(e) {
-    if (e.data?.type === 'lpm_customer_type_selected') {
-        const value = e.data.customerType;        // 'Private' o 'Business'
-        const convId = e.data.conversationId;
-        // Qui chiami un Flow tramite REST API con le credenziali della pagina
-        // oppure scrivi il valore in un campo della pre-chat session
-        console.log('Customer type selected:', value, convId);
-      }
-    });
-    window.addEventListener('onEmbeddedMessagingReady', function onReadyOnce() {
+ 
+    // ── 1. Recupera MessagingSession Id appena il bootstrap è pronto ─────────
+    window.addEventListener('onEmbeddedMessagingReady', function () {
       if (window.__ESW_READY_DONE__) return;
       window.__ESW_READY_DONE__ = true;
+ 
+      // Recupera il session Id
+      try {
+        const sessionId = embeddedservice_bootstrap.utilAPI.getSessionId();
+        window.__lpm_session_id = sessionId || null;
+        console.log('[Leapmotor] MessagingSession Id ready:', window.__lpm_session_id);
+      } catch (e) {
+        console.warn('[Leapmotor] getSessionId on ready error:', e);
+      }
+ 
       setTimeout(function() {
         try {
           const c = getCountryCodeFromPath();
@@ -155,24 +162,70 @@ function initEmbeddedMessaging() {
           });
           console.log('[ESW] Prechat fields set:', i);
         } catch(e) { console.error('[ESW] prechat fields error:', e); }
-
+ 
         window.__ESW_AUTO_OPEN_TIMER__ = setTimeout(function() {
           if (!window.__ESW_CHAT_EVER_OPENED__ && window.embeddedservice_bootstrap) {
             embeddedservice_bootstrap.utilAPI.launchChat().catch(err => console.error('[ESW] auto open:', err));
           }
         }, 10000);
-
+ 
         window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
           clearTimeout(window.__ESW_AUTO_OPEN_TIMER__);
           window.__ESW_CHAT_EVER_OPENED__ = true;
         }, { once: true });
       }, 500);
     });
-
+ 
+    // ── 2. Aggiorna sessionId anche quando la conversazione inizia ────────────
+    window.addEventListener('onEmbeddedMessagingConversationStarted', function () {
+      try {
+        const sessionId = embeddedservice_bootstrap.utilAPI.getSessionId();
+        if (sessionId) {
+          window.__lpm_session_id = sessionId;
+          console.log('[Leapmotor] MessagingSession Id updated on conversationStarted:', window.__lpm_session_id);
+        }
+      } catch (e) {
+        console.warn('[Leapmotor] getSessionId on conversationStarted error:', e);
+      }
+    });
+ 
+    // ── 3. Listener postMessage dal LWC ──────────────────────────────────────
+    // Riceve { type: 'lpm_customer_type_selected', customerType: 'Private'/'Business' }
+    // Invia il valore nella chat e rimanda il sessionId al LWC per la chiamata Apex
+    window.addEventListener('message', async function (event) {
+      if (!event.data || event.data.type !== 'lpm_customer_type_selected') return;
+ 
+      const value     = event.data.customerType;
+      const sessionId = window.__lpm_session_id;
+ 
+      console.log('[Leapmotor] Customer type received:', value, '| sessionId:', sessionId);
+ 
+      // Invia il valore nella chat come messaggio dell'utente
+      try {
+        await embeddedservice_bootstrap.utilAPI.sendMessage(value);
+        console.log('[Leapmotor] sendMessage OK:', value);
+      } catch (e) {
+        console.error('[Leapmotor] sendMessage error:', e);
+      }
+ 
+      // Rimanda al LWC il sessionId per la chiamata Apex
+      if (sessionId) {
+        window.parent.postMessage({
+          type               : 'lpm_session_id_response',
+          messagingSessionId : sessionId,
+          customerType       : value
+        }, '*');
+        console.log('[Leapmotor] lpm_session_id_response sent to LWC:', sessionId);
+      } else {
+        console.warn('[Leapmotor] sessionId non disponibile — Apex non verrà chiamato');
+      }
+    });
+ 
     embeddedservice_bootstrap.init(ESW_CONFIG.ORG_ID, rt.DEPLOYMENT_NAME, rt.SITE_URL, { scrt2URL: rt.SCRT2_URL });
+ 
   } catch(err) { console.error('[ESW] init error:', err); }
 }
-
+ 
 (function() {
   if (window.embeddedservice_bootstrap) { initEmbeddedMessaging(); return; }
   if (document.getElementById('esw-bootstrap')) return;
@@ -185,66 +238,6 @@ function initEmbeddedMessaging() {
   s.onload = initEmbeddedMessaging;
   s.onerror = () => console.error('[ESW] bootstrap load failed');
   document.body.appendChild(s);
-})();
-
-(function () {
- 
-    // 1. Recupera e salva il MessagingSession Id appena la chat è pronta
-    window.addEventListener('onEmbeddedMessagingReady', function () {
-        try {
-            const sessionId = embeddedservice_bootstrap.utilAPI.getSessionId();
-            window.__lpm_session_id = sessionId || null;
-            console.log('[Leapmotor] MessagingSession Id ready:', window.__lpm_session_id);
-        } catch (e) {
-            console.warn('[Leapmotor] getSessionId error:', e);
-            window.__lpm_session_id = null;
-        }
-    });
- 
-    // Aggiorna il sessionId anche quando la conversazione inizia
-    // (in alcuni deployment getSessionId è disponibile solo dopo questo evento)
-    window.addEventListener('onEmbeddedMessagingConversationStarted', function () {
-        try {
-            const sessionId = embeddedservice_bootstrap.utilAPI.getSessionId();
-            if (sessionId) {
-                window.__lpm_session_id = sessionId;
-                console.log('[Leapmotor] MessagingSession Id updated:', window.__lpm_session_id);
-            }
-        } catch (e) {
-            console.warn('[Leapmotor] getSessionId on conversationStarted error:', e);
-        }
-    });
- 
-    // 2. Ricevi il postMessage dal LWC
-    window.addEventListener('message', async function (event) {
-        if (!event.data || event.data.type !== 'lpm_customer_type_selected') return;
- 
-        const value     = event.data.customerType;
-        const sessionId = window.__lpm_session_id;
- 
-        console.log('[Leapmotor] Customer type received:', value, '| sessionId:', sessionId);
- 
-        // Invia il valore nella chat come messaggio dell'utente
-        try {
-            await embeddedservice_bootstrap.utilAPI.sendMessage(value);
-            console.log('[Leapmotor] sendMessage OK:', value);
-        } catch (e) {
-            console.error('[Leapmotor] sendMessage error:', e);
-        }
- 
-        // Rimanda al LWC il sessionId per la chiamata Apex
-        if (sessionId) {
-            window.parent.postMessage({
-                type               : 'lpm_session_id_response',
-                messagingSessionId : sessionId,
-                customerType       : value
-            }, '*');
-            console.log('[Leapmotor] lpm_session_id_response sent to LWC:', sessionId);
-        } else {
-            console.warn('[Leapmotor] sessionId non disponibile, Apex non verrà chiamato');
-        }
-    });
- 
 })();
 </script>
 
