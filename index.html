@@ -123,8 +123,7 @@ function getRuntimeDeployment(ci) {
   return (ci && ci.code === 'uk') ? ESW_CONFIG.UK : ESW_CONFIG.DEFAULT;
 }
  
-// ── Customer Type: sessionId globale ─────────────────────────────────────────
-// Viene popolato dagli event listener qui sotto e usato nel listener postMessage
+// SessionId globale — popolato su onEmbeddedMessagingConversationStarted
 window.__lpm_session_id = null;
  
 function initEmbeddedMessaging() {
@@ -139,19 +138,10 @@ function initEmbeddedMessaging() {
     embeddedservice_bootstrap.settings.shouldOpenLinksInSameTab = true;
     embeddedservice_bootstrap.settings.language = ci.language;
  
-    // ── 1. Recupera MessagingSession Id appena il bootstrap è pronto ─────────
+    // ── 1. onEmbeddedMessagingReady: prechat + auto-open ─────────────────────
     window.addEventListener('onEmbeddedMessagingReady', function () {
       if (window.__ESW_READY_DONE__) return;
       window.__ESW_READY_DONE__ = true;
- 
-      // Recupera il session Id
-      try {
-        const sessionId = embeddedservice_bootstrap.utilAPI.getSessionId();
-        window.__lpm_session_id = sessionId || null;
-        console.log('[Leapmotor] MessagingSession Id ready:', window.__lpm_session_id);
-      } catch (e) {
-        console.warn('[Leapmotor] getSessionId on ready error:', e);
-      }
  
       setTimeout(function() {
         try {
@@ -176,22 +166,22 @@ function initEmbeddedMessaging() {
       }, 500);
     });
  
-    // ── 2. Aggiorna sessionId anche quando la conversazione inizia ────────────
+    // ── 2. onEmbeddedMessagingConversationStarted: recupera sessionId ─────────
+    // getSessionId() è disponibile solo DOPO che la conversazione è iniziata
     window.addEventListener('onEmbeddedMessagingConversationStarted', function () {
       try {
         const sessionId = embeddedservice_bootstrap.utilAPI.getSessionId();
-        if (sessionId) {
-          window.__lpm_session_id = sessionId;
-          console.log('[Leapmotor] MessagingSession Id updated on conversationStarted:', window.__lpm_session_id);
-        }
+        window.__lpm_session_id = sessionId || null;
+        console.log('[Leapmotor] MessagingSession Id:', window.__lpm_session_id);
       } catch (e) {
-        console.warn('[Leapmotor] getSessionId on conversationStarted error:', e);
+        console.warn('[Leapmotor] getSessionId error:', e);
       }
     });
  
     // ── 3. Listener postMessage dal LWC ──────────────────────────────────────
     // Riceve { type: 'lpm_customer_type_selected', customerType: 'Private'/'Business' }
-    // Invia il valore nella chat e rimanda il sessionId al LWC per la chiamata Apex
+    // - sendTextMessage() invia il valore nella chat (metodo corretto, non sendMessage)
+    // - rimanda sessionId al LWC per la chiamata Apex
     window.addEventListener('message', async function (event) {
       if (!event.data || event.data.type !== 'lpm_customer_type_selected') return;
  
@@ -200,12 +190,12 @@ function initEmbeddedMessaging() {
  
       console.log('[Leapmotor] Customer type received:', value, '| sessionId:', sessionId);
  
-      // Invia il valore nella chat come messaggio dell'utente
+      // ⚠️ Il metodo corretto è sendTextMessage, NON sendMessage
       try {
-        await embeddedservice_bootstrap.utilAPI.sendMessage(value);
-        console.log('[Leapmotor] sendMessage OK:', value);
+        await embeddedservice_bootstrap.utilAPI.sendTextMessage(value);
+        console.log('[Leapmotor] sendTextMessage OK:', value);
       } catch (e) {
-        console.error('[Leapmotor] sendMessage error:', e);
+        console.error('[Leapmotor] sendTextMessage error:', e);
       }
  
       // Rimanda al LWC il sessionId per la chiamata Apex
@@ -215,9 +205,9 @@ function initEmbeddedMessaging() {
           messagingSessionId : sessionId,
           customerType       : value
         }, '*');
-        console.log('[Leapmotor] lpm_session_id_response sent to LWC:', sessionId);
+        console.log('[Leapmotor] lpm_session_id_response sent:', sessionId);
       } else {
-        console.warn('[Leapmotor] sessionId non disponibile — Apex non verrà chiamato');
+        console.warn('[Leapmotor] sessionId null — conversazione non ancora iniziata?');
       }
     });
  
