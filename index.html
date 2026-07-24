@@ -471,8 +471,10 @@ function initEmbeddedMessaging() {
     if (!launcher) return;
     const cs=getComputedStyle(document.documentElement);
     launcher.style.position='fixed';
-    launcher.style.bottom=cs.getPropertyValue('--chat-launcher-bottom').trim()||'60px';
+    launcher.style.bottom=cs.getPropertyValue('--chat-launcher-bottom').trim()||'120px';
     launcher.style.right=cs.getPropertyValue('--chat-launcher-right').trim()||'30px';
+    launcher.style.setProperty('bottom', '120px', 'important');
+    launcher.style.inset='auto 30px 120px auto';
     launcher.style.left='auto'; launcher.style.top='auto';
     launcher.style.transform='none'; launcher.style.transition='none';
     launcher.style.zIndex='2147483647';
@@ -778,9 +780,9 @@ function initEmbeddedMessaging() {
 <!-- ======================== CUSTOM STYLES ======================== -->
 <style>
 :root {
-  --chat-launcher-bottom: 60px;
+  --chat-launcher-bottom: 120px;
   --chat-launcher-right: 30px;
-  --chat-nudge-offset: 70px;
+  --chat-nudge-offset: 80px;
   --site-header-height: 60px;
   --vvh: 100dvh;
   --vv-offset-top: 0px;
@@ -851,10 +853,10 @@ function initEmbeddedMessaging() {
 #embeddedMessagingIconMinimize {
   position: absolute !important;
   top: 50% !important;
-  left: 150% !important;
+  left: 50% !important;
   transform: translate(-50%, -50%) !important;
-  width: 40px !important;
-  height: 40px !important;
+  width: 35px !important;
+  height: 35px !important;
   z-index: 10 !important;
 }
 #embeddedMessagingIconContainer {
