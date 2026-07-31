@@ -191,8 +191,21 @@ function initEmbeddedMessaging() {
     });
 
     // ── 2. Listener postMessage dal LWC ──────────────────────────────────────
-    // Riceve { type: 'lpm_customer_type_selected', customerType, conversationId }
-    // Il sito rimanda il conversationId al LWC che chiama Apex → Platform Event
+
+    // 2a. Dealer selezionato — invia il nome nella chat come messaggio utente
+    window.addEventListener('message', async function (event) {
+      if (!event.data || event.data.type !== 'lpm_dealer_selected') return;
+      const dealerName = event.data.dealerName;
+      console.log('[Leapmotor] Dealer selected:', dealerName);
+      try {
+        await embeddedservice_bootstrap.utilAPI.sendTextMessage(dealerName);
+        console.log('[Leapmotor] Dealer name sent to chat:', dealerName);
+      } catch (e) {
+        console.error('[Leapmotor] sendTextMessage dealer error:', e);
+      }
+    });
+
+    // 2b. Customer type selezionato
     window.addEventListener('message', function (event) {
       if (!event.data || event.data.type !== 'lpm_customer_type_selected') return;
 
