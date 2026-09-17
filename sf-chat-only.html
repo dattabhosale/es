@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Chat</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; background: #fff; }
+
+    /* Forza la chat a occupare tutto lo spazio disponibile */
+    #embedded-messaging,
+    .embeddedMessagingFrame,
+    #embeddedMessagingFrame,
+    iframe[data-embedded-messaging-iframe] {
+      position   : fixed  !important;
+      top        : 0      !important;
+      left       : 0      !important;
+      width      : 100vw  !important;
+      height     : 100vh  !important;
+      max-width  : none   !important;
+      max-height : none   !important;
+      border     : none   !important;
+      border-radius: 0   !important;
+      z-index    : 9999   !important;
+    }
+
+    /* Nasconde il launcher — la chat si apre automaticamente */
+    #embeddedMessagingConversationButton,
+    div[class*="Launcher"],
+    button[class*="Launcher"] {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+var ESW_ORG_ID          = '00DUA000003t2Uy';
+var ESW_DEPLOYMENT_NAME = 'Leapmotor_Test';
+var ESW_SITE_URL        = 'https://leapmotor--uat.sandbox.my.site.com/ESWLeapmotorTest1765461060847';
+var ESW_SCRT2_URL       = 'https://leapmotor--uat.sandbox.my.salesforce-scrt.com';
+
+var COUNTRY_MAPPING = {
+  'it': { name: 'Italy',          language: 'it',    code: 'it' },
+  'es': { name: 'Spain',          language: 'es',    code: 'es' },
+  'fr': { name: 'France',         language: 'fr',    code: 'fr' },
+  'de': { name: 'Germany',        language: 'de',    code: 'de' },
+  'at': { name: 'Austria',        language: 'de',    code: 'at' },
+  'nl': { name: 'Netherlands',    language: 'nl_NL', code: 'nl' },
+  'pl': { name: 'Poland',         language: 'pl',    code: 'pl' },
+  'pt': { name: 'Portugal',       language: 'pt_PT', code: 'pt' },
+  'uk': { name: 'United Kingdom', language: 'en_US', code: 'uk' }
+};
+
+function getCountryInfo() {
+  var params  = new URLSearchParams(window.location.search);
+  var country = params.get('country') || 'uk';
+  return COUNTRY_MAPPING[country.toLowerCase()] || COUNTRY_MAPPING['uk'];
+}
+
+// ── Relay postMessage al parent (chat.html) ───────────────────────────────
+// Il LWC fa window.parent.postMessage → questa pagina è l'iframe
+// ma dobbiamo rilanciare il messaggio al parent di chat.html
+window.addEventListener('message', function(event) {
+  try {
+    if (!event.data) return;
+    // Rilancia al parent (chat.html) i messaggi del LWC
+    if (event.data.type === 'lpm_carousel_data' ||
+        event.data.type === 'lpm_dealer_selected') {
+      window.parent.postMessage(event.data, '*');
+    }
+    // Gestisci la risposta dal parent per il customer type
+    if (event.data.type === 'lpm_conversation_id_response') {
+      var frame = document.querySelector('#embeddedMessagingFrame') ||
+                  document.querySelector('iframe[data-embedded-messaging-iframe]');
+      if (frame && frame.contentWindow) {
+        frame.contentWindow.postMessage(event.data, '*');
+      }
+    }
+  } catch(e) {}
+});
+
+// ── Cattura conversationId e relay customer type ──────────────────────────
+window.__lpm_conversation_id = null;
+
+window.addEventListener('message', function(event) {
+  try {
+    if (!event.data || event.data.type !== 'lpm_customer_type_selected') return;
+    var value          = event.data.customerType;
+    var conversationId = event.data.conversationId || window.__lpm_conversation_id;
+    if (!conversationId) return;
+    var frame = document.querySelector('#embeddedMessagingFrame') ||
+                document.querySelector('iframe[data-embedded-messaging-iframe]');
+    if (frame && frame.contentWindow) {
+      frame.contentWindow.postMessage({
+        type           : 'lpm_conversation_id_response',
+        conversationId : conversationId,
+        customerType   : value
+      }, '*');
+    }
+  } catch(e) {}
+});
+
+window.addEventListener('onEmbeddedMessagingConversationStarted', function(e) {
+  try {
+    var cid = e && e.detail && e.detail.conversationId;
+    if (cid && !window.__lpm_conversation_id) window.__lpm_conversation_id = cid;
+  } catch(err) {}
+});
+
+window.addEventListener('onEmbeddedMessageSent', function(e) {
+  if (window.__lpm_conversation_id) return;
+  try {
+    var cid = e && e.detail && e.detail.conversationId;
+    if (cid) window.__lpm_conversation_id = cid;
+  } catch(err) {}
+});
+
+// ── Dealer selezionato → sendTextMessage ─────────────────────────────────
+window.addEventListener('message', function(event) {
+  try {
+    if (!event.data || event.data.type !== 'lpm_dealer_selected') return;
+    if (window.embeddedservice_bootstrap && window.embeddedservice_bootstrap.utilAPI) {
+      window.embeddedservice_bootstrap.utilAPI.sendTextMessage(event.data.dealerName);
+    }
+  } catch(e) {}
+});
+
+// ── Init Salesforce ────────────────────────────────────────────────────────
+function initChat() {
+  var ci = getCountryInfo();
+
+  embeddedservice_bootstrap.settings.language = ci.language;
+
+  window.addEventListener('onEmbeddedMessagingReady', function() {
+    try {
+      embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+        Country    : ci.name,
+        Language   : ci.language,
+        CountryCode: ci.code
+      });
+    } catch(e) {}
+
+    // Applica stili fullscreen sull'iframe
+    var applyStyles = function() {
+      var frame = document.querySelector('#embeddedMessagingFrame') ||
+                  document.querySelector('iframe[data-embedded-messaging-iframe]');
+      if (frame) {
+        frame.style.setProperty('position',   'fixed',  'important');
+        frame.style.setProperty('top',        '0',      'important');
+        frame.style.setProperty('left',       '0',      'important');
+        frame.style.setProperty('width',      '100vw',  'important');
+        frame.style.setProperty('height',     '100vh',  'important');
+        frame.style.setProperty('max-width',  'none',   'important');
+        frame.style.setProperty('max-height', 'none',   'important');
+        frame.style.setProperty('border',     'none',   'important');
+        frame.style.setProperty('border-radius', '0',   'important');
+      }
+    };
+
+    var obs = new MutationObserver(applyStyles);
+    obs.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+    setTimeout(function() { obs.disconnect(); }, 15000);
+
+    // Auto-apri
+    setTimeout(function() {
+      embeddedservice_bootstrap.utilAPI.launchChat()
+        .catch(function(e) { console.error('[SFChat] launchChat error:', e); });
+    }, 800);
+  });
+
+  window.addEventListener('onEmbeddedMessagingWindowOpened', function() {
+    var frame = document.querySelector('#embeddedMessagingFrame') ||
+                document.querySelector('iframe[data-embedded-messaging-iframe]');
+    if (frame) {
+      frame.style.setProperty('position',   'fixed',  'important');
+      frame.style.setProperty('top',        '0',      'important');
+      frame.style.setProperty('left',       '0',      'important');
+      frame.style.setProperty('width',      '100vw',  'important');
+      frame.style.setProperty('height',     '100vh',  'important');
+      frame.style.setProperty('max-width',  'none',   'important');
+      frame.style.setProperty('max-height', 'none',   'important');
+      frame.style.setProperty('border',     'none',   'important');
+    }
+  });
+
+  embeddedservice_bootstrap.init(
+    ESW_ORG_ID,
+    ESW_DEPLOYMENT_NAME,
+    ESW_SITE_URL,
+    { scrt2URL: ESW_SCRT2_URL }
+  );
+}
+
+// Carica bootstrap SF
+var s = document.createElement('script');
+s.src     = ESW_SITE_URL + '/assets/js/bootstrap.min.js';
+s.onload  = initChat;
+s.onerror = function() { console.error('[SFChat] bootstrap load failed'); };
+document.body.appendChild(s);
+
+</script>
+</body>
+</html>
