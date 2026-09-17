@@ -793,9 +793,55 @@ function initEmbeddedMessaging() {
     }, {once:true});
   });
 
-  window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
-    lockPageScrollPersistent(); startScrollGuard(1600);
-    setTimeout(evaluateAndApplyOpenState, 250);
+  // ── Listener: dati carosello dal LWC → aggiorna pannello dx ─────────────
+  if (!window.__LPM_CAROUSEL_LISTENER__) {
+    window.__LPM_CAROUSEL_LISTENER__ = true;
+    window.addEventListener('message', function(event) {
+      try {
+        if (!event.data || event.data.type !== 'lpm_carousel_data') return;
+        if (window.innerWidth < 1025) return; // solo desktop
+
+        const sections = event.data.sections;
+        if (!sections || !sections.length) return;
+
+        const panel   = document.getElementById('lpm-panel-dx');
+        const content = document.getElementById('lpm-panel-dx-content');
+        if (!panel || !content) return;
+
+        content.innerHTML = sections.map(function(s) {
+          return '<div class="lpm-vehicle-card">' +
+            (s.image ? '<div class="lpm-vehicle-img-wrap"><img src="' + s.image + '" alt="' + s.title + '" class="lpm-vehicle-img"></div>' : '') +
+            '<div class="lpm-vehicle-body">' +
+              '<h3 class="lpm-vehicle-title">' + s.title + '</h3>' +
+              (s.availability ? '<p class="lpm-vehicle-avail">' + s.availability + '</p>' : '') +
+              (s.opts ? '<p class="lpm-vehicle-opts">' + s.opts + '</p>' : '') +
+              (s.galleryUrl ? '<a href="' + s.galleryUrl + '" target="_blank" rel="noopener noreferrer" class="lpm-vehicle-link">' + (s.galleryLabel || 'Gallery') + ' →</a>' : '') +
+            '</div>' +
+          '</div>';
+        }).join('');
+
+        panel.classList.add('active');
+
+        // Ridimensiona l'iframe a 50% sx quando il pannello è attivo
+        var frame = document.querySelector('#embeddedMessagingFrame') ||
+                    document.querySelector('iframe[data-embedded-messaging-iframe]');
+        if (frame) {
+          frame.style.setProperty('width',    '50vw', 'important');
+          frame.style.setProperty('left',     '0',    'important');
+          frame.style.setProperty('right',    'auto', 'important');
+        }
+      } catch(e) { console.error('[Leapmotor] carousel panel error:', e); }
+    });
+  }
+
+  // Chiudi pannello dx quando la chat viene minimizzata/chiusa
+  window.addEventListener('onEmbeddedMessagingWindowMinimized', function() {
+    var panel = document.getElementById('lpm-panel-dx');
+    if (panel) panel.classList.remove('active');
+  });
+  window.addEventListener('onEmbeddedMessagingWindowClosed', function() {
+    var panel = document.getElementById('lpm-panel-dx');
+    if (panel) panel.classList.remove('active');
   });
 
   window.addEventListener('onEmbeddedMessagingWindowOpened', function() {
@@ -826,6 +872,11 @@ function initEmbeddedMessaging() {
 })();
 </script>
 
+<!-- ======================== PANEL DX VEICOLI ======================== -->
+<div id="lpm-panel-dx" aria-label="Vehicle details">
+  <div id="lpm-panel-dx-content"></div>
+</div>
+
 <!-- ======================== CUSTOM STYLES ======================== -->
 <style>
 :root {
@@ -837,6 +888,81 @@ function initEmbeddedMessaging() {
   --vv-offset-top: 0px;
   --chat-frame-bottom-gap: 40px;
   --chat-frame-right-gap: 30px;
+}
+
+/* ======= PANEL DX VEICOLI (solo desktop >= 1025px) ======= */
+@media (min-width: 1025px) {
+  #lpm-panel-dx {
+    position  : fixed;
+    top       : 0;
+    right     : 0;
+    width     : 50vw;
+    height    : 100vh;
+    background: #f7f7f7;
+    z-index   : 2147483644;
+    display   : none;
+    overflow-y: auto;
+    padding   : 80px 32px 32px;
+    box-sizing: border-box;
+    border-left: 1px solid #e5e5e5;
+  }
+  #lpm-panel-dx.active {
+    display: block;
+  }
+  .lpm-vehicle-card {
+    background   : #ffffff;
+    border-radius: 16px;
+    overflow     : hidden;
+    box-shadow   : 0 2px 12px rgba(0,0,0,0.08);
+    margin-bottom: 24px;
+  }
+  .lpm-vehicle-img-wrap {
+    width : 100%;
+    height: 220px;
+    overflow: hidden;
+  }
+  .lpm-vehicle-img {
+    width     : 100%;
+    height    : 100%;
+    object-fit: cover;
+    display   : block;
+    transition: transform 0.3s ease;
+  }
+  .lpm-vehicle-card:hover .lpm-vehicle-img {
+    transform: scale(1.03);
+  }
+  .lpm-vehicle-body {
+    padding: 20px 24px;
+  }
+  .lpm-vehicle-title {
+    font-size  : 18px;
+    font-weight: 700;
+    color      : #084828;
+    margin     : 0 0 8px;
+  }
+  .lpm-vehicle-avail {
+    font-size : 13px;
+    color     : #4a4a4a;
+    margin    : 0 0 4px;
+  }
+  .lpm-vehicle-opts {
+    font-size : 12px;
+    color     : #888;
+    font-style: italic;
+    margin    : 0 0 12px;
+  }
+  .lpm-vehicle-link {
+    display        : inline-block;
+    font-size      : 13px;
+    font-weight    : 600;
+    color          : #FF6B00;
+    text-decoration: none;
+    border-bottom  : 1px solid rgba(255,107,0,0.3);
+    padding-bottom : 1px;
+  }
+  .lpm-vehicle-link:hover {
+    border-color: #FF6B00;
+  }
 }
 
 /* ======= DESKTOP FRAME ======= */
