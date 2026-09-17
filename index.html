@@ -872,6 +872,26 @@ function initEmbeddedMessaging() {
 })();
 </script>
 
+<!-- ======================== PULSANTE CHAT CUSTOM ======================== -->
+<button id="lpm-chat-btn" onclick="openChatPage()">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+  </svg>
+  Chat con noi
+</button>
+
+<script>
+function openChatPage() {
+  // Legge il codice paese dall'URL corrente
+  var parts   = window.location.pathname.split('/').filter(Boolean);
+  var country = parts[0] ? parts[0].toLowerCase() : 'uk';
+  var chatUrl = '/chat.html?country=' + country;
+  // Apre in nuova tab
+  window.open(chatUrl, '_blank', 'noopener');
+}
+</script>
+
 <!-- ======================== PANEL DX VEICOLI ======================== -->
 <div id="lpm-panel-dx" aria-label="Vehicle details">
   <div id="lpm-panel-dx-content"></div>
@@ -889,6 +909,42 @@ function initEmbeddedMessaging() {
   --chat-frame-bottom-gap: 40px;
   --chat-frame-right-gap: 30px;
 }
+
+/* ======= NASCONDI LAUNCHER SALESFORCE sul sito principale ======= */
+#embeddedMessagingConversationButton,
+#embedded-messaging,
+.embeddedServiceLauncher,
+div[class*="Launcher"],
+button[class*="Launcher"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* ======= PULSANTE CHAT CUSTOM ======= */
+#lpm-chat-btn {
+  position     : fixed;
+  bottom       : 30px;
+  right        : 30px;
+  background   : #084828;
+  color        : #ffffff;
+  border       : none;
+  border-radius: 50px;
+  padding      : 14px 24px;
+  font-size    : 15px;
+  font-weight  : 600;
+  font-family  : 'Inter', sans-serif;
+  cursor       : pointer;
+  display      : flex;
+  align-items  : center;
+  gap          : 10px;
+  box-shadow   : 0 4px 20px rgba(8,72,40,0.35);
+  z-index      : 9999;
+  transition   : background 0.15s, transform 0.1s;
+}
+#lpm-chat-btn:hover  { background: #0a5c33; transform: translateY(-2px); }
+#lpm-chat-btn:active { transform: scale(0.97); }
+#lpm-chat-btn svg    { flex-shrink: 0; }
 
 /* ======= PANEL DX VEICOLI (solo desktop >= 1025px) ======= */
 @media (min-width: 1025px) {
