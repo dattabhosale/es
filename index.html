@@ -223,56 +223,53 @@ function initEmbeddedMessaging() {
 
     // ── 3. onEmbeddedMessagingReady ───────────────────────────────────────────
     window.addEventListener('onEmbeddedMessagingReady', function () {
-    if (window.__ESW_READY_DONE__) return;
-    window.__ESW_READY_DONE__ = true;
-  
-    // ── Chat a tutta pagina su desktop ─────────────────────────────────
-    if (window.innerWidth >= 769) {
-      const style = document.createElement('style');
-      style.id = 'lpm-fullpage-chat';
-      style.textContent = `
-        #embeddedMessagingFrame {
-          width    : 100vw  !important;
-          height   : 100vh  !important;
-          top      : 0      !important;
-          left     : 0      !important;
-          right    : 0      !important;
-          bottom   : 0      !important;
-          position : fixed  !important;
-          border   : none   !important;
-          z-index  : 99999  !important;
-        }
-      `;
-      document.head.appendChild(style);
-    }
-  
-      window.addEventListener('onEmbeddedMessagingWindowOpened', function () {
-        if (window.innerWidth < 769) return;
-        const frame = document.querySelector('#embeddedMessagingFrame');
-        if (frame) {
-          frame.style.setProperty('width',    '100vw',  'important');
-          frame.style.setProperty('height',   '100vh',  'important');
-          frame.style.setProperty('top',      '0',      'important');
-          frame.style.setProperty('left',     '0',      'important');
-          frame.style.setProperty('right',    '0',      'important');
-          frame.style.setProperty('bottom',   '0',      'important');
-          frame.style.setProperty('position', 'fixed',  'important');
-          frame.style.setProperty('border',   'none',   'important');
-          frame.style.setProperty('z-index',  '99999',  'important');
-        }
-      });
-  
-      setTimeout(function () {
-        try {
-          const c = getCountryCodeFromPath();
-          const i = getCountryInfo(c);
-          embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
-            Country: i.name, Language: i.language, CountryCode: i.code
-          });
-          console.log('[ESW] Prechat fields set:', i);
-        } catch (e) { console.error('[ESW] prechat fields error:', e); }
-      }, 500);
+  if (window.__ESW_READY_DONE__) return;
+  window.__ESW_READY_DONE__ = true;
+
+  // ── Chat a tutta pagina su desktop ─────────────────────────────────
+  if (window.innerWidth >= 769) {
+
+    // MutationObserver: appena l'iframe appare nel DOM, applica gli stili
+    const observer = new MutationObserver(function() {
+      const frame = document.querySelector('#embeddedMessagingFrame');
+      if (frame) {
+        frame.style.setProperty('width',    '100vw',  'important');
+        frame.style.setProperty('height',   '100vh',  'important');
+        frame.style.setProperty('top',      '0',      'important');
+        frame.style.setProperty('left',     '0',      'important');
+        frame.style.setProperty('right',    '0',      'important');
+        frame.style.setProperty('bottom',   '0',      'important');
+        frame.style.setProperty('position', 'fixed',  'important');
+        frame.style.setProperty('border',   'none',   'important');
+        frame.style.setProperty('z-index',  '99999',  'important');
+        frame.style.setProperty('max-width',  'none', 'important');
+        frame.style.setProperty('max-height', 'none', 'important');
+      }
     });
+
+    // Osserva tutto il DOM per rilevare quando l'iframe viene aggiunto o modificato
+    observer.observe(document.body, { 
+      childList: true, 
+      subtree: true, 
+      attributes: true,
+      attributeFilter: ['style']
+    });
+
+    // Ferma dopo 30 secondi per non sprecare risorse
+    setTimeout(function() { observer.disconnect(); }, 30000);
+  }
+
+  setTimeout(function () {
+    try {
+      const c = getCountryCodeFromPath();
+      const i = getCountryInfo(c);
+      embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+        Country: i.name, Language: i.language, CountryCode: i.code
+      });
+      console.log('[ESW] Prechat fields set:', i);
+    } catch (e) { console.error('[ESW] prechat fields error:', e); }
+  }, 500);
+});
 
     embeddedservice_bootstrap.init(ESW_CONFIG.ORG_ID, rt.DEPLOYMENT_NAME, rt.SITE_URL, { scrt2URL: rt.SCRT2_URL });
 
