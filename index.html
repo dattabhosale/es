@@ -793,55 +793,9 @@ function initEmbeddedMessaging() {
     }, {once:true});
   });
 
-  // ── Listener: dati carosello dal LWC → aggiorna pannello dx ─────────────
-  if (!window.__LPM_CAROUSEL_LISTENER__) {
-    window.__LPM_CAROUSEL_LISTENER__ = true;
-    window.addEventListener('message', function(event) {
-      try {
-        if (!event.data || event.data.type !== 'lpm_carousel_data') return;
-        if (window.innerWidth < 1025) return; // solo desktop
-
-        const sections = event.data.sections;
-        if (!sections || !sections.length) return;
-
-        const panel   = document.getElementById('lpm-panel-dx');
-        const content = document.getElementById('lpm-panel-dx-content');
-        if (!panel || !content) return;
-
-        content.innerHTML = sections.map(function(s) {
-          return '<div class="lpm-vehicle-card">' +
-            (s.image ? '<div class="lpm-vehicle-img-wrap"><img src="' + s.image + '" alt="' + s.title + '" class="lpm-vehicle-img"></div>' : '') +
-            '<div class="lpm-vehicle-body">' +
-              '<h3 class="lpm-vehicle-title">' + s.title + '</h3>' +
-              (s.availability ? '<p class="lpm-vehicle-avail">' + s.availability + '</p>' : '') +
-              (s.opts ? '<p class="lpm-vehicle-opts">' + s.opts + '</p>' : '') +
-              (s.galleryUrl ? '<a href="' + s.galleryUrl + '" target="_blank" rel="noopener noreferrer" class="lpm-vehicle-link">' + (s.galleryLabel || 'Gallery') + ' →</a>' : '') +
-            '</div>' +
-          '</div>';
-        }).join('');
-
-        panel.classList.add('active');
-
-        // Ridimensiona l'iframe a 50% sx quando il pannello è attivo
-        var frame = document.querySelector('#embeddedMessagingFrame') ||
-                    document.querySelector('iframe[data-embedded-messaging-iframe]');
-        if (frame) {
-          frame.style.setProperty('width',    '50vw', 'important');
-          frame.style.setProperty('left',     '0',    'important');
-          frame.style.setProperty('right',    'auto', 'important');
-        }
-      } catch(e) { console.error('[Leapmotor] carousel panel error:', e); }
-    });
-  }
-
-  // Chiudi pannello dx quando la chat viene minimizzata/chiusa
-  window.addEventListener('onEmbeddedMessagingWindowMinimized', function() {
-    var panel = document.getElementById('lpm-panel-dx');
-    if (panel) panel.classList.remove('active');
-  });
-  window.addEventListener('onEmbeddedMessagingWindowClosed', function() {
-    var panel = document.getElementById('lpm-panel-dx');
-    if (panel) panel.classList.remove('active');
+  window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
+    lockPageScrollPersistent(); startScrollGuard(1600);
+    setTimeout(evaluateAndApplyOpenState, 250);
   });
 
   window.addEventListener('onEmbeddedMessagingWindowOpened', function() {
@@ -872,8 +826,53 @@ function initEmbeddedMessaging() {
 })();
 </script>
 
+<!-- ======================== POPUP CHAT OVERLAY ======================== -->
+<div id="lpm-chat-overlay" role="dialog" aria-modal="true" aria-label="Leapmotor Chat">
+
+  <!-- Pulsante chiudi -->
+  <button id="lpm-overlay-close" onclick="closeChatOverlay()" aria-label="Close chat">✕</button>
+
+  <div class="lpm-overlay-layout">
+
+    <!-- Colonna sx: iframe con la chat SF -->
+    <div class="lpm-chat-col">
+      <iframe id="lpm-sf-iframe"
+              src=""
+              title="Leapmotor Chat"
+              allow="microphone; camera">
+      </iframe>
+    </div>
+
+    <!-- Colonna dx: veicoli -->
+    <div class="lpm-content-col">
+
+      <div class="lpm-content-header">
+        <div class="lpm-logo-circle">L</div>
+        <div>
+          <h2>Leapmotor</h2>
+          <p>Electric vehicles designed for the future</p>
+        </div>
+      </div>
+
+      <div class="lpm-placeholder" id="lpm-placeholder">
+        <svg width="72" height="72" viewBox="0 0 24 24" fill="none"
+             stroke="#ccc" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="3" width="20" height="14" rx="2"/>
+          <line x1="8" y1="21" x2="16" y2="21"/>
+          <line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        <p>Ask Leappy about our vehicles<br>to see them here</p>
+      </div>
+
+      <div class="lpm-vehicles-grid" id="lpm-vehicles-grid" style="display:none"></div>
+
+    </div>
+
+  </div>
+</div>
+
 <!-- ======================== PULSANTE CHAT CUSTOM ======================== -->
-<button id="lpm-chat-btn" onclick="openChatPage()">
+<button id="lpm-chat-btn" onclick="openChatOverlay()" aria-label="Open chat">
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
@@ -882,20 +881,70 @@ function initEmbeddedMessaging() {
 </button>
 
 <script>
-function openChatPage() {
-  // Legge il codice paese dall'URL corrente
-  var parts   = window.location.pathname.split('/').filter(Boolean);
-  var country = parts[0] ? parts[0].toLowerCase() : 'uk';
-  var chatUrl = '/chat.html?country=' + country;
-  // Apre in nuova tab
-  window.open(chatUrl, '_blank', 'noopener');
-}
-</script>
+// ── Apri / chiudi overlay ─────────────────────────────────────────────────
+function openChatOverlay() {
+  var overlay = document.getElementById('lpm-chat-overlay');
+  var iframe  = document.getElementById('lpm-sf-iframe');
 
-<!-- ======================== PANEL DX VEICOLI ======================== -->
-<div id="lpm-panel-dx" aria-label="Vehicle details">
-  <div id="lpm-panel-dx-content"></div>
-</div>
+  // Carica l'iframe solo la prima volta
+  if (!iframe.src || iframe.src === window.location.href) {
+    var parts   = window.location.pathname.split('/').filter(Boolean);
+    var country = parts[0] ? parts[0].toLowerCase() : 'uk';
+    iframe.src  = country + '/sf-chat-only.html';
+  }
+
+  overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeChatOverlay() {
+  document.getElementById('lpm-chat-overlay').classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+// Chiudi con ESC
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeChatOverlay();
+});
+
+// ── Ricevi postMessage dall'iframe sf-chat-only.html ─────────────────────
+window.addEventListener('message', function(event) {
+  try {
+    if (!event.data) return;
+
+    // Dati carosello → aggiorna griglia dx
+    if (event.data.type === 'lpm_carousel_data') {
+      var sections    = event.data.sections;
+      var placeholder = document.getElementById('lpm-placeholder');
+      var grid        = document.getElementById('lpm-vehicles-grid');
+      if (!sections || !sections.length || !grid) return;
+
+      if (placeholder) placeholder.style.display = 'none';
+      grid.style.display = '';
+      grid.innerHTML = sections.map(function(s) {
+        return '<div class="lpm-v-card">' +
+          (s.image ? '<div class="lpm-v-img-wrap"><img src="' + s.image + '" alt="' + s.title + '" class="lpm-v-img" loading="lazy"></div>' : '') +
+          '<div class="lpm-v-body">' +
+            '<h3 class="lpm-v-title">' + s.title + '</h3>' +
+            (s.availability ? '<p class="lpm-v-avail">' + s.availability + '</p>' : '') +
+            (s.opts         ? '<p class="lpm-v-opts">'  + s.opts         + '</p>' : '') +
+            (s.galleryUrl   ? '<a href="' + s.galleryUrl + '" target="_blank" rel="noopener noreferrer" class="lpm-v-link">' + (s.galleryLabel || 'Gallery') + ' →</a>' : '') +
+          '</div>' +
+        '</div>';
+      }).join('');
+    }
+
+    // Relay lpm_conversation_id_response → iframe
+    if (event.data.type === 'lpm_conversation_id_response') {
+      var iframe = document.getElementById('lpm-sf-iframe');
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage(event.data, '*');
+      }
+    }
+
+  } catch(e) { console.error('[Overlay] message error:', e); }
+});
+</script>
 
 <!-- ======================== CUSTOM STYLES ======================== -->
 <style>
@@ -910,15 +959,11 @@ function openChatPage() {
   --chat-frame-right-gap: 30px;
 }
 
-/* ======= NASCONDI LAUNCHER SALESFORCE sul sito principale ======= */
+/* ======= NASCONDE LAUNCHER SF ======= */
 #embeddedMessagingConversationButton,
-#embedded-messaging,
-.embeddedServiceLauncher,
 div[class*="Launcher"],
 button[class*="Launcher"] {
   display: none !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
 }
 
 /* ======= PULSANTE CHAT CUSTOM ======= */
@@ -939,86 +984,163 @@ button[class*="Launcher"] {
   align-items  : center;
   gap          : 10px;
   box-shadow   : 0 4px 20px rgba(8,72,40,0.35);
-  z-index      : 9999;
+  z-index      : 10000;
   transition   : background 0.15s, transform 0.1s;
 }
 #lpm-chat-btn:hover  { background: #0a5c33; transform: translateY(-2px); }
 #lpm-chat-btn:active { transform: scale(0.97); }
-#lpm-chat-btn svg    { flex-shrink: 0; }
 
-/* ======= PANEL DX VEICOLI (solo desktop >= 1025px) ======= */
-@media (min-width: 1025px) {
-  #lpm-panel-dx {
-    position  : fixed;
-    top       : 0;
-    right     : 0;
-    width     : 50vw;
-    height    : 100vh;
-    background: #f7f7f7;
-    z-index   : 2147483644;
-    display   : none;
-    overflow-y: auto;
-    padding   : 80px 32px 32px;
-    box-sizing: border-box;
-    border-left: 1px solid #e5e5e5;
-  }
-  #lpm-panel-dx.active {
-    display: block;
-  }
-  .lpm-vehicle-card {
-    background   : #ffffff;
-    border-radius: 16px;
-    overflow     : hidden;
-    box-shadow   : 0 2px 12px rgba(0,0,0,0.08);
-    margin-bottom: 24px;
-  }
-  .lpm-vehicle-img-wrap {
-    width : 100%;
-    height: 220px;
-    overflow: hidden;
-  }
-  .lpm-vehicle-img {
-    width     : 100%;
-    height    : 100%;
-    object-fit: cover;
-    display   : block;
-    transition: transform 0.3s ease;
-  }
-  .lpm-vehicle-card:hover .lpm-vehicle-img {
-    transform: scale(1.03);
-  }
-  .lpm-vehicle-body {
-    padding: 20px 24px;
-  }
-  .lpm-vehicle-title {
-    font-size  : 18px;
-    font-weight: 700;
-    color      : #084828;
-    margin     : 0 0 8px;
-  }
-  .lpm-vehicle-avail {
-    font-size : 13px;
-    color     : #4a4a4a;
-    margin    : 0 0 4px;
-  }
-  .lpm-vehicle-opts {
-    font-size : 12px;
-    color     : #888;
-    font-style: italic;
-    margin    : 0 0 12px;
-  }
-  .lpm-vehicle-link {
-    display        : inline-block;
-    font-size      : 13px;
-    font-weight    : 600;
-    color          : #FF6B00;
-    text-decoration: none;
-    border-bottom  : 1px solid rgba(255,107,0,0.3);
-    padding-bottom : 1px;
-  }
-  .lpm-vehicle-link:hover {
-    border-color: #FF6B00;
-  }
+/* ======= POPUP OVERLAY ======= */
+#lpm-chat-overlay {
+  display        : none;
+  position       : fixed;
+  inset          : 0;
+  z-index        : 99999;
+  background     : #f7f7f7;
+  animation      : lpm-fadein 0.2s ease;
+}
+#lpm-chat-overlay.active { display: block; }
+
+@keyframes lpm-fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Pulsante chiudi */
+#lpm-overlay-close {
+  position   : fixed;
+  top        : 16px;
+  right      : 20px;
+  z-index    : 100001;
+  background : rgba(0,0,0,0.15);
+  color      : #fff;
+  border     : none;
+  border-radius: 50%;
+  width      : 36px;
+  height     : 36px;
+  font-size  : 18px;
+  cursor     : pointer;
+  display    : flex;
+  align-items: center;
+  justify-content: center;
+  transition : background 0.15s;
+}
+#lpm-overlay-close:hover { background: rgba(0,0,0,0.3); }
+
+/* Layout due colonne */
+.lpm-overlay-layout {
+  display : flex;
+  height  : 100vh;
+  width   : 100vw;
+}
+
+/* Colonna sx: chat SF */
+.lpm-chat-col {
+  width     : 420px;
+  min-width : 360px;
+  flex-shrink: 0;
+  position  : relative;
+  background: #ffffff;
+  box-shadow: 2px 0 16px rgba(0,0,0,0.1);
+}
+
+#lpm-sf-iframe {
+  width   : 100%;
+  height  : 100%;
+  border  : none;
+  display : block;
+}
+
+/* Colonna dx: veicoli */
+.lpm-content-col {
+  flex      : 1;
+  overflow-y: auto;
+  padding   : 40px 48px;
+  display   : flex;
+  flex-direction: column;
+  gap       : 24px;
+}
+
+.lpm-content-header {
+  display       : flex;
+  align-items   : center;
+  gap           : 12px;
+  padding-bottom: 24px;
+  border-bottom : 1px solid #e5e5e5;
+}
+
+.lpm-logo-circle {
+  width          : 40px;
+  height         : 40px;
+  border-radius  : 50%;
+  background     : #FF6B00;
+  display        : flex;
+  align-items    : center;
+  justify-content: center;
+  color          : #fff;
+  font-size      : 18px;
+  font-weight    : bold;
+  flex-shrink    : 0;
+}
+
+.lpm-content-header h2 { font-size: 20px; font-weight: 700; color: #084828; }
+.lpm-content-header p  { font-size: 13px; color: #888; }
+
+.lpm-placeholder {
+  flex           : 1;
+  display        : flex;
+  flex-direction : column;
+  align-items    : center;
+  justify-content: center;
+  gap            : 16px;
+  text-align     : center;
+  color          : #bbb;
+  padding        : 60px 0;
+}
+
+.lpm-vehicles-grid {
+  display              : grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap                  : 24px;
+}
+
+.lpm-v-card {
+  background   : #fff;
+  border-radius: 16px;
+  overflow     : hidden;
+  box-shadow   : 0 2px 12px rgba(0,0,0,0.08);
+  transition   : transform 0.2s, box-shadow 0.2s;
+}
+.lpm-v-card:hover {
+  transform : translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+}
+
+.lpm-v-img-wrap { width: 100%; height: 200px; overflow: hidden; background: #f0f0f0; }
+.lpm-v-img      { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.4s; }
+.lpm-v-card:hover .lpm-v-img { transform: scale(1.04); }
+
+.lpm-v-body  { padding: 20px 24px; }
+.lpm-v-title { font-size: 18px; font-weight: 700; color: #084828; margin-bottom: 6px; }
+.lpm-v-avail { font-size: 13px; color: #555; margin-bottom: 4px; }
+.lpm-v-opts  { font-size: 12px; color: #999; font-style: italic; margin-bottom: 14px; }
+.lpm-v-link  {
+  display        : inline-flex;
+  align-items    : center;
+  gap            : 6px;
+  font-size      : 13px;
+  font-weight    : 600;
+  color          : #FF6B00;
+  text-decoration: none;
+}
+.lpm-v-link:hover { text-decoration: underline; }
+
+/* Mobile: layout verticale */
+@media (max-width: 768px) {
+  .lpm-overlay-layout { flex-direction: column; }
+  .lpm-chat-col { width: 100%; height: 60vh; min-width: unset; }
+  .lpm-content-col { height: 40vh; padding: 20px; overflow-y: auto; }
+  .lpm-vehicles-grid { grid-template-columns: 1fr; }
 }
 
 /* ======= DESKTOP FRAME ======= */
