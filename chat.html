@@ -31,6 +31,7 @@
       background: #ffffff;
       box-shadow: 2px 0 12px rgba(0,0,0,0.08);
       z-index   : 10;
+      overflow  : hidden;
     }
 
     /* ── Colonna dx: immagini/contenuto ───────────────────────────────── */
@@ -357,12 +358,55 @@ function initChat() {
           Language   : ci.language,
           CountryCode: ci.code
         });
-        // Auto-apri la chat dopo 500ms
-        setTimeout(function() {
-          embeddedservice_bootstrap.utilAPI.launchChat()
-            .catch(function(err) { console.error('[Chat] launchChat error:', err); });
-        }, 500);
-      } catch(e) { console.error('[Chat] ready error:', e); }
+      } catch(e) { console.error('[Chat] prechat error:', e); }
+
+      // Sposta #embedded-messaging dentro #chat-col
+      var observer = new MutationObserver(function() {
+        var esw = document.querySelector('#embedded-messaging');
+        var chatCol = document.getElementById('chat-col');
+        if (esw && chatCol && esw.parentNode !== chatCol) {
+          chatCol.appendChild(esw);
+          // Forza stili sull'iframe per riempire la colonna
+          var frame = document.querySelector('#embeddedMessagingFrame') ||
+                      document.querySelector('iframe[data-embedded-messaging-iframe]');
+          if (frame) {
+            frame.style.setProperty('position', 'absolute', 'important');
+            frame.style.setProperty('top',      '0',        'important');
+            frame.style.setProperty('left',     '0',        'important');
+            frame.style.setProperty('width',    '100%',     'important');
+            frame.style.setProperty('height',   '100%',     'important');
+            frame.style.setProperty('max-width',  'none',   'important');
+            frame.style.setProperty('max-height', 'none',   'important');
+            frame.style.setProperty('border',   'none',     'important');
+            frame.style.setProperty('border-radius', '0',   'important');
+          }
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style'] });
+      setTimeout(function() { observer.disconnect(); }, 15000);
+
+      // Auto-apri la chat dopo 800ms
+      setTimeout(function() {
+        embeddedservice_bootstrap.utilAPI.launchChat()
+          .catch(function(err) { console.error('[Chat] launchChat error:', err); });
+      }, 800);
+    });
+
+    // Quando la chat si apre, ripristina stili iframe
+    window.addEventListener('onEmbeddedMessagingWindowOpened', function() {
+      var frame = document.querySelector('#embeddedMessagingFrame') ||
+                  document.querySelector('iframe[data-embedded-messaging-iframe]');
+      if (frame) {
+        frame.style.setProperty('position', 'absolute', 'important');
+        frame.style.setProperty('top',      '0',        'important');
+        frame.style.setProperty('left',     '0',        'important');
+        frame.style.setProperty('width',    '100%',     'important');
+        frame.style.setProperty('height',   '100%',     'important');
+        frame.style.setProperty('max-width',  'none',   'important');
+        frame.style.setProperty('max-height', 'none',   'important');
+        frame.style.setProperty('border',   'none',     'important');
+        frame.style.setProperty('border-radius', '0',   'important');
+      }
     });
 
     embeddedservice_bootstrap.init(
