@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Leapmotor – Chat</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', sans-serif;
+      background: #f7f7f7;
+      overflow: hidden;
+    }
+
+    /* ── Layout principale ────────────────────────────────────────────── */
+    .chat-layout {
+      display  : flex;
+      height   : 100vh;
+      width    : 100vw;
+    }
+
+    /* ── Colonna sx: chat Salesforce ──────────────────────────────────── */
+    .chat-col {
+      width     : 420px;
+      min-width : 360px;
+      flex-shrink: 0;
+      position  : relative;
+      background: #ffffff;
+      box-shadow: 2px 0 12px rgba(0,0,0,0.08);
+      z-index   : 10;
+    }
+
+    /* ── Colonna dx: immagini/contenuto ───────────────────────────────── */
+    .content-col {
+      flex      : 1;
+      overflow-y: auto;
+      padding   : 40px 48px;
+      display   : flex;
+      flex-direction: column;
+      gap       : 24px;
+    }
+
+    /* ── Header colonna dx ────────────────────────────────────────────── */
+    .content-header {
+      display    : flex;
+      align-items: center;
+      gap        : 12px;
+      padding-bottom: 24px;
+      border-bottom : 1px solid #e5e5e5;
+    }
+
+    .content-header .logo-circle {
+      width          : 40px;
+      height         : 40px;
+      border-radius  : 50%;
+      background     : #FF6B00;
+      display        : flex;
+      align-items    : center;
+      justify-content: center;
+      color          : #fff;
+      font-size      : 18px;
+      font-weight    : bold;
+      flex-shrink    : 0;
+    }
+
+    .content-header h1 {
+      font-size  : 20px;
+      font-weight: 700;
+      color      : #084828;
+    }
+
+    .content-header p {
+      font-size: 13px;
+      color    : #888;
+    }
+
+    /* ── Placeholder quando non ci sono veicoli ───────────────────────── */
+    .content-placeholder {
+      flex          : 1;
+      display       : flex;
+      flex-direction: column;
+      align-items   : center;
+      justify-content: center;
+      gap           : 16px;
+      color         : #ccc;
+      text-align    : center;
+    }
+
+    .content-placeholder svg {
+      opacity: 0.3;
+    }
+
+    .content-placeholder p {
+      font-size: 15px;
+      color    : #bbb;
+    }
+
+    /* ── Griglia veicoli ──────────────────────────────────────────────── */
+    .vehicles-grid {
+      display              : grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap                  : 24px;
+    }
+
+    .vehicle-card {
+      background   : #ffffff;
+      border-radius: 16px;
+      overflow     : hidden;
+      box-shadow   : 0 2px 12px rgba(0,0,0,0.08);
+      transition   : transform 0.2s, box-shadow 0.2s;
+    }
+
+    .vehicle-card:hover {
+      transform : translateY(-4px);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+
+    .vehicle-img-wrap {
+      width   : 100%;
+      height  : 200px;
+      overflow: hidden;
+      background: #f0f0f0;
+    }
+
+    .vehicle-img {
+      width     : 100%;
+      height    : 100%;
+      object-fit: cover;
+      display   : block;
+      transition: transform 0.4s ease;
+    }
+
+    .vehicle-card:hover .vehicle-img {
+      transform: scale(1.04);
+    }
+
+    .vehicle-body {
+      padding: 20px 24px;
+    }
+
+    .vehicle-title {
+      font-size  : 18px;
+      font-weight: 700;
+      color      : #084828;
+      margin-bottom: 6px;
+    }
+
+    .vehicle-avail {
+      font-size    : 13px;
+      color        : #555;
+      margin-bottom: 4px;
+    }
+
+    .vehicle-opts {
+      font-size    : 12px;
+      color        : #999;
+      font-style   : italic;
+      margin-bottom: 14px;
+    }
+
+    .vehicle-link {
+      display        : inline-flex;
+      align-items    : center;
+      gap            : 6px;
+      font-size      : 13px;
+      font-weight    : 600;
+      color          : #FF6B00;
+      text-decoration: none;
+    }
+
+    .vehicle-link:hover { text-decoration: underline; }
+
+    /* ── Mobile: layout verticale ─────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .chat-layout  { flex-direction: column; }
+      .chat-col     { width: 100%; height: 60vh; min-width: unset; }
+      .content-col  { height: 40vh; padding: 20px; }
+      .vehicles-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="chat-layout">
+
+  <!-- ── Colonna sx: chat Salesforce ──────────────────────────────────── -->
+  <div class="chat-col" id="chat-col">
+    <!-- Il launcher Salesforce verrà iniettato qui dallo script -->
+  </div>
+
+  <!-- ── Colonna dx: contenuto dinamico ───────────────────────────────── -->
+  <div class="content-col" id="content-col">
+
+    <div class="content-header">
+      <div class="logo-circle">L</div>
+      <div>
+        <h1>Leapmotor</h1>
+        <p>Electric vehicles designed for the future</p>
+      </div>
+    </div>
+
+    <!-- Placeholder iniziale -->
+    <div class="content-placeholder" id="content-placeholder">
+      <svg width="80" height="80" viewBox="0 0 24 24" fill="none"
+           stroke="#ccc" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+        <line x1="8" y1="21" x2="16" y2="21"/>
+        <line x1="12" y1="17" x2="12" y2="21"/>
+      </svg>
+      <p>Ask Leappy about our vehicles<br>to see them here</p>
+    </div>
+
+    <!-- Griglia veicoli (inizialmente vuota) -->
+    <div class="vehicles-grid" id="vehicles-grid" style="display:none"></div>
+
+  </div>
+
+</div>
+
+<!-- ======================== SALESFORCE CHAT SCRIPT ======================== -->
+<script type="text/javascript">
+
+/* ── Configurazione ─────────────────────────────────────────────────────── */
+const ESW_CONFIG = {
+  ORG_ID: '00DUA000003t2Uy',
+  DEFAULT: {
+    DEPLOYMENT_NAME: 'Leapmotor_Test',
+    SITE_URL       : 'https://leapmotor--uat.sandbox.my.site.com/ESWLeapmotorTest1765461060847',
+    SCRT2_URL      : 'https://leapmotor--uat.sandbox.my.salesforce-scrt.com'
+  },
+  COUNTRY_MAPPING: {
+    'it': { name: 'Italy',          language: 'it',    code: 'it' },
+    'es': { name: 'Spain',          language: 'es',    code: 'es' },
+    'fr': { name: 'France',         language: 'fr',    code: 'fr' },
+    'de': { name: 'Germany',        language: 'de',    code: 'de' },
+    'at': { name: 'Austria',        language: 'de',    code: 'at' },
+    'nl': { name: 'Netherlands',    language: 'nl_NL', code: 'nl' },
+    'pl': { name: 'Poland',         language: 'pl',    code: 'pl' },
+    'pt': { name: 'Portugal',       language: 'pt_PT', code: 'pt' },
+    'uk': { name: 'United Kingdom', language: 'en_US', code: 'uk' }
+  },
+  DEFAULT_COUNTRY: 'uk'
+};
+
+function getCountryInfo(code) {
+  return ESW_CONFIG.COUNTRY_MAPPING[code] ||
+         ESW_CONFIG.COUNTRY_MAPPING[ESW_CONFIG.DEFAULT_COUNTRY];
+}
+
+// Legge il paese dal parametro URL ?country=es oppure dal referrer
+function getCountryCode() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('country')) return params.get('country').toLowerCase();
+  try {
+    const ref = new URL(document.referrer);
+    const parts = ref.pathname.split('/').filter(Boolean);
+    return parts[0] ? parts[0].toLowerCase() : ESW_CONFIG.DEFAULT_COUNTRY;
+  } catch(e) {
+    return ESW_CONFIG.DEFAULT_COUNTRY;
+  }
+}
+
+/* ── Listener postMessage dal LWC → aggiorna griglia veicoli ────────────── */
+window.addEventListener('message', function(event) {
+  try {
+    if (!event.data || event.data.type !== 'lpm_carousel_data') return;
+
+    const sections    = event.data.sections;
+    const placeholder = document.getElementById('content-placeholder');
+    const grid        = document.getElementById('vehicles-grid');
+    if (!sections || !sections.length || !grid) return;
+
+    // Nasconde il placeholder e mostra la griglia
+    if (placeholder) placeholder.style.display = 'none';
+    grid.style.display = '';
+
+    grid.innerHTML = sections.map(function(s) {
+      return '<div class="vehicle-card">' +
+        (s.image
+          ? '<div class="vehicle-img-wrap"><img src="' + s.image + '" alt="' + s.title + '" class="vehicle-img" loading="lazy"></div>'
+          : '') +
+        '<div class="vehicle-body">' +
+          '<h2 class="vehicle-title">' + s.title + '</h2>' +
+          (s.availability ? '<p class="vehicle-avail">' + s.availability + '</p>' : '') +
+          (s.opts         ? '<p class="vehicle-opts">'  + s.opts         + '</p>' : '') +
+          (s.galleryUrl
+            ? '<a href="' + s.galleryUrl + '" target="_blank" rel="noopener noreferrer" class="vehicle-link">' +
+              (s.galleryLabel || 'Gallery') + ' →</a>'
+            : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+  } catch(e) {
+    console.error('[ChatPage] carousel panel error:', e);
+  }
+});
+
+/* ── Listener postMessage lpm_conversation_id_response ─────────────────── */
+window.addEventListener('message', function(event) {
+  try {
+    if (!event.data || event.data.type !== 'lpm_customer_type_selected') return;
+    var value          = event.data.customerType;
+    var conversationId = event.data.conversationId || window.__lpm_conversation_id;
+    if (!conversationId) return;
+    var payload = { type: 'lpm_conversation_id_response', conversationId: conversationId, customerType: value };
+    var frame = document.querySelector('#embeddedMessagingFrame') ||
+                document.querySelector('iframe[data-embedded-messaging-iframe]');
+    if (frame && frame.contentWindow) {
+      frame.contentWindow.postMessage(payload, '*');
+    }
+  } catch(e) {}
+});
+
+/* ── Listener dealer selezionato ────────────────────────────────────────── */
+window.addEventListener('message', function(event) {
+  try {
+    if (!event.data || event.data.type !== 'lpm_dealer_selected') return;
+    if (window.embeddedservice_bootstrap && window.embeddedservice_bootstrap.utilAPI) {
+      window.embeddedservice_bootstrap.utilAPI.sendTextMessage(event.data.dealerName);
+    }
+  } catch(e) {}
+});
+
+/* ── Cattura conversationId ──────────────────────────────────────────────── */
+window.__lpm_conversation_id = null;
+window.addEventListener('onEmbeddedMessagingConversationStarted', function(e) {
+  try {
+    var cid = e && e.detail && e.detail.conversationId;
+    if (cid && !window.__lpm_conversation_id) window.__lpm_conversation_id = cid;
+  } catch(err) {}
+});
+window.addEventListener('onEmbeddedMessageSent', function(e) {
+  if (window.__lpm_conversation_id) return;
+  try {
+    var cid = e && e.detail && e.detail.conversationId;
+    if (cid) window.__lpm_conversation_id = cid;
+  } catch(err) {}
+});
+
+/* ── Inizializza Salesforce Enhanced Chat ───────────────────────────────── */
+function initChat() {
+  try {
+    var cc = getCountryCode();
+    var ci = getCountryInfo(cc);
+    var rt = ESW_CONFIG.DEFAULT;
+
+    embeddedservice_bootstrap.settings.language = ci.language;
+
+    window.addEventListener('onEmbeddedMessagingReady', function() {
+      try {
+        embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+          Country    : ci.name,
+          Language   : ci.language,
+          CountryCode: ci.code
+        });
+        // Auto-apri la chat dopo 500ms
+        setTimeout(function() {
+          embeddedservice_bootstrap.utilAPI.launchChat()
+            .catch(function(err) { console.error('[Chat] launchChat error:', err); });
+        }, 500);
+      } catch(e) { console.error('[Chat] ready error:', e); }
+    });
+
+    embeddedservice_bootstrap.init(
+      ESW_CONFIG.ORG_ID,
+      rt.DEPLOYMENT_NAME,
+      rt.SITE_URL,
+      { scrt2URL: rt.SCRT2_URL }
+    );
+
+  } catch(e) { console.error('[Chat] init error:', e); }
+}
+
+// Carica lo script Salesforce e avvia
+(function() {
+  var s = document.createElement('script');
+  s.src = ESW_CONFIG.DEFAULT.SITE_URL + '/assets/js/bootstrap.min.js';
+  s.onload = initChat;
+  s.onerror = function() { console.error('[Chat] bootstrap load failed'); };
+  document.body.appendChild(s);
+})();
+
+</script>
+</body>
+</html>
