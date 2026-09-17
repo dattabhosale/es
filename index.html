@@ -229,35 +229,49 @@ function initEmbeddedMessaging() {
   // ── Chat a tutta pagina su desktop ─────────────────────────────────
   if (window.innerWidth >= 769) {
 
-    // MutationObserver: appena l'iframe appare nel DOM, applica gli stili
-    const observer = new MutationObserver(function() {
+    const applyFullPage = function() {
       const frame = document.querySelector('#embeddedMessagingFrame');
       if (frame) {
-        frame.style.setProperty('width',    '100vw',  'important');
-        frame.style.setProperty('height',   '100vh',  'important');
-        frame.style.setProperty('top',      '0',      'important');
-        frame.style.setProperty('left',     '0',      'important');
-        frame.style.setProperty('right',    '0',      'important');
-        frame.style.setProperty('bottom',   '0',      'important');
-        frame.style.setProperty('position', 'fixed',  'important');
-        frame.style.setProperty('border',   'none',   'important');
-        frame.style.setProperty('z-index',  '99999',  'important');
-        frame.style.setProperty('max-width',  'none', 'important');
-        frame.style.setProperty('max-height', 'none', 'important');
+        frame.style.setProperty('width',      '100vw',  'important');
+        frame.style.setProperty('height',     '100vh',  'important');
+        frame.style.setProperty('top',        '0',      'important');
+        frame.style.setProperty('left',       '0',      'important');
+        frame.style.setProperty('right',      '0',      'important');
+        frame.style.setProperty('bottom',     '0',      'important');
+        frame.style.setProperty('position',   'fixed',  'important');
+        frame.style.setProperty('border',     'none',   'important');
+        frame.style.setProperty('z-index',    '99999',  'important');
+        frame.style.setProperty('max-width',  'none',   'important');
+        frame.style.setProperty('max-height', 'none',   'important');
       }
-    });
+    };
 
-    // Osserva tutto il DOM per rilevare quando l'iframe viene aggiunto o modificato
+    const observer = new MutationObserver(applyFullPage);
     observer.observe(document.body, { 
       childList: true, 
       subtree: true, 
       attributes: true,
       attributeFilter: ['style']
     });
-
-    // Ferma dopo 30 secondi per non sprecare risorse
     setTimeout(function() { observer.disconnect(); }, 30000);
-  }
+
+    // Blocca scroll del body quando la chat è aperta
+    window.addEventListener('onEmbeddedMessagingWindowOpened', function() {
+      if (window.innerWidth < 769) return;
+      document.body.style.setProperty('overflow', 'hidden', 'important');
+      document.documentElement.style.setProperty('overflow', 'hidden', 'important');
+    });
+
+    // Ripristina scroll quando la chat viene chiusa/minimizzata
+    window.addEventListener('onEmbeddedMessagingWindowClosed', function() {
+      document.body.style.removeProperty('overflow');
+      document.documentElement.style.removeProperty('overflow');
+    });
+    window.addEventListener('onEmbeddedMessagingWindowMinimized', function() {
+      document.body.style.removeProperty('overflow');
+      document.documentElement.style.removeProperty('overflow');
+    });
+}
 
   setTimeout(function () {
     try {
