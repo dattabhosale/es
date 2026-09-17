@@ -890,7 +890,7 @@ function openChatOverlay() {
   if (!iframe.src || iframe.src === window.location.href) {
     var parts   = window.location.pathname.split('/').filter(Boolean);
     var country = parts[0] ? parts[0].toLowerCase() : 'uk';
-    iframe.src  = country + '/sf-chat-only.html';
+    iframe.src  = 'https://dattabhosale.github.io/' + country + '/sf-chat-only.html?country=' + country;
   }
 
   overlay.classList.add('active');
