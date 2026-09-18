@@ -64,6 +64,65 @@ function getCountryInfo() {
   return COUNTRY_MAPPING[country.toLowerCase()] || COUNTRY_MAPPING['uk'];
 }
 
+// ── Parser carosello ────────────────────────────────────────────────────────
+function parseCarouselSections(text) {
+  if (!text) return null;
+  var t = text.split('\"').join('"');
+  var rawBlocks = t.split(/(?=\d+\.\s+\*\*)/);
+  var sections = [];
+  for (var i = 0; i < rawBlocks.length; i++) {
+    var block = rawBlocks[i];
+    var titleMatch = block.match(/^\d+\.\s+\*\*(.+?)\*\*/);
+    if (!titleMatch) continue;
+    var title = titleMatch[1].trim();
+    var image = null;
+    var imgHtml = block.match(/<img\s+src="([^"]+)"/i);
+    if (imgHtml) { image = imgHtml[1]; }
+    else {
+      var imgMd = block.match(/!\[[^\]]*\]\((https?:\/\/[^)]+)\)/);
+      if (imgMd) image = imgMd[1];
+    }
+    var linkMatch = block.match(/(?<!!)\[([^\]]+)\]\((https?:\/\/[^)]+)\)/);
+    var galleryUrl   = linkMatch ? linkMatch[2] : null;
+    var galleryLabel = linkMatch ? linkMatch[1] : null;
+    var availability = null, opts = null;
+    var lines = block.split('\n');
+    for (var j = 0; j < lines.length; j++) {
+      var s = lines[j].trim().replace(/^-\s*/, '');
+      if (!s || /^\d+\.\s+\*\*/.test(s)) continue;
+      var kl = s.toLowerCase();
+      if (kl.startsWith('dispon') || kl.startsWith('availab') || kl.startsWith('beschik') ||
+          kl.startsWith('verfüg') || kl.startsWith('tilgæng') || kl.startsWith('saatav')) {
+        availability = s.substring(s.indexOf(':') + 1).trim();
+      } else if (kl.startsWith('opzion') || kl.startsWith('option') || kl.startsWith('opties') ||
+                 kl.startsWith('opcio') || kl.startsWith('request')) {
+        opts = s.substring(s.indexOf(':') + 1).trim();
+      }
+    }
+    sections.push({ title: title, image: image, galleryUrl: galleryUrl, galleryLabel: galleryLabel, availability: availability, opts: opts });
+  }
+  return sections.length >= 2 ? sections : null;
+}
+
+// ── Intercetta messaggi bot e invia carosello al parent ───────────────────
+window.addEventListener('onEmbeddedMessageSent', function(e) {
+  try {
+    var entry = e && e.detail && e.detail.conversationEntry;
+    if (!entry) return;
+    var payload = JSON.parse(entry.entryPayload || '{}');
+    var text = payload && payload.abstractMessage &&
+               payload.abstractMessage.staticContent &&
+               payload.abstractMessage.staticContent.text;
+    var sender = entry.sender && entry.sender.role;
+    if (!text || (sender !== 'Chatbot' && sender !== 'Agent')) return;
+    var sections = parseCarouselSections(text);
+    if (sections) {
+      window.parent.postMessage({ type: 'lpm_carousel_data', sections: sections }, '*');
+      console.log('[SFChat] carousel postMessage sent, sections:', sections.length);
+    }
+  } catch(err) { console.error('[SFChat] carousel parse error:', err); }
+});
+
 // ── Relay postMessage al parent (chat.html) ───────────────────────────────
 // Il LWC fa window.parent.postMessage → questa pagina è l'iframe
 // ma dobbiamo rilanciare il messaggio al parent di chat.html
