@@ -14,6 +14,15 @@
       overflow: hidden;
       margin  : 0;
       padding : 0;
+      /* Sovrascrive le CSS variables che Salesforce usa per dimensionare la chat */
+      --eswWidth : 100vw !important;
+      --eswHeight: 100vh !important;
+    }
+
+    /* Forza dimensioni su html dove SF imposta le variabili */
+    html {
+      --eswWidth : 100vw !important;
+      --eswHeight: 100vh !important;
     }
 
     #embedded-messaging {
@@ -158,6 +167,10 @@ function initChat() {
 
     // Applica stili fullscreen sull'iframe
     var applyStyles = function() {
+      // Sovrascrive le CSS variables che SF usa per dimensionare la chat
+      document.documentElement.style.setProperty('--eswWidth',  '100vw', 'important');
+      document.documentElement.style.setProperty('--eswHeight', '100vh', 'important');
+
       // Forza anche il container #embedded-messaging
       var esw = document.querySelector('#embedded-messaging');
       if (esw) {
