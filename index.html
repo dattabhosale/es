@@ -95,20 +95,23 @@ const ESW_CONFIG = {
     SITE_URL: 'https://leapmotor--uat.sandbox.my.site.com/ESWLeapmotorTest1765461060847',
     SCRT2_URL: 'https://leapmotor--uat.sandbox.my.salesforce-scrt.com'
   },
-  COUNTRY_MAPPING: {
-    'it':    { name: 'Italy',          language: 'it',    code: 'it' },
-    'es':    { name: 'Spain',          language: 'es',    code: 'es' },
-    'fr':    { name: 'France',         language: 'fr',    code: 'fr' },
-    'de':    { name: 'Germany',        language: 'de',    code: 'de' },
-    'at':    { name: 'Austria',        language: 'de',    code: 'at' },
-    'lu':    { name: 'Luxembourg',     language: 'fr',    code: 'lu' },
-    'nl':    { name: 'Netherlands',    language: 'nl_NL', code: 'nl' },
-    'pl':    { name: 'Poland',         language: 'pl',    code: 'pl' },
-    'pt':    { name: 'Portugal',       language: 'pt_PT', code: 'pt' },
-    'uk':    { name: 'United Kingdom', language: 'en_US', code: 'uk' },
-    'be-fr': { name: 'Belgium_FR',     language: 'fr',    code: 'be-fr' },
-    'be-nl': { name: 'Belgium_NL',     language: 'nl_NL', code: 'be-nl' }
+    COUNTRY_MAPPING: {
+    'it-it': { name: 'Italy',           language: 'it',    code: 'it' },
+    'es-es': { name: 'Spain',           language: 'es',    code: 'es' },
+    'fr-fr': { name: 'France',          language: 'fr',    code: 'fr' },
+    'de-de': { name: 'Germany',         language: 'de',    code: 'de' },
+    'de-at': { name: 'Austria',         language: 'de',    code: 'at' },
+    'fr-lu': { name: 'Luxembourg',      language: 'fr',    code: 'lu' },
+    'nl-nl': { name: 'Netherlands',     language: 'nl_NL', code: 'nl' },
+    'pl-pl': { name: 'Poland',          language: 'pl',    code: 'pl' },
+    'pt-pt':{ name: 'Portugal',        language: 'pt_PT', code: 'pt' },
+    'uk':    { name: 'United Kingdom',  language: 'en_US', code: 'uk' },
+    'en-gb': { name: 'United Kingdom',  language: 'en_US', code: 'uk' },
+    'fr-be': { name: 'Belgium_FR',      language: 'fr',    code: 'be' },
+    'nl-be': { name: 'Belgium_NL',      language: 'nl_NL', code: 'be' }
   },
+
+  // Keep as-is from your current logic; unknown paths fall back to UK deployment/language.
   DEFAULT_COUNTRY: 'uk'
 };
 
@@ -223,67 +226,31 @@ function initEmbeddedMessaging() {
 
     // ── 3. onEmbeddedMessagingReady ───────────────────────────────────────────
     window.addEventListener('onEmbeddedMessagingReady', function () {
-  if (window.__ESW_READY_DONE__) return;
-  window.__ESW_READY_DONE__ = true;
+      if (window.__ESW_READY_DONE__) return;
+      window.__ESW_READY_DONE__ = true;
 
-  // ── Chat a tutta pagina su desktop ─────────────────────────────────
-  if (window.innerWidth >= 769) {
+      setTimeout(function () {
+        try {
+          const c = getCountryCodeFromPath();
+          const i = getCountryInfo(c);
+          embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
+            Country: i.name, Language: i.language, CountryCode: i.code
+          });
+          console.log('[ESW] Prechat fields set:', i);
+        } catch (e) { console.error('[ESW] prechat fields error:', e); }
 
-    const applyFullPage = function() {
-      const frame = document.querySelector('#embeddedMessagingFrame');
-      if (frame) {
-        frame.style.setProperty('width',      '100vw',  'important');
-        frame.style.setProperty('height',     '100vh',  'important');
-        frame.style.setProperty('top',        '0',      'important');
-        frame.style.setProperty('left',       '0',      'important');
-        frame.style.setProperty('right',      '0',      'important');
-        frame.style.setProperty('bottom',     '0',      'important');
-        frame.style.setProperty('position',   'fixed',  'important');
-        frame.style.setProperty('border',     'none',   'important');
-        frame.style.setProperty('z-index',    '99999',  'important');
-        frame.style.setProperty('max-width',  'none',   'important');
-        frame.style.setProperty('max-height', 'none',   'important');
-      }
-    };
+        window.__ESW_AUTO_OPEN_TIMER__ = setTimeout(function () {
+          if (!window.__ESW_CHAT_EVER_OPENED__ && window.embeddedservice_bootstrap) {
+            embeddedservice_bootstrap.utilAPI.launchChat().catch(err => console.error('[ESW] auto open:', err));
+          }
+        }, 10000);
 
-    const observer = new MutationObserver(applyFullPage);
-    observer.observe(document.body, { 
-      childList: true, 
-      subtree: true, 
-      attributes: true,
-      attributeFilter: ['style']
+        window.addEventListener('onEmbeddedMessagingButtonClicked', function () {
+          clearTimeout(window.__ESW_AUTO_OPEN_TIMER__);
+          window.__ESW_CHAT_EVER_OPENED__ = true;
+        }, { once: true });
+      }, 500);
     });
-    setTimeout(function() { observer.disconnect(); }, 30000);
-
-    // Blocca scroll del body quando la chat è aperta
-    window.addEventListener('onEmbeddedMessagingWindowOpened', function() {
-      if (window.innerWidth < 769) return;
-      document.body.style.setProperty('overflow', 'hidden', 'important');
-      document.documentElement.style.setProperty('overflow', 'hidden', 'important');
-    });
-
-    // Ripristina scroll quando la chat viene chiusa/minimizzata
-    window.addEventListener('onEmbeddedMessagingWindowClosed', function() {
-      document.body.style.removeProperty('overflow');
-      document.documentElement.style.removeProperty('overflow');
-    });
-    window.addEventListener('onEmbeddedMessagingWindowMinimized', function() {
-      document.body.style.removeProperty('overflow');
-      document.documentElement.style.removeProperty('overflow');
-    });
-}
-
-  setTimeout(function () {
-    try {
-      const c = getCountryCodeFromPath();
-      const i = getCountryInfo(c);
-      embeddedservice_bootstrap.prechatAPI.setHiddenPrechatFields({
-        Country: i.name, Language: i.language, CountryCode: i.code
-      });
-      console.log('[ESW] Prechat fields set:', i);
-    } catch (e) { console.error('[ESW] prechat fields error:', e); }
-  }, 500);
-});
 
     embeddedservice_bootstrap.init(ESW_CONFIG.ORG_ID, rt.DEPLOYMENT_NAME, rt.SITE_URL, { scrt2URL: rt.SCRT2_URL });
 
@@ -320,19 +287,20 @@ function initEmbeddedMessaging() {
   };
 
   const MESSAGES = {
-    es: { first: '¡Habla conmigo!', followup: '¡Sigue hablándome!' },
-    it: { first: 'Parlami!', followup: 'Continua a parlarmi!' },
-    fr: { first: 'Parle-moi!', followup: 'Continue de me parler!' },
-    de: { first: 'Sprich mit mir!', followup: 'Sprich weiter mit mir!' },
-    at: { first: 'Sprich mit mir!', followup: 'Sprich weiter mit mir!' },
-    lu: { first: 'Sprich mit mir!', followup: 'Continue à me parler!' },
-    nl: { first: 'Praat met me!', followup: 'Blijf met me praten!' },
-    pl: { first: 'Porozmawiaj ze mną!', followup: 'Kontynuuj rozmowę ze mną!' },
-    pt: { first: 'Fala comigo!', followup: 'Continua a falar comigo!' },
-    en: { first: 'Talk to me!', followup: 'Keep talking to me!' },
-    uk: { first: 'Talk to me!', followup: 'Keep talking to me!' },
-    'be-fr': { first: 'Parle-moi!', followup: 'Continue de me parler!' },
-    'be-nl': { first: 'Praat met me!', followup: 'Praat verder met me!' }
+    'es-es':      { first: '¡Habla conmigo!',         followup: '¡Sigue hablándome!' },
+    'it-it':      { first: 'Parlami!',                followup: 'Continua a parlarmi!' },
+    'fr-fr':      { first: 'Parle-moi !',             followup: 'Continue à me parler !' },
+    'de-de':      { first: 'Hast du Fragen?',         followup: 'Sprich weiter mit mir!' },
+    'at-de': { first: 'Sprich mit mir!',         followup: 'Sprich weiter mit mir!' },
+    'fr-lu':      { first: 'Parle-moi !',             followup: 'Continue à me parler !' },
+    'nl-nl':      { first: 'Praat met me!',           followup: 'Blijf met me praten!' },
+    'pl-pl':      { first: 'Porozmawiaj ze mną!',     followup: 'Kontynuuj rozmowę ze mną!' },
+    'pt-pt':      { first: 'Fala comigo!',            followup: 'Continua a falar comigo!' },
+    'en-gb':      { first: 'Talk to me!',             followup: 'Keep talking to me!' },
+    'uk':      { first: 'Talk to me!',             followup: 'Keep talking to me!' },
+    'us':      { first: 'Talk to me!',             followup: 'Keep talking to me!' },
+    'fr-be': { first: 'Parle-moi !',             followup: 'Continue à me parler !' },
+    'nl-be'': { first: 'Praat met me!',           followup: 'Praat verder met me!' }
   };
 
   const BUTTON_LABELS = {
@@ -520,10 +488,10 @@ function initEmbeddedMessaging() {
     if (!launcher) return;
     const cs=getComputedStyle(document.documentElement);
     launcher.style.position='fixed';
-    launcher.style.bottom=cs.getPropertyValue('--chat-launcher-bottom').trim()||'120px';
+    launcher.style.bottom=cs.getPropertyValue('--chat-launcher-bottom').trim()||'60px';
     launcher.style.right=cs.getPropertyValue('--chat-launcher-right').trim()||'30px';
-    launcher.style.setProperty('bottom', '120px', 'important');
-    launcher.style.inset='auto 30px 120px auto';
+    launcher.style.setProperty('bottom', '60px', 'important');
+	launcher.style.inset='auto 30px 60px auto';
     launcher.style.left='auto'; launcher.style.top='auto';
     launcher.style.transform='none'; launcher.style.transition='none';
     launcher.style.zIndex='2147483647';
@@ -531,7 +499,14 @@ function initEmbeddedMessaging() {
   }
   function lockFixedRootStyle() {
     const root=getFixedRootEl();
-    if (!root||isMobile()) return;
+    if (!root) return;
+	// Forza sempre position fixed su #embedded-messaging
+	  const embeddedMsg = document.querySelector('#embedded-messaging');
+	  if (embeddedMsg) {
+		embeddedMsg.style.setProperty('position', 'fixed', 'important');
+		embeddedMsg.style.setProperty('z-index', '2147483645', 'important');
+	  }
+	if (isMobile()) return;
     const cs=getComputedStyle(document.documentElement);
     const gap=cs.getPropertyValue('--chat-frame-bottom-gap').trim()||'40px';
     const rg=cs.getPropertyValue('--chat-frame-right-gap').trim()||'30px';
@@ -657,14 +632,15 @@ function initEmbeddedMessaging() {
       }
 
       if (img) {
-        img.style.setProperty('display','block','important');
-        img.style.position='absolute';
-        img.style.top='50%'; img.style.left='60%';
-        img.style.transform='translate(-38%, -33%)';
-        img.style.width='160%'; img.style.height='160%';
-        img.style.objectFit='cover'; img.style.margin='0';
-        img.style.borderRadius='0';
-      }
+		  img.style.setProperty('display','block','important');
+		  img.style.position='absolute';
+		  img.style.top='50%'; img.style.left='80%';
+		  img.style.transform='translate(-50%, -50%)';
+		  img.style.setProperty('width','100%','important');
+		  img.style.setProperty('height','100%','important');
+		  img.style.objectFit='cover'; img.style.margin='0';
+		  img.style.borderRadius='0';
+		}
 
       // Rimuovi label
       const lbl=btn.querySelector('#customChatLabel');
@@ -681,8 +657,8 @@ function initEmbeddedMessaging() {
 
       if (container) {
         container.style.transform='none';
-        container.style.width='75px'; container.style.height='75px';
-        container.style.minWidth='75px';
+        container.style.width='50px'; container.style.height='50px';
+        container.style.minWidth='50px';
         container.style.overflow='hidden';
         container.style.borderRadius='50%';
         container.style.position='static';
@@ -690,8 +666,8 @@ function initEmbeddedMessaging() {
         container.style.alignItems='center';
         container.style.justifyContent='center';
         container.style.flexShrink='0';
-        container.style.marginLeft='-15px';
-        container.style.marginTop='5px';
+        container.style.marginLeft='0px';
+        container.style.marginTop='0px';
       }
 
       if (img) {
@@ -711,7 +687,7 @@ function initEmbeddedMessaging() {
       if (!lbl) {
         lbl=document.createElement('span');
         lbl.id='customChatLabel';
-        lbl.style.cssText='color:white;font-size:16px;font-weight:bold;white-space:nowrap;pointer-events:none;display:block;';
+        lbl.style.cssText = 'color:#101828;font-size:14px;font-weight:600;font-family:Montserrat,"Montserrat Fallback",sans-serif;font-style:normal;line-height:21px;white-space:nowrap;pointer-events:none;display:block;margin-left:15px;';
         btn.appendChild(lbl);
       }
       lbl.textContent=getButtonLabel();
@@ -746,7 +722,9 @@ function initEmbeddedMessaging() {
       if (btn) {
         e.stopPropagation();
         clearTimeout(window.__ESW_AUTO_OPEN_TIMER__);
-        embeddedservice_bootstrap.utilAPI.launchChat().catch(err=>console.error('[ESW] launchChat:',err));
+		updateVisualViewportVars();
+		updateHeaderHeightVar();
+		embeddedservice_bootstrap.utilAPI.launchChat().catch(err=>console.error('[ESW] launchChat:',err));
       }
     }, true);
   }
@@ -779,8 +757,14 @@ function initEmbeddedMessaging() {
               m.target.style.setProperty('display','none','important');
               setTimeout(applyCustomButtonStyle, 50);
             } else if (m.target.classList.contains('isMaximized')) {
-              m.target.style.display='';
-            }
+			  m.target.style.removeProperty('display');
+			  // Fix mobile: assicura che root sia fixed
+			  const root = document.querySelector('#embedded-messaging');
+			  if (root) {
+				root.style.setProperty('position', 'fixed', 'important');
+				root.style.setProperty('z-index', '2147483645', 'important');
+			  }
+			}
           }
         });
       });
@@ -794,8 +778,12 @@ function initEmbeddedMessaging() {
   });
 
   window.addEventListener('onEmbeddedMessagingButtonClicked', function() {
-    lockPageScrollPersistent(); startScrollGuard(1600);
-    setTimeout(evaluateAndApplyOpenState, 250);
+    updateVisualViewportVars();
+	updateHeaderHeightVar();
+	setTimeout(function() {
+		lockPageScrollPersistent(); startScrollGuard(1600);
+		setTimeout(evaluateAndApplyOpenState, 250);
+	}, 50);
   });
 
   window.addEventListener('onEmbeddedMessagingWindowOpened', function() {
@@ -810,6 +798,7 @@ function initEmbeddedMessaging() {
   window.addEventListener('onEmbeddedMessagingWindowMinimized', function() {
     state.chatCurrentlyOpen=false; document.body.classList.remove('esw-open');
     stopScrollGuard(); unlockPageScrollPersistent();
+	__baselineH = null;
     setTimeout(applyStylesWithRetry, 50);
     if (state.chatEverOpened) {
       clearTimer('followup');
@@ -826,130 +815,10 @@ function initEmbeddedMessaging() {
 })();
 </script>
 
-<!-- ======================== POPUP CHAT OVERLAY ======================== -->
-<div id="lpm-chat-overlay" role="dialog" aria-modal="true" aria-label="Leapmotor Chat">
-
-  <!-- Pulsante chiudi -->
-  <button id="lpm-overlay-close" onclick="closeChatOverlay()" aria-label="Close chat">✕</button>
-
-  <div class="lpm-overlay-layout">
-
-    <!-- Colonna sx: iframe con la chat SF -->
-    <div class="lpm-chat-col">
-      <iframe id="lpm-sf-iframe"
-              src=""
-              title="Leapmotor Chat"
-              allow="microphone; camera">
-      </iframe>
-    </div>
-
-    <!-- Colonna dx: veicoli -->
-    <div class="lpm-content-col">
-
-      <div class="lpm-content-header">
-        <div class="lpm-logo-circle">L</div>
-        <div>
-          <h2>Leapmotor</h2>
-          <p>Electric vehicles designed for the future</p>
-        </div>
-      </div>
-
-      <div class="lpm-placeholder" id="lpm-placeholder">
-        <svg width="72" height="72" viewBox="0 0 24 24" fill="none"
-             stroke="#ccc" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="2" y="3" width="20" height="14" rx="2"/>
-          <line x1="8" y1="21" x2="16" y2="21"/>
-          <line x1="12" y1="17" x2="12" y2="21"/>
-        </svg>
-        <p>Ask Leappy about our vehicles<br>to see them here</p>
-      </div>
-
-      <div class="lpm-vehicles-grid" id="lpm-vehicles-grid" style="display:none"></div>
-
-    </div>
-
-  </div>
-</div>
-
-<!-- ======================== PULSANTE CHAT CUSTOM ======================== -->
-<button id="lpm-chat-btn" onclick="openChatOverlay()" aria-label="Open chat">
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-       stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-  </svg>
-  Chat con noi
-</button>
-
-<script>
-// ── Apri / chiudi overlay ─────────────────────────────────────────────────
-function openChatOverlay() {
-  var overlay = document.getElementById('lpm-chat-overlay');
-  var iframe  = document.getElementById('lpm-sf-iframe');
-
-  // Carica l'iframe solo la prima volta
-  if (!iframe.src || iframe.src === window.location.href) {
-    var parts   = window.location.pathname.split('/').filter(Boolean);
-    var country = parts[0] ? parts[0].toLowerCase() : 'uk';
-    iframe.src  = 'https://dattabhosale.github.io/' + country + '/sf-chat-only.html?country=' + country;
-  }
-
-  overlay.classList.add('active');
-  document.body.style.overflow = 'hidden';
-}
-
-function closeChatOverlay() {
-  document.getElementById('lpm-chat-overlay').classList.remove('active');
-  document.body.style.overflow = '';
-}
-
-// Chiudi con ESC
-document.addEventListener('keydown', function(e) {
-  if (e.key === 'Escape') closeChatOverlay();
-});
-
-// ── Ricevi postMessage dall'iframe sf-chat-only.html ─────────────────────
-window.addEventListener('message', function(event) {
-  try {
-    if (!event.data) return;
-
-    // Dati carosello → aggiorna griglia dx
-    if (event.data.type === 'lpm_carousel_data') {
-      var sections    = event.data.sections;
-      var placeholder = document.getElementById('lpm-placeholder');
-      var grid        = document.getElementById('lpm-vehicles-grid');
-      if (!sections || !sections.length || !grid) return;
-
-      if (placeholder) placeholder.style.display = 'none';
-      grid.style.display = '';
-      grid.innerHTML = sections.map(function(s) {
-        return '<div class="lpm-v-card">' +
-          (s.image ? '<div class="lpm-v-img-wrap"><img src="' + s.image + '" alt="' + s.title + '" class="lpm-v-img" loading="lazy"></div>' : '') +
-          '<div class="lpm-v-body">' +
-            '<h3 class="lpm-v-title">' + s.title + '</h3>' +
-            (s.availability ? '<p class="lpm-v-avail">' + s.availability + '</p>' : '') +
-            (s.opts         ? '<p class="lpm-v-opts">'  + s.opts         + '</p>' : '') +
-            (s.galleryUrl   ? '<a href="' + s.galleryUrl + '" target="_blank" rel="noopener noreferrer" class="lpm-v-link">' + (s.galleryLabel || 'Gallery') + ' →</a>' : '') +
-          '</div>' +
-        '</div>';
-      }).join('');
-    }
-
-    // Relay lpm_conversation_id_response → iframe
-    if (event.data.type === 'lpm_conversation_id_response') {
-      var iframe = document.getElementById('lpm-sf-iframe');
-      if (iframe && iframe.contentWindow) {
-        iframe.contentWindow.postMessage(event.data, '*');
-      }
-    }
-
-  } catch(e) { console.error('[Overlay] message error:', e); }
-});
-</script>
-
 <!-- ======================== CUSTOM STYLES ======================== -->
 <style>
 :root {
-  --chat-launcher-bottom: 120px;
+  --chat-launcher-bottom: 60px;
   --chat-launcher-right: 30px;
   --chat-nudge-offset: 80px;
   --site-header-height: 60px;
@@ -957,192 +826,6 @@ window.addEventListener('message', function(event) {
   --vv-offset-top: 0px;
   --chat-frame-bottom-gap: 40px;
   --chat-frame-right-gap: 30px;
-}
-
-/* ======= NASCONDE LAUNCHER SF ======= */
-#embeddedMessagingConversationButton,
-div[class*="Launcher"],
-button[class*="Launcher"] {
-  display: none !important;
-}
-
-/* ======= PULSANTE CHAT CUSTOM ======= */
-#lpm-chat-btn {
-  position     : fixed;
-  bottom       : 30px;
-  right        : 30px;
-  background   : #084828;
-  color        : #ffffff;
-  border       : none;
-  border-radius: 50px;
-  padding      : 14px 24px;
-  font-size    : 15px;
-  font-weight  : 600;
-  font-family  : 'Inter', sans-serif;
-  cursor       : pointer;
-  display      : flex;
-  align-items  : center;
-  gap          : 10px;
-  box-shadow   : 0 4px 20px rgba(8,72,40,0.35);
-  z-index      : 10000;
-  transition   : background 0.15s, transform 0.1s;
-}
-#lpm-chat-btn:hover  { background: #0a5c33; transform: translateY(-2px); }
-#lpm-chat-btn:active { transform: scale(0.97); }
-
-/* ======= POPUP OVERLAY ======= */
-#lpm-chat-overlay {
-  display        : none;
-  position       : fixed;
-  inset          : 0;
-  z-index        : 99999;
-  background     : #f7f7f7;
-  animation      : lpm-fadein 0.2s ease;
-}
-#lpm-chat-overlay.active { display: block; }
-
-@keyframes lpm-fadein {
-  from { opacity: 0; }
-  to   { opacity: 1; }
-}
-
-/* Pulsante chiudi */
-#lpm-overlay-close {
-  position   : fixed;
-  top        : 16px;
-  right      : 20px;
-  z-index    : 100001;
-  background : rgba(0,0,0,0.15);
-  color      : #fff;
-  border     : none;
-  border-radius: 50%;
-  width      : 36px;
-  height     : 36px;
-  font-size  : 18px;
-  cursor     : pointer;
-  display    : flex;
-  align-items: center;
-  justify-content: center;
-  transition : background 0.15s;
-}
-#lpm-overlay-close:hover { background: rgba(0,0,0,0.3); }
-
-/* Layout due colonne */
-.lpm-overlay-layout {
-  display : flex;
-  height  : 100vh;
-  width   : 100vw;
-}
-
-/* Colonna sx: chat SF — dimensioni adattate alla chat naturale */
-.lpm-chat-col {
-  width      : 460px;
-  min-width  : 460px;
-  flex-shrink: 0;
-  position   : relative;
-  background : #084828;  /* sfondo verde per riempire sotto la chat */
-  box-shadow : 2px 0 16px rgba(0,0,0,0.1);
-  height     : 100vh;
-  overflow   : hidden;
-}
-
-#lpm-sf-iframe {
-  width  : 460px;
-  height : 100vh;
-  border : none;
-  display: block;
-}
-
-/* Colonna dx: veicoli */
-.lpm-content-col {
-  flex      : 1;
-  overflow-y: auto;
-  padding   : 40px 48px;
-  display   : flex;
-  flex-direction: column;
-  gap       : 24px;
-}
-
-.lpm-content-header {
-  display       : flex;
-  align-items   : center;
-  gap           : 12px;
-  padding-bottom: 24px;
-  border-bottom : 1px solid #e5e5e5;
-}
-
-.lpm-logo-circle {
-  width          : 40px;
-  height         : 40px;
-  border-radius  : 50%;
-  background     : #FF6B00;
-  display        : flex;
-  align-items    : center;
-  justify-content: center;
-  color          : #fff;
-  font-size      : 18px;
-  font-weight    : bold;
-  flex-shrink    : 0;
-}
-
-.lpm-content-header h2 { font-size: 20px; font-weight: 700; color: #084828; }
-.lpm-content-header p  { font-size: 13px; color: #888; }
-
-.lpm-placeholder {
-  flex           : 1;
-  display        : flex;
-  flex-direction : column;
-  align-items    : center;
-  justify-content: center;
-  gap            : 16px;
-  text-align     : center;
-  color          : #bbb;
-  padding        : 60px 0;
-}
-
-.lpm-vehicles-grid {
-  display              : grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap                  : 24px;
-}
-
-.lpm-v-card {
-  background   : #fff;
-  border-radius: 16px;
-  overflow     : hidden;
-  box-shadow   : 0 2px 12px rgba(0,0,0,0.08);
-  transition   : transform 0.2s, box-shadow 0.2s;
-}
-.lpm-v-card:hover {
-  transform : translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-}
-
-.lpm-v-img-wrap { width: 100%; height: 200px; overflow: hidden; background: #f0f0f0; }
-.lpm-v-img      { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.4s; }
-.lpm-v-card:hover .lpm-v-img { transform: scale(1.04); }
-
-.lpm-v-body  { padding: 20px 24px; }
-.lpm-v-title { font-size: 18px; font-weight: 700; color: #084828; margin-bottom: 6px; }
-.lpm-v-avail { font-size: 13px; color: #555; margin-bottom: 4px; }
-.lpm-v-opts  { font-size: 12px; color: #999; font-style: italic; margin-bottom: 14px; }
-.lpm-v-link  {
-  display        : inline-flex;
-  align-items    : center;
-  gap            : 6px;
-  font-size      : 13px;
-  font-weight    : 600;
-  color          : #FF6B00;
-  text-decoration: none;
-}
-.lpm-v-link:hover { text-decoration: underline; }
-
-/* Mobile: layout verticale */
-@media (max-width: 768px) {
-  .lpm-overlay-layout { flex-direction: column; }
-  .lpm-chat-col { width: 100%; height: 60vh; min-width: unset; }
-  .lpm-content-col { height: 40vh; padding: 20px; overflow-y: auto; }
-  .lpm-vehicles-grid { grid-template-columns: 1fr; }
 }
 
 /* ======= DESKTOP FRAME ======= */
@@ -1204,6 +887,19 @@ button[class*="Launcher"] {
 #embeddedMessagingConversationButton {
   display: flex !important;
   cursor: pointer !important;
+  background: rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.25) !important;
+  backdrop-filter: blur(20px) !important;
+  align-items: center !important;
+}
+#embeddedMessagingConversationButton:focus,
+#embeddedMessagingConversationButton:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+#embedded-messaging {
+  position: fixed !important;
+  z-index: 2147483645 !important;
 }
 #embeddedMessagingIconMinimize {
   position: absolute !important;
@@ -1246,13 +942,13 @@ button[class*="Launcher"] {
     flex-shrink: 0 !important;
   }
   #embeddedMessagingIconChat {
-    position: absolute !important;
-    top: 50% !important; left: 60% !important;
-    transform: translate(-38%, -33%) !important;
-    width: 160% !important; height: 160% !important;
-    object-fit: cover !important;
-    margin: 0 !important; display: block !important;
-  }
+	  position: absolute !important;
+	  top: 50% !important; left: 80% !important;
+	  transform: translate(-50%, -50%) !important;
+	  width: 100% !important; height: 100% !important;
+	  object-fit: cover !important;
+	  margin: 0 !important; display: block !important;
+	}
 
   body.esw-open { position: relative !important; overflow: hidden !important; width: 100% !important; overscroll-behavior: none; }
   body.page-scroll-locked { position: fixed !important; left: 0 !important; right: 0 !important; width: 100% !important; overflow: hidden !important; overscroll-behavior: none !important; touch-action: none !important; }
